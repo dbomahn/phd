@@ -2,18 +2,6 @@
 
 ###########################  General Record mean calulation ######################
 using Statistics,DataFrames,DelimitedFiles
-direc = "/home/ak121396/multiobjective/solvers/ep+FP/GFPresults/2/"
-# direc="/home/ak121396/Desktop/epsilon2hr/record/fixcost/"
-folders = readdir(direc)#[2:end]
-f = readdlm(direc*folders[1],',',Float64)
-tb = zeros(12,9)
-for i=1:12
-    f = readdlm(direc*folders[i],',',Float64)
-    for k=1:8
-        # mean(f[:,k])
-        tb[i,k] = mean(f[:,k])
-    end
-end
 direc = "/home/ak121396/multiobjective/solvers/ep+FP/FPepresults/"
 # "/home/ak121396/Desktop/FPep2hr/record/"
 folders = readdir(direc)
@@ -36,20 +24,19 @@ for i=1:12
     end
 end
 ################################
-direc = "/home/ak121396/Desktop/phd/KPresults//"
-files = readdir(direc)
-f = readdlm(direc*files[2], ',')
-tt = zeros(10,3)
+direc = "/home/ak121396/Desktop/BENKP/50KP_record.csv"
+f = readdlm(direc,',',Float64)
+tt = zeros(10,2)
 
-for j=1:10
-    f = readdlm(direc*files[j], ',')
-
-    tt[j,1] = round( mean( f[:,1]),digits=2)
-    tt[j,2] = round(mean(f[:,2]),digits=2)
-    tt[j,3] = round(mean(f[:,3]), digits=2)
-
+for i=1:10
+    r = f[(i-1)*10+1:i*10,1:4]
+    # tt[i,1] = round(mean(r[:,1]),digits=2)
+    tt[i,1] = round(mean(r[:,2]),digits=2)
+    tt[i,2] = round(mean(r[:,3]), digits=4)
+    # tt[i,4] = round(mean(r[:,4]), digits=2)
 end
-11
+tt[:,1]
+1
 
 
 # ep2 = readdlm("/home/ak121396/Downloads/KirlikSayin2014/ndf/10_020_02.txt.lp.ndf")
@@ -87,12 +74,12 @@ end
 # end
 
 ##########################KP
-
-timere = readdir("/home/ak121396/Desktop/FPBH/kp_lp/time/")
+path = "/home/ak121396/Desktop/FPBH/kp/time/1/"
+timere = readdir(path)
 avtb = zeros(100,1)
 for i=1:100
 
-    avtb[i]  = readdlm("/home/ak121396/Desktop/FPBH/kp_lp/time/"*timere[i])[1]
+    avtb[i]  = readdlm(path*timere[i])[1]
 
 end
 
@@ -101,15 +88,20 @@ for i=1:10
     tbb[i] =  round(mean(avtb[(i-1)*10+1:i*10]), digits=2)
 end
 
-ndf = readdir("/home/ak121396/Desktop/FPBH/kp_lp/ndf/")
+path = "/home/ak121396/Desktop/FPBH/kp/10ndf/"
+ndf = readdir(path)
 avtb = zeros(100,1)
 for i=1:100
 
-    f = readdlm("/home/ak121396/Desktop/FPBH/kp_lp/ndf/"*ndf[i])
+    f = readdlm(path*ndf[i])
     a,b = size(f)
     avtb[i] = a
 end
+tbb = zeros(10,1)
 
+for i=1:10
+    tbb[i] =  round(mean(avtb[(i-1)*10+1:i*10]), digits=2)
+end
 
 
 

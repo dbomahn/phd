@@ -1,0 +1,8 @@
+there is no chance to find all exact solutions with FP
+Here is the case. Suppose one of IPsolutions is [1 0 0 1 0]
+if all LPsolution candidates don't have "0" in 5th digit, FP can't find the solution. 
+
+Does it need to be FP? for KP some other ways would be nicer to beat FPBH
+
+
+
