@@ -148,13 +148,14 @@ function PostProc(P,C,cand,candobj,ub,n,weight)
     return P,Pobj,newsol
 end
 
-pathes = ("/home/ak121396/Desktop/BENoutputs/KP/RoundDown/X/", "/home/ak121396/Desktop/BENKP/data/")
-file = readdir(pathes[1]); ins = readdir(pathes[2])
+paths = ("E:\\Bensolve_KP\\RoundDown\\X\\","E:\\Bensolve_KP\\data\\")
+# paths = ("/home/ak121396/Desktop/BENoutputs/KP/RoundDown/X/", "/home/ak121396/Desktop/BENKP/data/")
+file = readdir(paths[1]); ins = readdir(paths[2])
 u=7
 while u<11
 
     for i=1:100
-        kp = Data(pathes[1]*file[i],pathes[2]*ins[i])
+        kp = Data(paths[1]*file[i],paths[2]*ins[i])
         runtime1 = @CPUelapsed cand,candobj,iter = PathRelinking(kp.P,kp.n,kp.C,kp.weight,kp.ub)
         print("#sol Befor filtering : ", length(candobj),"\n")
         runtime2 = @CPUelapsed P,Pobj,newsol = PostProc(kp.P,kp.C,cand,candobj,kp.ub,kp.n,kp.weight)
