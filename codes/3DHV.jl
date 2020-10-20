@@ -1,48 +1,47 @@
 # Run external HV calculator
 using DelimitedFiles,DataFrames,Statistics,CSV
-cd("/home/ak121396//Downloads/hv-1.3-src")
 
 ##################   Find nadir points: the worst value of true PF   #######################
-ksdir = "/home/ak121396/Downloads/KirlikSayin2014/LPfiles//KP/ndf/"
-fpbh = "/home/ak121396/Desktop/FPBH/kp/7ndf/"
+ksdir = "/home/ak121396/Desktop/solvers/KSoutput/intKP/"
+# fpbh = "/home/ak121396/Desktop/FPBH/kp/7ndf/"
 # ben = "/home/ak121396/Desktop/BENoutputs/AP/Y/"
-# pr50 = "/home/ak121396/Desktop/BENKP/50Y10/"
+pr = "/home/ak121396/Desktop/BENKP/ratio2/"
 
 # fpbh = "/home/ak121396/Desktop/FPBH/ap_lp/ndf/"
-# ksfiles = readdir(ksdir)
+ksfiles = readdir(ksdir)
 # benfiles = readdir(ben)
-# pr50files = readdir(pr50)
+prfiles = readdir(pr)[2:end]
 # pr70files = readdir(pr70)
-fpfiles = readdir(fpbh)
+# fpfiles = readdir(fpbh)
 1
-# function normHV(ksdir,ksfiles,dir,files,i)
-#   ksobj = readdlm(ksdir*ksfiles[i])
-#   obj = round.(readdlm(dir*files[i]))
-#   #KirlikSayin,KP
-#   x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
-#
-#   # AP
-#   # obj2 = DataFrame(obj)
-#   # obj = obj2[obj2[:x1].!=0,:]
-#   # x = obj[:,2]; y=obj[:,3]; z=obj[:,4]; #Bensolve_AP
-#
-#   ideal = [minimum(ksobj[:,y]) for y=1:3]
-#   nadir = [maximum(ksobj[:,y]) for y=1:3]
-#
-#   r = length(x); normx = [];normy = [];normz = []
-#   for k=1:r
-#     push!(normx,(x[k]-ideal[1])/(nadir[1]-ideal[1]))
-#     push!(normy,(y[k]-ideal[2])/(nadir[2]-ideal[2]))
-#     push!(normz,(z[k]-ideal[3])/(nadir[3]-ideal[3]))
-#   end
-#
-#   dfE = normz,normy,normx;
-#   Y=DataFrame(dfE);
-#   CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
-#   cd("/home/ak121396//Downloads/hv-1.3-src")
-#   @show smetric =readlines( pipeline(`./hv -r "2 2 2" $(dir*files[i][1:end-4]*"_normal_Y.csv")`))
-#   return parse(Float64,smetric[1])
-# end
+function normHV(ksdir,ksfiles,dir,files,i)
+  ksobj = readdlm(ksdir*ksfiles[i])
+  obj = round.(readdlm(dir*files[i]))
+  #KirlikSayin,KP
+  x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
+
+  # AP
+  # obj2 = DataFrame(obj)
+  # obj = obj2[obj2[:x1].!=0,:]
+  # x = obj[:,2]; y=obj[:,3]; z=obj[:,4]; #Bensolve_AP
+
+  ideal = [minimum(ksobj[:,y]) for y=1:3]
+  nadir = [maximum(ksobj[:,y]) for y=1:3]
+
+  r = length(x); normx = [];normy = [];normz = []
+  for k=1:r
+    push!(normx,(x[k]-ideal[1])/(nadir[1]-ideal[1]))
+    push!(normy,(y[k]-ideal[2])/(nadir[2]-ideal[2]))
+    push!(normz,(z[k]-ideal[3])/(nadir[3]-ideal[3]))
+  end
+
+  dfE = normz,normy,normx;
+  Y=DataFrame(dfE);
+  CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
+  cd("/home/ak121396//Downloads/hv-1.3-src")
+  @show smetric =readlines( pipeline(`./hv -r "2 2 2" $(dir*files[i][1:end-4]*"_normal_Y.csv")`))
+  return parse(Float64,smetric[1])
+end
 
 table = zeros(10,10)
 
@@ -50,9 +49,9 @@ table = zeros(10,10)
 for i=1:10
   for j=1:10
     k = j+(i-1)*10
-    ithhv = normHV(ksdir,ksfiles,ksdir,ksfiles,k)
+    # ithhv = normHV(ksdir,ksfiles,ksdir,ksfiles,k)
     # ithhv = normHV(ksdir,ksfiles,ben,benfiles,k)
-    # ithhv = normHV(ksdir,ksfiles,pr50,pr50files,k)
+    ithhv = normHV(ksdir,ksfiles,pr,prfiles,k)
     # ithhv = normHV(ksdir,ksfiles,pr50,pr50files,k)
     table[j,i] = ithhv
   end
@@ -132,48 +131,6 @@ CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, writeheader=false, delim=' ' 
 cd("/home/ak121396//Downloads/hv-1.3-src")
 @show smetric =readlines( pipeline(`./hv -r "2 2 2" $(dir*files[i][1:end-4]*"_normal_Y.csv")`))
 return parse(Float64,smetric[1])
-
-
-
-
-
-############################calculating HV #################################
-direc = "/home/ak121396/Downloads/KirlikSayin2014/ndf/"
-
-tb = zeros(10,12)
-for j=1:12
-  np = ndpt[j,:]
-  np1=np[1];np2=np[2];np3=np[3]
-  for i=1:10
-    k=i+(j-1)*10
-    @show smetric =readlines( pipeline(`./hv -r "$np1 $np2 $np3" $(direc*folders[k])`))
-    tb[i,j] = parse(Float64,smetric[1])
-  end
-end
-
-
-KShv = mean.(tb[:,i] for i=1:12)
-
-##################            Calculating HV        ###########
-direc = "/home/ak121396/Desktop/GFP2hr/Y/"
-# direc = "/home/ak121396/Desktop/epsilon2hr/Y/"
-folders = readdir(direc)
-tb = zeros(10,12)
-for j=1:12
-  np = ndpoint[j,:]
-  np1=np[1];np2=np[2];np3=np[3]
-  for k=(j-1)*10+1:j*10
-    k2 = k-(10*(j-1))
-    # output = readdlm(direc*folders[k])
-    smetric =readlines( pipeline(`./hv -r "$np1 $np2 $np3" $(direc*folders[k])`))
-    tb[k2,j] = parse(Float64,smetric[1])
-  end
-end
-ephv = mean.(tb[:,i] for i=1:12)
- # clipboard(tb)
-
-
-
 
 
 ########################No.solutions
