@@ -83,11 +83,12 @@ function dominated(x,P)
     return st
 end
 
+
 function PathRelinking(P,n,C,weight,ub)
-    iter=1; candset = []; candobj=[]; IGPair=[]; cpP = copy(P)
+    iter=1; candset = []; candobj=[]; IGPair=[]; cpP = [vec(P[i,:]) for i=1:size(P)[1]]
     for i=1:round(Int,size(P)[1]*50)
-        I,G = sample(1:size(cpP)[1], 2, replace=false)
-        SI = cpP[I,:]; SG = cpP[G,:];
+        I,G = sample(1:length(cpP), 2, replace=false)
+        SI = cpP[I]; SG = cpP[G];
         while all.(SI != SG) && [I,G]∉IGPair
             rg = range(1, length=n)
             disim = findall(i-> SI[i]!=SG[i], rg); dl = length(disim)
@@ -117,8 +118,8 @@ function PathRelinking(P,n,C,weight,ub)
             end
 
             # Feasibilitycheck
-            if KPfbcheck(SI,n,weight,ub)==true
-                cpP = [cpP; transpose(SI)]
+            if KPfbcheck(SI,n,weight,ub)==true && SI∉P
+                push!(cpP,SI)
                 push!(candset,SI)
                 push!(candobj,[dot(C[k,:],SI) for k=1:3])
                 # candset = union(candset,[SI])
@@ -131,6 +132,17 @@ function PathRelinking(P,n,C,weight,ub)
     return candset,candobj,iter
 end
 
+
+function similarity(SI,cpP,n)
+    sim = Dict()
+    for k=1:length(cpP)
+        if SI ≠ cpP[k]
+            ct = count(SI[i] == cpP[k][i] for i=1:n)
+            sim[k] =ct
+        end
+    end
+    return sim
+end
 
 function PostProc(P,C,cand,candobj,ub,n,weight)
     Pobj = []
@@ -148,10 +160,70 @@ function PostProc(P,C,cand,candobj,ub,n,weight)
     return P,Pobj,newsol
 end
 
-paths = ("E:\\Bensolve_KP\\RoundDown\\X\\","E:\\Bensolve_KP\\data\\")
-# paths = ("/home/ak121396/Desktop/BENoutputs/KP/RoundDown/X/", "/home/ak121396/Desktop/BENKP/data/")
+
+function mostdiffPR(P,n,C,weight,ub)
+    iter=1; candset = []; candobj=[]; IGPair=[]; cpP = [vec(P[i,:]) for i=1:size(P)[1]]
+    for i=1:round(Int,size(P)[1]*50)
+        I = rand(1:length(cpP))
+        SI = cpP[I];
+        simil = similarity(SI,cpP,n)
+        lsim = minimum(collect(values(simil)))
+        mostdiff = findall(x-> simil[x] == lsim, collect(keys(simil)))
+        for i = 1:length(mostdiff)
+            id = rand(mostdiff)
+            if [I,id] ∉ IGPair
+                SG = cpP[id]
+            end
+        end
+        while all.(SI != SG) && [I,G]∉IGPair
+            rg = range(1, length=n)
+            disim = findall(i-> SI[i]!=SG[i], rg); dl = length(disim)
+            numnei = dl#minimum([dl,Int(n*0.2)])
+            neibour = zeros(Int,numnei,n)
+            cpSI = copy(SI)
+            Ptable = []
+            for i=1:numnei
+                if cpSI[disim[i]] == 1
+                    cpSI[disim[i]] = 0
+                else
+                    cpSI[disim[i]] = 1
+                end
+                neibour[i,:] = cpSI;
+                push!(Ptable,[dot(C[k,:],neibour[i,:]) for k=1:3])
+            end
+
+            if rand()<0.7
+                ftneibour,ftPtable = domFilter(neibour,Ptable)
+                if length(ftPtable) == 1
+                    SI = ftneibour[1]
+                else
+                    SI = rand(ftneibour)
+                end
+            else
+                SI = rand([neibour[i,:] for i=1:numnei])
+            end
+
+            # Feasibilitycheck
+            if KPfbcheck(SI,n,weight,ub)==true && SI∉P
+                push!(cpP,SI)
+                push!(candset,SI)
+                push!(candobj,[dot(C[k,:],SI) for k=1:3])
+                # candset = union(candset,[SI])
+                # candobj = union(candobj,[[dot(C[k,:],SI) for k=1:3]])
+            end
+            iter+=1
+        end
+        push!(IGPair,[I,G])
+    end
+    return candset,candobj,iter
+end
+
+paths = ("/home/ak121396/Desktop/Bensolve_KP/RoundDown/X/", "/home/ak121396/Desktop/BENKP/data/")
 file = readdir(paths[1]); ins = readdir(paths[2])
-u=7
+
+
+u=1
+
 while u<11
 
     for i=1:100
@@ -168,14 +240,16 @@ while u<11
         end
         fname = kp.dtfile[end-21:end-3]
         # CSV.write("/home/ak121396/Desktop/BENKP/50X/"*"$fname"*"X.log",DataFrame(P),header=false, delim=' ' )
-        CSV.write("/home/ak121396/Desktop/BENKP/50Y"*"$u"*"/"*"$fname"*"Y.log",DataFrame(otable),header=false, delim=' ' )
+        CSV.write("/home/ak121396/Desktop/BENKP/"*"$u"*"/"*"$fname"*"Y.log",DataFrame(otable),header=false, delim=' ' )
         # #########################  Record outputs  ############################
         record1 = DataFrame(newsol=newsol, sol=length(Pobj),CPUtime=runtime1+runtime2, iter=iter)
-        CSV.write("/home/ak121396/Desktop/BENKP/"*"$u"*"_50KP_record.csv",record1, append=true, header=false )#, delim=',' )
+        CSV.write("/home/ak121396/Desktop/BENKP/"*"$u"*"/diff_KP_record.csv",record1, append=true, header=false )#, delim=',' )
     end
 
     global u=u+1
 end
+
+
 
 # function PickNeibour()
 #     ptw = kp.C./kp.weight
