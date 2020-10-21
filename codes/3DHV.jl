@@ -5,12 +5,12 @@ using DelimitedFiles,DataFrames,Statistics,CSV
 ksdir = "/home/ak121396/Desktop/solvers/KSoutput/intKP/"
 # fpbh = "/home/ak121396/Desktop/FPBH/kp/7ndf/"
 # ben = "/home/ak121396/Desktop/BENoutputs/AP/Y/"
-pr = "/home/ak121396/Desktop/BENKP/ratio2/"
+pr = "/home/ak121396/Desktop/PR_KP/simratio//"
 
 # fpbh = "/home/ak121396/Desktop/FPBH/ap_lp/ndf/"
 ksfiles = readdir(ksdir)
 # benfiles = readdir(ben)
-prfiles = readdir(pr)[2:end]
+prfiles = readdir(pr)[1:100]
 # pr70files = readdir(pr70)
 # fpfiles = readdir(fpbh)
 1
