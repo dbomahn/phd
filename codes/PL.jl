@@ -287,7 +287,7 @@ function mostsimPR(P,n,C,weight,ub)
 end
 function ratioPR(P,n,C,weight,ub)
     iter=1; candset = []; candobj=[]; IGPair=[]; cpP = [vec(P[i,:]) for i=1:size(P)[1]]
-    for i=1:round(Int,size(P)[1]*50)
+    for i=1:round(Int,size(P)[1]*100)
         I,G = sample(1:length(cpP), 2, replace=false)
         SI = cpP[I]; SG = cpP[G];
         while all.(SI != SG) && [I,G]∉IGPair
@@ -449,8 +449,8 @@ function simratioPR(P,n,C,weight,ub)
     return candset,candobj,iter
 end
 
-# paths = ("E:\\Bensolve_KP\\RoundDown\\X\\", "E:\\Bensolve_KP\\data\\")
-paths = ("/home/ak121396/Desktop/Bensolve_KP/RoundDown/X/", "/home/ak121396/Desktop/Bensolve_KP/data/")
+paths = ("E:\\Bensolve_KP\\RoundDown\\X\\", "E:\\Bensolve_KP\\data\\")
+# paths = ("/home/ak121396/Desktop/Bensolve_KP/RoundDown/X/", "/home/ak121396/Desktop/Bensolve_KP/data/")
 file = readdir(paths[1]); ins = readdir(paths[2])
 
 
@@ -469,18 +469,17 @@ for i=1:100
         end
     end
     fname = kp.dtfile[end-21:end-3]
-    # CSV.write("C:\\Users\\AK121396\\Desktop\\simY\\"*"$fname"*"Y.log",DataFrame(otable),header=false, delim=' ')
-    CSV.write("/home/ak121396/Desktop/PR_KP/"*"ratio2"*"/"*"$fname"*"Y.log",DataFrame(otable),header=false, delim=' ' )
+    CSV.write("C:\\Users\\AK121396\\Desktop\\iteratio\\"*"$fname"*"Y.log",DataFrame(otable),header=false, delim=' ')
+    # CSV.write("/home/ak121396/Desktop/PR_KP/"*"ratio2"*"/"*"$fname"*"Y.log",DataFrame(otable),header=false, delim=' ' )
     # #########################  Record outputs  ############################
     record1 = DataFrame(newsol=newsol, sol=length(Pobj),CPUtime=runtime1+runtime2, iter=iter)
-    CSV.write("/home/ak121396/Desktop/PR_KP/"*"ratio2"*"/2ndKP_record.csv",record1, append=true, header=false )#, delim=',' )
-
-    # CSV.write("/home/ak121396/Desktop/BENKP/"*"$u"*"/diff_KP_record.csv",record1, append=true, header=false )#, delim=',' )
-    # CSV.write("C:\\Users\\AK121396\\Desktop\\simY\\"*"/sim_KP_record.csv",record1, append=true, header=false )
+    # CSV.write("/home/ak121396/Desktop/PR_KP/"*"ratio2"*"/2ndKP_record.csv",record1, append=true, header=false )#, delim=',' )
+    CSV.write("C:\\Users\\AK121396\\Desktop\\iteratio\\"*"/iteratio_KP_record.csv",record1, append=true, header=false )
 end
 
 #     global u=u+1
 # end
+# CSV.write("/home/ak121396/Desktop/BENKP/"*"$u"*"/diff_KP_record.csv",record1, append=true, header=false )#, delim=',' )
 
 
 

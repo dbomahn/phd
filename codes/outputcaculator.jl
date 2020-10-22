@@ -1,7 +1,21 @@
-# include("/home/ak121396/Desktop/phd/codes/functions.jl")
-
 ###########################  General Record mean calulation ######################
 using Statistics,DataFrames,DelimitedFiles
+direc = "C:\\Users\\AK121396\\Desktop\\iteratio_KP_record.csv"
+f = readdlm(direc, ',' ,Float64)
+tt = zeros(10,4)
+
+for i=1:10
+    r = f[(i-1)*10+1:i*10,1:4]
+    # tt[i,1] = round(mean(r[:,1]),digits=2)
+    tt[i,2] = round(mean(r[:,2]),digits=2)
+    tt[i,3] = round(mean(r[:,3]), digits=4)
+    tt[i,4] = round(mean(r[:,4]), digits=2)
+end
+
+[tt[:,2:3][2:end,:];transpose(tt[:,2:3][1,:])]
+
+
+##########################################################################
 direc = "/home/ak121396/multiobjective/solvers/ep+FP/FPepresults/"
 # "/home/ak121396/Desktop/FPep2hr/record/"
 folders = readdir(direc)
@@ -24,19 +38,9 @@ for i=1:12
     end
 end
 ################################
-direc = "/home/ak121396/Desktop/BENKP/50KP_record.csv"
-f = readdlm(direc,',',Float64)
-tt = zeros(10,2)
 
-for i=1:10
-    r = f[(i-1)*10+1:i*10,1:4]
-    # tt[i,1] = round(mean(r[:,1]),digits=2)
-    tt[i,1] = round(mean(r[:,2]),digits=2)
-    tt[i,2] = round(mean(r[:,3]), digits=4)
-    # tt[i,4] = round(mean(r[:,4]), digits=2)
-end
-tt[:,1]
-1
+
+
 
 
 # ep2 = readdlm("/home/ak121396/Downloads/KirlikSayin2014/ndf/10_020_02.txt.lp.ndf")
