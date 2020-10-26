@@ -1,12 +1,13 @@
 # Run external HV calculator
-using DelimitedFiles,DataFrames,Statistics,CSV
+using DelimitedFiles,DataFrames,StatsBase,CSV
 
 ##################   Find nadir points: the worst value of true PF   #######################
 ####################################LINUX###################################
 ksdir = "/home/ak121396/Desktop/solvers/KSoutput/intKP/"
-pr = "/home/ak121396/Desktop/PR_KP/iteratio//"
 ksfiles = readdir(ksdir)
-prfiles = readdir(pr)[1:100]
+
+pr = "/home/ak121396/Desktop/PR_KP/diff/"
+prfiles = readdir(pr)
 function normHV(ksdir,ksfiles,dir,files,i)
   ksobj = readdlm(ksdir*ksfiles[i])
   obj = round.(readdlm(dir*files[i]))
@@ -53,7 +54,8 @@ for i=1:10
     a = round(mean(table[:,i]),digits=2)
     push!(tt,a)
 end
-
+tt= [tt[2:10];tt[1]]
+ftb[:,r] = tt
 ########################  Merging GFP+Kirlik output  ######################
 #NDpoint
 x=[0];y=[0];z=[0]

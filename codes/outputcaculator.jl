@@ -1,19 +1,33 @@
 ###########################  General Record mean calulation ######################
 using Statistics,DataFrames,DelimitedFiles
-direc = "C:\\Users\\AK121396\\Desktop\\iteratio_KP_record.csv"
-f = readdlm(direc, ',' ,Float64)
-tt = zeros(10,4)
+# direc = "C:\\Users\\AK121396\\Desktop\\iteratio_KP_record.csv"
+direc = "/home/ak121396/Desktop/PR_KP/diff/record/"
+files = readdir(direc)
+avsol = zeros(10,10);avtime = zeros(10,10);
+for i=1:5
+    f = readdlm(direc*files[i], ',' ,Float64)
+    tt = zeros(10,4)
+    for i=1:10
+        r = f[(i-1)*10+1:i*10,1:4]
+        # tt[i,1] = round(mean(r[:,1]),digits=2)
+        tt[i,2] = round(mean(r[:,2]),digits=2)
+        tt[i,3] = round(mean(r[:,3]), digits=4)
+        tt[i,4] = round(mean(r[:,4]), digits=2)
+    end
 
-for i=1:10
-    r = f[(i-1)*10+1:i*10,1:4]
-    # tt[i,1] = round(mean(r[:,1]),digits=2)
-    tt[i,2] = round(mean(r[:,2]),digits=2)
-    tt[i,3] = round(mean(r[:,3]), digits=4)
-    tt[i,4] = round(mean(r[:,4]), digits=2)
+    record = [tt[:,2:3][2:end,:]; transpose(tt[:,2:3][1,:])]
+    avsol[:,i] = record[:,1]
+    avtime[:,i] = record[:,2]
 end
+tb1 = zeros(10,1); tb2 = zeros(10,1);
+for i=1:10
+    tb1[i,1] = round(mean(avsol[i,:]),digits=2)
+    tb2[i,1] = round(mean(avtime[i,:]),digits=4)
+end
+tb1
+tb2
 
-[tt[:,2:3][2:end,:];transpose(tt[:,2:3][1,:])]
-
+#######################################################
 
 ##########################################################################
 direc = "/home/ak121396/multiobjective/solvers/ep+FP/FPepresults/"
