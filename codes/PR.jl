@@ -1,5 +1,5 @@
-using DataStructures,DelimitedFiles,DataFrames,CSV,StatsBase,Random,LinearAlgebra,CPUTime
-#Statistics,
+using DataStructures,DelimitedFiles,DataFrames,LinearAlgebra,Clustering
+# CSV,StatsBase,Random,,CPUTime
 # struct path{S<:String}
 #     dir1::S; dir2::S;
 # end
