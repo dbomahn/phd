@@ -6,8 +6,33 @@ using DelimitedFiles,DataFrames,StatsBase,CSV
 ksdir = "/home/ak121396/Desktop/solvers/KSoutput/intKP/"
 ksfiles = readdir(ksdir)
 
-pr = "/home/ak121396/Desktop/PR_KP/diff/"
-prfiles = readdir(pr)
+clpr = "/home/ak121396/Desktop/clusterPR/F500Wn//"
+# pr = "/home/ak121396/Desktop/PR_KP/PI/1/KP_p-3_n-30_ins-1.Y.log"
+clprfiles = readdir(clpr)
+
+# ksobj = readdlm(ksdir*ksfiles[31])
+# obj = round.(readdlm(clpr))
+#KirlikSayin,KP
+# x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
+#
+# ideal = [minimum(ksobj[:,i]) for i=1:3]
+# nadir = [maximum(ksobj[:,i]) for i=1:3]
+#
+# r = length(x); normx = [];normy = [];normz = []
+# for k=1:r
+#   push!(normx,(x[k]-ideal[1])/(nadir[1]-ideal[1]))
+#   push!(normy,(y[k]-ideal[2])/(nadir[2]-ideal[2]))
+#   push!(normz,(z[k]-ideal[3])/(nadir[3]-ideal[3]))
+# end
+#
+# dfE = normz,normy,normx;
+# Y=DataFrame(dfE);
+# CSV.write(clpr[1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
+# cd("/home/ak121396//Downloads/hv-1.3-src")
+# @show smetric =readlines( pipeline(`./hv -r "2 2 2" $(clpr[1:end-4]*"_normal_Y.csv")`))
+# return parse(Float64,smetric[1])
+
+
 function normHV(ksdir,ksfiles,dir,files,i)
   ksobj = readdlm(ksdir*ksfiles[i])
   obj = round.(readdlm(dir*files[i]))
@@ -43,7 +68,7 @@ for i=1:10
     k = j+(i-1)*10
     # ithhv = normHV(ksdir,ksfiles,ksdir,ksfiles,k)
     # ithhv = normHV(ksdir,ksfiles,ben,benfiles,k)
-    ithhv = normHV(ksdir,ksfiles,pr,prfiles,k)
+    ithhv = normHV(ksdir,ksfiles,clpr,clprfiles,k)
     # ithhv = normHV(ksdir,ksfiles,pr50,pr50files,k)
     table[j,i] = ithhv
   end

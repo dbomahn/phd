@@ -450,7 +450,7 @@ function simratioPR(P,n,C,weight,ub)
 end
 
 # paths = ("E:\\Bensolve_KP\\RoundDown\\X\\", "E:\\Bensolve_KP\\data\\")
-paths = ("/home/ak121396/Desktop/Bensolve_KP/RoundDown/X/", "/home/ak121396/Desktop/Bensolve_KP/data/")
+paths = ("/home/ak121396/Desktop/Bensolve_KP/RoundDown/X/", "/home/ak121396/Desktop/instances/KP_for_Bensolve/")
 file = readdir(paths[1]); ins = readdir(paths[2])
 
 
