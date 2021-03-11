@@ -3,12 +3,13 @@ using DelimitedFiles,DataFrames,StatsBase,CSV
 
 ##################   Find nadir points: the worst value of true PF   #######################
 ####################################LINUX###################################
-ksdir = "/home/ak121396/Desktop/solvers/KSoutput/intKP/"
-ksfiles = readdir(ksdir)
+ksdir = "/home/ak121396/Desktop/solvers/KSoutput/FLP/ndf/"
+ksfiles = readdir(ksdir)[1:80]
 
-clpr = "/home/ak121396/Desktop/clusterPR/F500Wn//"
-# pr = "/home/ak121396/Desktop/PR_KP/PI/1/KP_p-3_n-30_ins-1.Y.log"
-clprfiles = readdir(clpr)
+fpbh = "/home/ak121396/Desktop/FPBH/outputs/Y/"
+fpfiles = readdir(fpbh)[1:80]
+pr = "/home/ak121396/Desktop/GeneralPR/Y/"
+prfiles = readdir(pr)[1:70]
 
 # ksobj = readdlm(ksdir*ksfiles[31])
 # obj = round.(readdlm(clpr))
@@ -62,25 +63,26 @@ function normHV(ksdir,ksfiles,dir,files,i)
   return parse(Float64,smetric[1])
 end
 
-table = zeros(10,10)
-for i=1:10
+table = zeros(10,12)
+for i=1:8
   for j=1:10
     k = j+(i-1)*10
-    # ithhv = normHV(ksdir,ksfiles,ksdir,ksfiles,k)
-    # ithhv = normHV(ksdir,ksfiles,ben,benfiles,k)
-    ithhv = normHV(ksdir,ksfiles,clpr,clprfiles,k)
+    ithhv = normHV(ksdir,ksfiles,ksdir,ksfiles,k)
+    # ithhv = normHV(ksdir,ksfiles,fpbh,fpfiles,k)
+    # ithhv = normHV(ksdir,ksfiles,pr,prfiles,k)
     # ithhv = normHV(ksdir,ksfiles,pr50,pr50files,k)
     table[j,i] = ithhv
   end
 end
 
 tt = []
-for i=1:10
+for i=1:12
     a = round(mean(table[:,i]),digits=2)
     push!(tt,a)
 end
-tt= [tt[2:10];tt[1]]
-ftb[:,r] = tt
+tt
+# tt= [tt[2:10];tt[1]]
+# ftb[:,r] = tt
 ########################  Merging GFP+Kirlik output  ######################
 #NDpoint
 x=[0];y=[0];z=[0]

@@ -153,9 +153,10 @@ function nextSI(neibour,neiobj,C,SI,candI,cores,clulist,clsize,LBclu,dvar)
             k = candid[rand(mostimp)[1]]
             return neibour[k], neiobj[k]
         else #there is no candid
+            k = rand(1:length(neibour)) #randomly select one candidate
+
         end
     end
-    k = rand(1:length(neibour))
     return neibour[k],neiobj[k]
 end
 ######################## Path Relinking  ###################################
@@ -163,13 +164,13 @@ end
 
 # runtime1 = @CPUelapsed candset,candobj = clusterPR(n,C,weight,ub,LB,dvar)
 
-h = 0
-for i=1:3
-    h = h+@CPUelapsed 1+1
-    # return h
-end
-h
-1
+# h = 0
+# for i=1:3
+#     h = h+@CPUelapsed 1+1
+#     # return h
+# end
+# h
+# 1
 function clusterPR(n,C,weight,ub,LB,dvar,radius)
     candset = []; candobj=[]; IGPair=[];
     clutime = 0; nbtime = 0; SItime = 0;
@@ -202,8 +203,7 @@ function clusterPR(n,C,weight,ub,LB,dvar,radius)
             if KPfbcheck(SI,n,weight,ub)==true && SI∉candset
                 push!(candset,SI)
                 push!(candobj,SIobj)
-                dvar = [dvar; transpose(SI)]
-                LB = [LB; transpose(SIobj)]
+
                 # print("feasible new sol added \n")
             end
             iter+=1
@@ -213,6 +213,21 @@ function clusterPR(n,C,weight,ub,LB,dvar,radius)
     return candset,candobj,clutime,nbtime,SItime
 end
 
+function PostProc(P,C,cand,candobj,ub,n,weight)
+    Pobj = []
+    for i=1:size(P)[1]
+        push!(Pobj,[dot(C[k,:],P[i,:]) for k=1:3])
+    end
+    newsol = 0
+    for i=1:length(cand)
+        if dominated(candobj[i],Pobj)==false && candobj[i]∉Pobj
+            P = [P; transpose(cand[i][:])]
+            push!(Pobj,candobj[i][:])
+            newsol+=1
+        end
+    end
+    return P,Pobj,newsol
+end
 
 paths = ("/home/ak121396/Desktop/Bensolve_KP/X/", "/home/ak121396/Desktop/Bensolve_KP/Y/", "/home/ak121396/Desktop/instances/KP_for_Bensolve/")
 xfile = readdir(paths[1]); yfile = readdir(paths[2]); ins = readdir(paths[3])
@@ -220,13 +235,19 @@ for i=1:10
     kp = Data(paths[1]*xfile[i],paths[2]*yfile[i],paths[3]*ins[i])
     runtime1 = @CPUelapsed candX,candobj,clutime,nbtime,SItime = clusterPR(kp.n,kp.C,kp.weight,kp.ub,kp.LB,kp.dvar,kp.radius)
     print("#sol Befor filtering : ", length(candobj),"\n")
-    runtime2 = @CPUelapsed effsol,ndpoints, = domFilter(candX,candobj); print("# final sols : ",length(effsol),"\n")
-    otable = ones(Int, length(effsol),3);
-    for i=1:length(effsol)
+    runtime2 = @CPUelapsed P,Pobj,newsol = PostProc(kp.P,kp.C,cand,candobj,kp.ub,kp.n,kp.weight)
+    for i=1:length(Pobj)
         for j=1:3
-            otable[i,j] = -ndpoints[i][j]
+            otable[i,j] = Pobj[i][j]
         end
     end
+    # runtime2 = @CPUelapsed effsol,ndpoints, = domFilter(candX,candobj); print("# final sols : ",length(effsol),"\n")
+    # otable = ones(Int, length(effsol),3);
+    # for i=1:length(effsol)
+    #     for j=1:3
+    #         otable[i,j] = -ndpoints[i][j]
+    #     end
+    # end
     fname = xfile[i][1:end-6]
     # record1 = DataFrame(sol=length(ndpoints),CPUtime=runtime1+runtime2)#newsol=effsol,
     record1 = DataFrame(clustering = clutime, createnb = nbtime,nextSI = SItime,Algo=runtime1)

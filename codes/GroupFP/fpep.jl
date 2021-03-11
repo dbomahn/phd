@@ -607,19 +607,19 @@ for i=1:length(ndS)
     matT[i,:] = ndS[i]
 end
 ins = ARGS[1][end-12:end-7] #CPUtime recorded, naming after the instance
-colname = ARGS[1][end-12:end-3]
+colname = ARGS[1][end-12:end-4]
 #record1 = DataFrame( Initial_IPsol = length(Xf1), Initial_LPsol = length(candX),LP=FPLPcount, sol=length(Pz), removed=length(P)-length(Pz))
 #insertcols!(record1,6, Symbol("$colname")=>GroupingTime+FPTime)
 #GFPX=DataFrame(matP); GFPY=DataFrame(dfP);
 #CSV.write("/home/k2g00/k2g3475/multiobjective/solvers/ep+FP/GFPresults/GFPlex_"*"$ins"*"_record.csv",record1, append=true, writeheader=false )#, delim=',' )
 #CSV.write(ARGS[1]*"GFP_X.csv",GFPX, append=false, writeheader=false)
-# CSV.write(ARGS[1]*"GFPlex_Y_.csv",GFPY, writeheader=false, delim=' ' )
+#CSV.write(ARGS[1]*"GFPlex_Y_.csv",GFPY, writeheader=false, delim=' ' )
 #print(colname," GroupFP Done!")
 
 record2 = DataFrame(solvedIP=eFP2IPcount,sols=length(ndT),removed=length(T4)-length(ndT))
 insertcols!(record2,4,Symbol("$colname")=>eFP2Time)
 eFP2X=DataFrame(matT);eFP2Y=DataFrame(dfT);
 CSV.write("/home/k2g00/k2g3475/multiobjective/solvers/ep+FP/FPepresults/FPep_2hr_"*"$ins"*"_record.csv",record2, append=true, writeheader=false )#, delim=',' )
-# CSV.write(ARGS[1]*"FPep_X_2hr.csv",eFP2X, append=false, writeheader=false)
+#CSV.write(ARGS[1]*"FPep_X_2hr.csv",eFP2X, append=false, writeheader=false)
 CSV.write(ARGS[1]*"FPep_2hr_Y_.csv",eFP2Y, writeheader=false, delim=' ' )
 print(colname," FP+ep Done!")

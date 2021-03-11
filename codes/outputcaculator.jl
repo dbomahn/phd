@@ -1,13 +1,46 @@
 ###########################  General Record mean calulation ######################
-using Statistics,DataFrames,DelimitedFiles
+using Statistics,DataFrames,DelimitedFiles,CSV
 # direc = "C:\\Users\\AK121396\\Desktop\\iteratio_KP_record.csv"
-direc = "/home/ak121396/Desktop/clusterPR/record/"
+direc = "/home/ak121396/Desktop/GeneralPR/record/"
 files = readdir(direc)
 
-avsol = zeros(10,10);avtime = zeros(10,10);
-for i=1:1
+f = readdlm(direc*files[1], ',' ,Float64)
+#GPR results
+for i=1:7
     f = readdlm(direc*files[i], ',' ,Float64)
-    tt = zeros(10,4)
+    init = round(mean(f[:,1]),digits=2)
+    newsol = round(mean(f[:,2]),digits=2)
+    totalsol = round(init+newsol, digits=2)
+    feasitime = round(mean(f[:,end-2]),digits=2)
+    cputime = round(mean(f[:,end]),digits=2)
+
+    record = DataFrame(totalsol=totalsol, newsol=newsol, feasitime=feasitime,CPUtime=cputime)
+    CSV.write("/home/ak121396/Documents/GPR.ods",record,append=true,header=false)
+end
+
+dir2 = "/home/ak121396/Desktop/FPBH/outputs/time/"
+cput = readdir(dir2)
+dir3 = "/home/ak121396/Desktop/FPBH/outputs/Y/"
+sol = readdir(dir3)
+tb = zeros(10,2); tt = zeros(12,2);
+
+for i=1:12
+    for j=1:10
+        k=(i-1)*10+j        
+        t = readdlm(dir2*cput[k], ',' ,Float64)
+        s = readdlm(dir3*sol[k] ,Float64)
+        tb[j,1] = t[1]; tb[j,2] = size(s)[1];
+    end
+    tt[i,1] = round(mean(tb[:,1]),digits=2); tt[i,2]=round(mean(tb[:,2]),digits=2)
+end
+
+r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
+
+CSV.write("/home/ak121396/Documents/FPBH.ods", r)
+
+for i=1:12
+    f = readdlm(dir*f2[i], ',' ,Float64)
+    tt = zeros(10,2)
     for i=1:10
         r = f[(i-1)*10+1:i*10,1:2]
         tt[i,1] = round(mean(r[:,1]),digits=2)
@@ -25,6 +58,7 @@ for i=1:10
     tb1[i,1] = round(mean(avsol[i,:]),digits=2)
     tb2[i,1] = round(mean(avtime[i,:]),digits=4)
 end
+CSV.write(, df)
 tb1
 tb2
 
