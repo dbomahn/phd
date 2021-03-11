@@ -140,8 +140,6 @@ function nextSI(di,dj,neibour,neiobj,C,SI,candI,cores,clulist,clsize,LBclu,dvar)
 
     # return neibour[k],neiobj[k]
 end
-
-
 function ConstCheck(xx,i,j)
     for k=1:i+j+(i*j)
         JuMP.fix(x[k],xx[k])
@@ -154,21 +152,7 @@ function ConstCheck(xx,i,j)
     else
         return false
     end
-
 end
-flp = Model(CPLEX.Optimizer)
-# set_optimizer(flp, CPLEX.Optimizer)
-MOI.set(flp, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
-MOI.set(flp, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
-@variable(flp, x[1:data.i+data.j+(data.i*data.j)] );
-# unregister(flp, :con1),unregister(flp, :con2)
-@constraint(flp, con1[b=1:data.j], sum(x[data.i+data.j+data.j*(a-1)+b] for a in 1:data.i) == x[data.i+b]);
-@constraint(flp, con2[a=1:data.i,b=1:data.j], x[data.i+data.j+data.j*(a-1)+b] <= x[a]);
-optimize!(flp)
-ConstCheck(pre.dvar[1,:],5,10)
-
-
-
 function FBcheck(x,i,j)
     for k=1:i+j+(i*j)
         if (x[k] == 0 || x[k]==1)
@@ -179,8 +163,6 @@ function FBcheck(x,i,j)
     end
     return true
 end
-
-
 function domFilter(sol,obj)
     copysol = Dict(); copyobj = Dict();
     for i=1:length(obj)
@@ -214,7 +196,6 @@ function dominated(x,P)
     end
     return st
 end
-
 function Postpro(dvar,LB,C,candX,candobj)
     frac = findall(j-> trunc.(LB[j,:])!= LB[j,:], 1:size(LB)[1])
     dvar = dvar[setdiff(1:end,frac),:]; LB = LB[setdiff(1:end,frac),:]
@@ -273,33 +254,15 @@ function GeneralPR(di,dj,C,dvar,LB,radius)
 end
 
 
-
-
-# data=Data(ARGS[1]); pre=Val(ARGS[2],ARGS[3],data.j)
-# totaltime = @CPUelapsed candX,candobj,clutime,nbtime,SItime,FBtime = GeneralPR(data.i,data.j,data.C,pre.dvar,pre.LB,pre.radius)
-# P,Pobj,newsol = Postpro(pre.dvar,pre.LB,data.C,candX,candobj) #runtime2
-# print(" Instance number: "*"$i"*" &  newly found sol: ", newsol,"\n") #" # final sols : ",length(Pobj),
-#
-# otable = ones(Int, length(Pobj),3)
-# for i=1:length(Pobj)
-#     for j=1:3
-#         otable[i,j] = Pobj[i][j]
-#     end
-# end
-# dir = ARGS[1][1:end-12]
-# ins = ARGS[1][end-12:end-3]
-# record1 = DataFrame(initsol=size(pre.LB)[1], newsol = newsol, clustering = clutime, createnb = nbtime, nextSI = SItime, feasicheck=FBtime, Algotime=totaltime)#,
-# CSV.write("$dir"*"/record/"*"$rname"*".csv",record1, append=true, header=false )#, delim=',' )
-# CSV.write("$dir"*"/Y/"*"$ins"*"_Y.log",DataFrame(otable),header=false, delim=' ' )
-
-paths = ("/home/ak121396/Desktop//instances/FLP/instances/","/home/ak121396/Desktop//instances/FLP/varval/","/home/ak121396/Desktop//instances/FLP/PF/")
+# paths = ("/home/ak121396/Desktop//instances/FLP/instances/","/home/ak121396/Desktop//instances/FLP/varval/","/home/ak121396/Desktop//instances/FLP/PF/")
 # readdir(paths[1]);readdir(paths[2]);readdir(paths[3])
-data = Data( paths[1]*readdir(paths[1])[4] )
-pre = Val(paths[2]*readdir(paths[2])[4],paths[3]*readdir(paths[3])[4],data.j)
+paths = ("E:triFLP\\instances\\", "E:triFLP\\varval\\","E:triFLP\\PF\\")
+data = Data( paths[1]*readdir(paths[1])[104] )
+pre = Val(paths[2]*readdir(paths[2])[104],paths[3]*readdir(paths[3])[104],data.j)
 
 
-
-flp = Model(CPLEX.Optimizer)
+flp = direct_model(CPLEX.Optimizer())
+# flp = Model(CPLEX.Optimizer)
 MOI.set(flp, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
 MOI.set(flp, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
 @variable(flp, x[1:data.i+data.j+(data.i*data.j)] );
@@ -307,12 +270,12 @@ MOI.set(flp, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
 @constraint(flp, con2[a=1:data.i,b=1:data.j], x[data.i+data.j+data.j*(a-1)+b] <= x[a]);
 optimize!(flp)
 1
-for i=11:20
-
+for i=1:1#20
     data = Data( paths[1]*readdir(paths[1])[i] )
     pre = Val(paths[2]*readdir(paths[2])[i],paths[3]*readdir(paths[3])[i],data.j)
 
-    flp = Model(CPLEX.Optimizer) #with_optimizer(CPLEX.Optimizer) for 0.20 version
+    # flp = Model(CPLEX.Optimizer)
+    flp = direct_model(CPLEX.Optimizer())
     MOI.set(flp, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
     MOI.set(flp, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
     @variable(flp, x[1:data.i+data.j+(data.i*data.j)] );
@@ -338,13 +301,65 @@ for i=11:20
     # CSV.write("/home/ak121396/Desktop/GeneralPR1/Y/"*"$fname"*"_Y.log",DataFrame(otable),header=false, delim=' ' )
     # # #########################  Record outputs  ############################
     # CSV.write("/home/ak121396/Desktop/GeneralPR1/Y/"*"$ins"*"_Y.log",DataFrame(otable),header=false, delim=' ' )
-
 end
 
-init
-new
-cluster
-neibour
-nextSI
-fbcheck
-total
+###########################      GPR without clustering   ######################################################
+
+function nextSI2(di,dj,neibour,neiobj,C,SI,dvar)
+    SIobj = getobjval(SI,C,di,dj)
+     #check if intermediate path is in the smallest cluster
+    for i =1:numnei
+        if numnei == 1  #if there is one candiate sol
+            return neibour[1],neiobj[1]
+        elseif numnei > 1 # if there are multiple candiates, check the improved ratio
+            ratiotb = zeros(numnei,3)
+            for (i,j) in enumerate(numnei)
+                ratiotb[i,:] = neiobj[j]./SIobj
+            end
+            ranktb = zeros(numnei,3)
+            for i=1:3
+                ranktb[:,i] = tiedrank(ratiotb[:,i])
+            end
+            ranksum = [sum(ranktb[i,:]) for i=1:numnei]
+            hval = maximum(ranksum)
+            mostimp = findall(x-> x == hval, ranksum)
+            k = numnei[rand(mostimp)[1]]
+            return neibour[k], neiobj[k]
+        else #there is no candidate
+            k = rand(1:length(neibour)) #randomly select a numneiate
+            return neibour[k],neiobj[k]
+        end
+    end
+end
+# di=data.i; dj=data.j; C=data.C; dvar=pre.dvar; LB=pre.LB; n = i+j+(i*j)
+function GPR(di,dj,C,dvar,LB,n)
+    candX = []; candY=[]; IGPair=[]; cpX = [vec(pre.dvar[i,:]) for i=1:size(pre.dvar)[1]]; exploredSI = [];
+    nbtime = 0; SItime = 0; Contime=0; FBtime = 0;
+
+    for i=1:100
+        idI,idG = sample(1:length(cpX), 2, replace=false)
+        SI = cpX[idI]; SG = cpX[idG]; iter=1;
+
+        while all.(SI != SG) && [idI,idG]∉IGPair
+            rg = range(1, length=n)
+            dif = findall(i-> SI[i]!=SG[i], rg);
+            nbtime = nbtime + @CPUelapsed neibour,neiobj = createNB(di,dj,SI,C,dif,exploredSI)
+            for l=1:length(neiobj)
+                Contime = Contime + @CPUelapsed constcheck = ConstCheck(neibour[l],di,dj)
+                if constcheck == true && neibour[l]∉ candY
+                    dvar = [dvar; transpose(neibour[l])]
+                    LB = [LB; transpose(neiobj[l])]
+                end
+            end
+            SItime = SItime + @CPUelapsed SI,SIobj = nextSI2(di,dj,neibour,neiobj,C,SI,dvar)
+            FBtime = FBtime + @CPUelapsed fbcheck = FBcheck(SI,di,dj)
+            if fbcheck == true && SI∉candX
+                push!(exploredSI,SI); push!(candX,SI); push!(candY,SIobj);
+            end
+            iter+=1
+        end
+        push!(IGPair,[I,G])
+    end
+    return candX,candY,nbtime,SItime,Contime,FBtime
+end
+totaltime = @CPUelapsed candset,candobj,nbtime,SItime,Contime,FBtime = GPR(data.i,data.j,data.C,pre.dvar,pre.LB,data.i+data.j+(data.i*data.j))
