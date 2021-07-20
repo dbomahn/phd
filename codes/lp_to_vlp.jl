@@ -1,59 +1,129 @@
 using DelimitedFiles,MathProgBase,CPLEX,Random,LinearAlgebra
-const MPB = MathProgBase
+const MPB = MathProgBase; const MOF = MathOptFormat
+
 function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
     model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
     MPB.loadproblem!(model,filename) # load what we actually want
     return model
 end
-cd("/home/ak121396/Desktop/MIPLIB/lpfiles/")
-files = readdir(pwd())
-path = "/home/ak121396/Desktop/MIPLIB/instances/"
-mpss = readdir(path)
-i=31
-# for i=41:length(files)
-#     @show i #missing 22~25,27,34,35
+lpath = "/home/ak121396/Desktop/instances//MIPLIB(official)/LP/"
+files = readdir(lpath)
+mpspath = "/home/ak121396/Desktop/instances/MIPLIB(official)/mps/"
+mpss = readdir(mpspath)
 
-model = loadlp(files[i])
-# coef = MPB.getobj(model)
-# coef = [Int(C[x]) for x=1:length(coef)]
-# assigning random numbers for "all-1" coefficients
-c = MPB.getobj(model)
-B = MPB.getconstrmatrix(model)
-lb = MPB.getconstrLB(model)
-ub = MPB.getconstrUB(model)
+for i=1:35
+    # print("file_$i : ",files[i],"\n")
+    model = loadlp(lpath*files[i])
+    C = MPB.getobj(model)
+    # print("num of coeff: ",length(unique(C)), "\n")
+    if all(x->x==C[1],C)==true
+        print(i,"th ",files[i], "\n")
+    end
+end
+
+
+i=10
+print("$i file: ",files[i],"\n")
+
+lpmodel = loadlp(lpath*files[i])
+C = MPB.getobj(lpmodel)
+B = MPB.getconstrmatrix(lpmodel)
 m,n=size(B)
-
-if all(x -> x==1,c)==true
-    coef = rand(1:10,n)
-    #  Coefficient Permutation for the 2nd and 3rd obj
+lb = MPB.getconstrLB(lpmodel)
+ub = MPB.getconstrUB(lpmodel)
+RHS = Dict()
+for i=1:m
+    if ub[i]==Inf
+        RHS[i] = lb[i]
+    else
+        RHS[i] = ub[i]
+    end
+end
+uC = unique(C)
+if length(uC)==1
+    if uC[1]>=0
+        coef = rand(1:10,n)
+        #  Coefficient Permutation for the 2nd and 3rd obj
+        coef2 = shuffle(coef); coef3 = shuffle(coef);
+        P =[coef,coef2,coef3]
+    else #negative Coefficient
+        coef = rand(-10:-1,n)
+        coef2 = shuffle(coef); coef3 = shuffle(coef);
+        P =[coef,coef2,coef3]
+    end
+else
+    coef = [(C[x]) for x=1:length(C)] #Int(C)
     coef2 = shuffle(coef); coef3 = shuffle(coef);
     P =[coef,coef2,coef3]
-else
-    coef = MPB.getobj(model)
-    coef = [Int(B[x]) for x=1:length(coef)]
-    coef2 = shuffle(coef); coef3 = shuffle(coef);
 end
-objct = n*3-(count(iszero,coef)+count(iszero,coef2)+count(iszero,coef3))
-
-ct = length(B)-count(iszero,B)
 obj = 3
-
-mpsf = readdlm(path*readdir(path)[i], String, header=true)
-bound = mpsf[1][2:m+1]
+objnz = n*obj-(count(iszero,coef)+count(iszero,coef2)+count(iszero,coef3))
+NZ = length(B)-count(iszero,B)
+# # mpss[i]
+# # mpsf = readdlm(mpspath*mpss[i], String, header=true)
+# k = findall(i->(i=="L") ||(i=="G")||(i=="E"),mpsf[1][:])[1]
+# bound = mpsf[1][k:m+k-1]
 signs = []
-RHS = Dict()
-for k=1:m
-    RHS[k]= 1
-end
 for i=1:m
-    if bound[i] == "G"
+    if ub[i] == Inf
         push!(signs,"l")
-    elseif bound[i] == "L"
+    elseif lb[i] == -Inf
         push!(signs,"u")
-    elseif bound[i] == "E"
+    else
         push!(signs, "s")
     end
 end
+# RHS = Dict()  #For AP/KP/FLP
+# for k=1:m
+#     RHS[k]= 1
+# end
+# for i=1:m
+#     if bound[i] == "G"
+#         push!(signs,"l")
+#     elseif bound[i] == "L"
+#         push!(signs,"u")
+#     elseif bound[i] == "E"
+#         push!(signs, "s")
+#     end
+# end
+
+ins = open("/home/ak121396/Desktop/instances/MIPLIB(official)/vlp/test2"*files[i][1:end-3]*".vlp","a")
+wholearray=[]; #NZ
+arr=["p vlp min",m,n,NZ,obj,objnz]
+push!(wholearray,arr)
+for i=1:m
+   for j=1:n
+       if (B[i,j]!=0)
+           if (B[i,j]%1) == 0 #if B[i,j] is Int
+               push!(wholearray,("a",i,j,Int128(B[i,j])))
+           else# B[i,j] is Float
+               push!(wholearray,("a",i,j,Float64(B[i,j])))
+           end
+       end
+   end
+end
+
+for i=1:obj
+   for j=1:n
+       if P[i][j]!=0
+           push!(wholearray,("o",i,j,P[i][j]))
+       end
+   end
+end
+
+for i=1:m
+   push!(wholearray,("i",i,signs[i],RHS[i]))
+end
+
+for j=1:n
+   push!(wholearray,("j", j,'d',0,1))
+end
+push!(wholearray,"e")
+writedlm(ins,wholearray)
+close(ins)
+
+
+1
 # mpsf2 = readdlm(path*readdir(path)[i],'\t',String,header=true)
 # function rhsindex(k)
 #     if k==1
@@ -113,53 +183,8 @@ end
 #         # end
 #     # end
 # end
-
-########################## vlp file for BENSOLVE ####################
-ins = open("/home/ak121396/Desktop/MIPLIB/vlp/"*files[i]*".vlp","a")
-wholearray=[]; #ct
-arr=["p vlp min",m,n,ct,obj,objct]
-push!(wholearray,arr)
-for i=1:m
-   for j=1:n
-       if (B[i,j]!=0)
-           if (B[i,j]%1) == 0 #if B[i,j] is Int
-               push!(wholearray,("a",i,j,Int128(B[i,j])))
-           else# B[i,j] is Float
-               push!(wholearray,("a",i,j,Float64(B[i,j])))
-           end
-       end
-   end
-end
-
-
-# Parray=[];
-for i=1:obj
-   for j=1:n
-       if P[i][j]!=0
-           push!(wholearray,("o",i,j,P[i][j]))
-       end
-   end
-end
-
-for i=1:m
-   push!(wholearray,("i",i,signs[i],RHS[i]))
-end
-
-for j=1:n
-   push!(wholearray,("j", j,'d',0,1))
-end
-push!(wholearray,"e")
-
-# println(ins,wholearray)
-writedlm(ins,wholearray)
-close(ins)
-# end
-
-
-
 # setdiff(keys(RHS))
 # count(iszero,values(RHS))
-
 # Generation method (a)
 # for j=1:length(solval)
 #     if iszero(solval[j])==false

@@ -1,13 +1,26 @@
 using DelimitedFiles,DataFrames,JuMP,CPLEX,MathOptInterface,LinearAlgebra
 # MathOptFormat
-dir1 = "/home/ak121396/Desktop/instances/FLP/instances/"
+dir1 = "/home/ak121396/Desktop/instances/FLP/data/"
 dir2 = "/home/ak121396/multiobjective/solvers/kirlikSayin2014/lpfiles/"
 # dir = readdir(dir1)
-
+function writemodel(model::Model, filename::String)
+     if endswith(lowercase(filename), ".lp")
+         file = MathOptFormat.LP.Model()
+     elseif endswith(lowercase(filename), ".mps")
+         file = MathOptFormat.MPS.Model()
+     else
+         println("Unknown file extension to write model: ",
+                 split(filename, ".")[end])
+         exit(8)
+     end
+     MOI.copy_to(file, backend(model))
+     MOI.write_to_file(file, filename)
+     println("wrote model to ", filename)
+end
 files = readdir(dir1)[1]
 1
 
-for idx=2:120
+for idx=1:120
     # subdir = dir1*(dir[s])*'/'
     files = readdir(dir1)
     f = readdlm(dir1*files[idx])
@@ -34,34 +47,34 @@ for idx=2:120
         end
     end
     # JUMP MODEL for FPBH LPfiles
+    flp = Model(with_optimizer(CPLEX.Optimizer))
+    @variables(flp, begin
+        x[1:i,1:j], Bin
+        y[1:i] ,Bin
+        z[1:j] ,Bin
+    end);
+    @constraint(flp, con1[b=1:j], sum(x[a,b] for a in 1:i) == z[b]);
+    @constraint(flp, con2[a=1:i,b=1:j], x[a,b]<=y[a]);
+    @constraint(flp, conobj2, -sum(demand[b]*z[b] for b=1:j) == 0 );
+    @constraint(flp,conobj3, sum(cost2[a][b]*x[a,b] for a=1:i for b=1:j) == 0 );
+    @objective(flp,Min, sum(fixcost[a]*y[a] for a=1:i));
+    writemodel(flp,dir1[1:end-5]*"/FPBH/"*files[idx][1:end-4]*".lp")
+
+    # Kirlik solver model
     # flp = Model(CPLEX.Optimizer)
     # @variables(flp, begin
     #     x[1:i,1:j], Bin
     #     y[1:i] ,Bin
     #     z[1:j] ,Bin
-    #     k == 1
-    # end);
+    #     dummy
+    # end)
+    # @constraint(flp, obj1, sum(fixcost[a]*y[a] for a=1:i) <= 1  );
+    # @constraint(flp, obj2, -sum(demand[b]*z[b] for b=1:j) <= 1 );
+    # @constraint(flp,obj3, sum(cost2[a][b]*x[a,b] for a=1:i for b=1:j) <= 1 );
     # @constraint(flp, con1[b=1:j], sum(x[a,b] for a in 1:i) == z[b]);
     # @constraint(flp, con2[a=1:i,b=1:j], x[a,b]<=y[a]);
-    # @constraint(flp, conobj2, -sum(demand[b]*z[b] for b=1:j) == 0 );
-    # @constraint(flp,conobj3, sum(cost2[a][b]*x[a,b] for a=1:i for b=1:j) == 0 );
-    # @objective(flp,Min, sum(fixcost[a]*y[a] for a=1:i));
-
-    # Kirlik solver model
-    flp = Model(CPLEX.Optimizer)
-    @variables(flp, begin
-        x[1:i,1:j], Bin
-        y[1:i] ,Bin
-        z[1:j] ,Bin
-        dummy
-    end)
-    @constraint(flp, obj1, sum(fixcost[a]*y[a] for a=1:i) <= 1  );
-    @constraint(flp, obj2, -sum(demand[b]*z[b] for b=1:j) <= 1 );
-    @constraint(flp,obj3, sum(cost2[a][b]*x[a,b] for a=1:i for b=1:j) <= 1 );
-    @constraint(flp, con1[b=1:j], sum(x[a,b] for a in 1:i) == z[b]);
-    @constraint(flp, con2[a=1:i,b=1:j], x[a,b]<=y[a]);
-    @objective(flp, Min, dummy);
-    write_to_file(flp,dir2*files[idx][1:end-3]*"lp")
+    # @objective(flp, Min, dummy==1);
+    # write_to_file(flp,dir2*files[idx][1:end-3]*"lp")
     #normal model
     # flp = Model(CPLEX.Optimizer)
     # @variables(flp, begin

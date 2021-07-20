@@ -1,11 +1,53 @@
 ###########################  General Record mean calulation ######################
-using Statistics,DataFrames,DelimitedFiles,CSV
-# direc = "C:\\Users\\AK121396\\Desktop\\iteratio_KP_record.csv"
-direc = "/home/ak121396/Desktop/GeneralPR/record/"
-files = readdir(direc)
+using Statistics,DataFrames,DelimitedFiles,CSV#,JLD2
 
-f = readdlm(direc*files[1], ',' ,Float64)
-#GPR results
+dir1 = "/home/ak121396/Desktop/FPBH/MIPLIP/collection/Y/"
+dir1 = "/home/ak121396/Desktop/solvers/Bensolve/MIPLIB//Y/"
+ndf = readdir(dir1)
+
+for i=1:length(ndf)
+    yval = readdlm(dir1*ndf[i])
+    numsol = size(yval)[1]
+    print(numsol,"\n")
+    # if numsol<=4
+    #     print(ndf[i],": ""\n") #,numsol,
+    # end
+end
+
+
+readdir("/home/ak121396/Desktop/instances/MIPLIB(official)/LP/")
+numsol = size(yval)
+
+
+
+
+# direc = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK//"
+# direc = "/home/ak121396/Desktop/FPBH/AP/2minTL/time/"
+#cluPR results
+# dir1 = "/home/ak121396/Desktop/GeneralPR/goutputs/KP/GLPK/"
+dir1 = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
+# cput = readdir(direc)
+sol = readdir(dir1)
+# tb = zeros(10,2); tt = zeros(10,2); #AP/KP
+tb = zeros(10,2); tt = zeros(12,2); #FLP
+# readdlm(direc*cput[1], ',' ,Float64)
+# size(readdlm(dir1*sol[1] ,Float64))
+1
+for i=1:12
+    for j=1:10
+        k=(i-1)*10+j
+        # t = readdlm(direc*cput[k], ',' ,Float64)
+        s = readdlm(dir1*sol[k] ,Float64)
+        # tb[j,1] = t[1];
+        tb[j,2] = size(s)[1];
+    end
+    # tt[i,1] = round(mean(tb[:,1]),digits=1);
+    tt[i,2] = round(mean(tb[:,2]),digits=1)
+end
+print("solutions \n"); sol=tt[:,2]
+CPUtime=tt[:,1]
+r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
+
 for i=1:7
     f = readdlm(direc*files[i], ',' ,Float64)
     init = round(mean(f[:,1]),digits=2)
@@ -17,25 +59,28 @@ for i=1:7
     record = DataFrame(totalsol=totalsol, newsol=newsol, feasitime=feasitime,CPUtime=cputime)
     CSV.write("/home/ak121396/Documents/GPR.ods",record,append=true,header=false)
 end
-
-dir2 = "/home/ak121396/Desktop/FPBH/outputs/time/"
+#FPBH records
+dir2 = "/home/ak121396/Desktop/FPBH/AP/time/"
 cput = readdir(dir2)
-dir3 = "/home/ak121396/Desktop/FPBH/outputs/Y/"
+dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
 sol = readdir(dir3)
-tb = zeros(10,2); tt = zeros(12,2);
+tb = zeros(10,2); tt = zeros(10,2);
 
-for i=1:12
+for i=1:10
     for j=1:10
-        k=(i-1)*10+j        
+        k=(i-1)*10+j
         t = readdlm(dir2*cput[k], ',' ,Float64)
         s = readdlm(dir3*sol[k] ,Float64)
-        tb[j,1] = t[1]; tb[j,2] = size(s)[1];
+        tb[j,1] = t[1];
+        tb[j,2] = size(s)[1];
     end
-    tt[i,1] = round(mean(tb[:,1]),digits=2); tt[i,2]=round(mean(tb[:,2]),digits=2)
+    tt[i,1] = round(mean(tb[:,1]),digits=1);
+    tt[i,2]=round(mean(tb[:,2]),digits=1)
 end
 
 r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
-
+tt[:,2]
+tt[:,1]
 CSV.write("/home/ak121396/Documents/FPBH.ods", r)
 
 for i=1:12
@@ -63,6 +108,45 @@ tb1
 tb2
 
 #######################################################
+# Ydomfilter
+dir1 = "/home/ak121396/Desktop/GeneralPR/cluoutputs/Y/"
+sol = readdir(dir1)
+function YdomFilter(obj)
+    copyobj = Dict();
+    for i=1:length(obj)
+        copyobj[i] = obj[i]
+    end
+    for i=1:length(obj)-1
+        for j=i+1:length(obj)
+            if all(obj[i] .>= obj[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; break
+            elseif all(obj[j] .>= obj[i]) == true
+                copyobj[j]=nothing;
+            end
+        end
+    end
+    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
+
+    return finalobj
+end
+
+tb = zeros(10,12)
+for i=1:7
+    for j=1:10
+        s = readdlm(dir1*sol[(i-1)*10+j] ,Float64)
+        ss = []
+        for j=1:size(s)[1]
+            push!(ss,s[j,:])
+        end
+        tb[j,i] = length(YdomFilter(ss))
+    end
+end
+
+tb2 = zeros(12,1)
+for i=1:12
+    tb2[i,1] = mean(tb[:,i])
+end
+tb2
 
 ##########################################################################
 direc = "/home/ak121396/multiobjective/solvers/ep+FP/FPepresults/"
