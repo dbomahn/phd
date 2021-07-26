@@ -23,6 +23,25 @@ for k=1:length(Pmtx[:,1]) #(len,id) enumerate
     x = Pmtx[k,:][1]; y = Pmtx[k,:][2];
     C[x,y] = Pmtx[k,:][3]
 end
+
+# CPLEX multi-objective LP file format
+cplex_model = JuMP.Model();
+@variable(cplex_model, x[1:n], Bin)
+@objective(cplex_model, obj1, dot(C[1,:],x))
+@constraint(cplex_model, obj2, dot(C[2,:],x)  );
+@constraint(cplex_model, obj3, dot(C[3,:],x)  );
+for k=1:m
+    if signs[k] == "l"
+        @constraint(cplex_model, dot(B[k,:],x) >= RHS[k])
+    elseif signs[k] == "u"
+        @constraint(cplex_model, dot(B[k,:],x) <= RHS[k])
+    else
+        @constraint(cplex_model, dot(B[k,:],x) == RHS[k])
+    end
+end
+writemodel(cplex_model,mpsfile[1:end-4]*"ibm.lp")
+
+
 # FPBH LP file format
 fpbh_model = JuMP.Model();
 @variable(fpbh_model, x[1:n], Bin)

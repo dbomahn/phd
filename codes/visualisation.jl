@@ -1,4 +1,29 @@
-using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
+using PlotlyJS#,RDatasets
+function box4()
+    x0 = ["day 1", "day 1", "day 1", "day 1", "day 1", "day 1",
+          "day 2", "day 2", "day 2", "day 2", "day 2", "day 2"]
+    trace1 = box(;y=[0.2, 0.2, 0.6, 1.0, 0.5, 0.4, 0.2, 0.7, 0.9, 0.1, 0.5, 0.3],
+                  x=x0,
+                  name="kale",
+                  marker_color="#3D9970")
+    trace2 = box(;y=[0.6, 0.7, 0.3, 0.6, 0.0, 0.5, 0.7, 0.9, 0.5, 0.8, 0.7, 0.2],
+                  x=x0,
+                  name="radishes",
+                  marker_color="#FF4136")
+    trace3 = box(;y=[0.1, 0.3, 0.1, 0.9, 0.6, 0.6, 0.9, 1.0, 0.3, 0.6, 0.8, 0.5],
+                  x=x0,
+                  name="carrots",
+                  marker_color="#FF851B")
+    data = [trace1, trace2, trace3]
+    layout = Layout(;yaxis=attr(title="normalized moisture", zeroline=false),
+                    boxmode="group")
+    plot(data, layout)
+end
+box4()
+
+1
+
+# using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
 
 ##########################     Visualisation       ###########################
 nms = ["FPBH vs BenFPR plot"]
