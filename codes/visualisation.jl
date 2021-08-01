@@ -25,7 +25,7 @@ box4()
 
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
 
-##########################     Visualisation       ###########################
+##########################     3D Visualisation       ###########################
 nms = ["FPBH vs BenFPR plot"]
 title = "FPBH vs BenPR: AP_n-15" #this is the caption appearing in the figure
 colors = [RGB(0.89, 0.1, 0.1),RGB(0.28, 0.68, 0.3),RGB(0.4,0.4,1), RGB(0.8, 0.40, 0)]

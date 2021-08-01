@@ -20,7 +20,7 @@ end
 files = readdir(dir1)[1]
 1
 
-for idx=1:120
+for idx=1:1#20
     # subdir = dir1*(dir[s])*'/'
     files = readdir(dir1)
     f = readdlm(dir1*files[idx])
@@ -53,12 +53,12 @@ for idx=1:120
         y[1:i] ,Bin
         z[1:j] ,Bin
     end);
+    @expression(flp,obj1, sum(fixcost[a]*y[a] for a=1:i));
+    @expression(flp, obj2, -sum(demand[b]*z[b] for b=1:j) );
+    @expression(flp,obj3, sum(cost2[a][b]*x[a,b] for a=1:i for b=1:j) );
     @constraint(flp, con1[b=1:j], sum(x[a,b] for a in 1:i) == z[b]);
     @constraint(flp, con2[a=1:i,b=1:j], x[a,b]<=y[a]);
-    @objective(flp,obj1, sum(fixcost[a]*y[a] for a=1:i));
-    @constraint(flp, obj2, -sum(demand[b]*z[b] for b=1:j) == 0 );
-    @constraint(flp,obj3, sum(cost2[a][b]*x[a,b] for a=1:i for b=1:j) == 0 );
-    writemodel(flp,dir1[1:end-5]*"/FPBH/"*files[idx][1:end-4]*".lp")
+    writemodel(flp,dir1[1:end-5]*"/CPLEX_LP/"*files[idx][1:end-4]*".lp")
     # JUMP MODEL for FPBH LPfiles
     # flp = Model(with_optimizer(CPLEX.Optimizer))
     # @variables(flp, begin
