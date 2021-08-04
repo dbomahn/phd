@@ -1,7 +1,5 @@
 using DelimitedFiles,DataFrames,CSV
 #############################    WINDOWS    ##################################
-# cd("/home/ak121396//Downloads/performance_indi/indicators_linux/")
-
 
 open("C:/Users/AK121396/Desktop/performance/ex3.txt","w") do io
 end
@@ -23,6 +21,7 @@ C:/Users/AK121396/Desktop/performance/ex.txt
 
 
 ######################### Linux #######################################
+# cd("/home/ak121396//Downloads/performance_indi/indicators_linux/")
 run(pipeline(`cd /home/ak121396/Desktop/performance/`))
 run(`cd /home/ak121396/Desktop/performance/`)
 
