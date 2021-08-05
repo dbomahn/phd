@@ -21,7 +21,7 @@ C:/Users/AK121396/Desktop/performance/ex.txt
 
 
 ######################### Linux #######################################
-# cd("/home/ak121396//Downloads/performance_indi/indicators_linux/")
+cd("/home/ak121396//Downloads/performance_indi/indicators_linux/")
 run(pipeline(`cd /home/ak121396/Desktop/performance/`))
 run(`cd /home/ak121396/Desktop/performance/`)
 
