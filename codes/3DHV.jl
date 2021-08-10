@@ -102,7 +102,6 @@ tb[i,2] = parse(Float64,smetric2[1]);
 
 # kk = fpprksHV(fp,fpfiles,pr,prfiles,4)
 
-tb
 # tt = 2
 # tb = zeros(12,4)
 # for i=1:12 #num
@@ -314,77 +313,7 @@ for j in folders
 end
 
 ########################windows ##################
-ksdir = "E:\\KSresults\\KP\\"
-pr = "C:\\Users\\AK121396\\Desktop\\iteratio\\"
 
-ksfiles = readdir(ksdir)
-prfiles = readdir(pr)[1:100]
-
-function normHV(ksdir,ksfiles,dir,files,i)
-  ksobj = readdlm(ksdir*ksfiles[i])
-  obj = round.(readdlm(dir*files[i]))
-  #KirlikSayin,KP
-  x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
-  # AP
-  # obj2 = DataFrame(obj)
-  # obj = obj2[obj2[:x1].!=0,:]
-  # x = obj[:,2]; y=obj[:,3]; z=obj[:,4]; #Bensolve_AP
-  ideal = [minimum(ksobj[:,y]) for y=1:3]
-  nadir = [maximum(ksobj[:,y]) for y=1:3]
-
-  r = length(x); normx = [];normy = [];normz = []
-  for k=1:r
-    push!(normx,(x[k]-ideal[1])/(nadir[1]-ideal[1]))
-    push!(normy,(y[k]-ideal[2])/(nadir[2]-ideal[2]))
-    push!(normz,(z[k]-ideal[3])/(nadir[3]-ideal[3]))
-  end
-
-  dfE = normz,normy,normx;
-  Y=DataFrame(dfE);
-  CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
-  cd("C:\\cygwin64\\home\\hv-1.3-src\\")
-  @show smetric =readlines( pipeline(`./hv -r "2 2 2" $(dir*files[i][1:end-4]*"_normal_Y.csv")`))
-  return parse(Float64,smetric[1])
-end
-
-
-table = zeros(10,10)
-for i=1:10
-  for j=1:10
-    k = j+(i-1)*10
-    ithhv = normHV(ksdir,ksfiles,pr,prfiles,k)
-    table[j,i] = ithhv
-  end
-end
-
-tt = []
-for i=1:10
-    a = round(mean(table[:,i]),digits=2)
-    push!(tt,a)
-end
-
-
-# ksobj = readdlm(ksdir*ksfiles[31])
-# obj = round.(readdlm(clpr))
-#KirlikSayin,KP
-# x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
-#
-# ideal = [minimum(ksobj[:,i]) for i=1:3]
-# nadir = [maximum(ksobj[:,i]) for i=1:3]
-#
-# r = length(x); normx = [];normy = [];normz = []
-# for k=1:r
-#   push!(normx,(x[k]-ideal[1])/(nadir[1]-ideal[1]))
-#   push!(normy,(y[k]-ideal[2])/(nadir[2]-ideal[2]))
-#   push!(normz,(z[k]-ideal[3])/(nadir[3]-ideal[3]))
-# end
-#
-# dfE = normz,normy,normx;
-# Y=DataFrame(dfE);
-# CSV.write(clpr[1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
-# cd("/home/ak121396//Downloads/hv-1.3-src")
-# @show smetric =readlines( pipeline(`./hv -r "2 2 2" $(clpr[1:end-4]*"_normal_Y.csv")`))
-# return parse(Float64,smetric[1])
 
 ################## Finding nadir points: the worst values among obtained points of three algorithms ##########
 # direc = "/home/ak121396/Desktop//"

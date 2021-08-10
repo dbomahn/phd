@@ -4,26 +4,23 @@ cd("C:\\Users\\AK121396\\Downloads\\performance_indi\\indicators_win\\")
 
 # find bounds
 function Findbounds(refpath,newpath)
-    for i=1:length(refpath)
-        dir = refpath[i]
-        files = readdir(refpath*dir)
+    files = readdir(refpath)
         for j=1:length(files)
             @show file = files[j]
-            new = newpath*dir*file[1:end-4]*".txt"
+            new = newpath*file[1:end-4]*".txt"
             # ./bound [<paramfile>] <datafile> <outfile>
             open("$new","w") do io end
-            # run(pipeline(`./tools_win/bound ./tools_win/bound_param.txt
-                # $refpath$dir$file $new`) )
-            run(pipeline(`./tools_linux/bound ./tools_linux/bound_param.txt
-                $refpath$dir$file $new`) )
+            run(pipeline(`./tools_win/bound ./tools_win/bound_param.txt
+                $refpath$file $new`) )
+            # run(pipeline(`./tools_linux/bound ./tools_linux/bound_param.txt
+            #     $refpath$dir$file $new`) )
         end
     end
 end
-
 cd("../")
-Findbounds("F:\\results\\mergedMIP\\","F:\\results\\performance\\bounds\\MIPLIB\\")
-Findbounds("/media/ak121396/0526-8445/results/KS/KP","/media/ak121396/0526-8445/results/performance/bounds/KP")
 
+Findbounds("F:/results/KS/KP/","F:/results/performance/bounds/KP/")
+readdir("F:/results/KS/KP/")
 # normalise obj values
 function Normalise(probpath,boundpath)
     num = readdir(probpath)
@@ -38,20 +35,18 @@ function Normalise(probpath,boundpath)
             end
             bounds = readdir(boundpath); boundf = bounds[j];  #for AP,KP,FLP
             # bounds = readdir(boundpath*dirn) #for MIPLiB
-            bpath = boundpath*num[i]*"/"*bounds[j]
+            bpath = boundpath*"/"*bounds[j] #*num[i]
             # ./normalize [<paramfile>] <boundfile> <datafile> <outfile>
-            # run(pipeline(`./tools_win/normalize ./tools_win/normalize_param.txt
-            #     $bpath $file $new`) )
-            run(pipeline(`./tools_linux/normalize ./tools_linux/normalize_param.txt
-                $boundpath//$boundf $file $new`) )
+            run(pipeline(`./tools_win/normalize ./tools_win/normalize_param.txt
+                $bpath $file $new`) )
+
         end
     end
 end
 cd("C:\\Users\\AK121396\\Downloads\\performance_indi\\")
-Normalise("F:\\results\\FPBH\\MIPLIB\\","F:\\results\\performance\\bounds\\MIPLIB\\")
-Normalise("/media/ak121396/0526-8445/results/oldGPR/KP/","/media/ak121396/0526-8445/results/performance/bounds/KP/")
-cd("./")
-readdir("F:\\results\\FPBH\\KP\\1")[1][1:end-4]
+Normalise("F:/results/oldGPR/KP/","F:/results/performance/bounds/KP/")
+readdir("F:/results/performance/bounds/KP/")
+[1][1:end-4]
 
 # merged Ref file filter
 function Filter(ref)
@@ -72,7 +67,7 @@ readdir("F:/results/mergedMIP/norm/1/")[1][1:end-9]
 #KirlikSayin (Reference file) obj normalisation
 function Ref_normalise(refpath,boundpath)
     prob = readdir(refpath)
-    for i=1:length(prob)
+    for i=3:3#length(prob)
         insts = readdir(refpath*prob[i])
         for j=1:length(insts)
             file = refpath*prob[i]*"/"*insts[j]
@@ -85,16 +80,15 @@ function Ref_normalise(refpath,boundpath)
             bounds = readdir(boundpath*dirn); boundf = bounds[j]
             # bounds = readdir(boundpath*prob[i]);  boundf = bounds[j] #for AP,KP,FLP
             # ./normalize [<paramfile>] <boundfile> <datafile> <outfile>
-            # run(pipeline(`./tools_win/normalize ./tools_win/normalize_param.txt
-            #     $boundpath\\$dirn\\$boundf $file $new`))
-            run(pipeline(`../tools_linux/normalize ../tools_linux/normalize_param.txt
-                $boundpath/$dirn/$boundf $file $new`))
+            run(pipeline(`./tools_win/normalize ./tools_win/normalize_param.txt
+                $boundpath\\$dirn\\$boundf $file $new`))
+
         end
     end
 end
 
-Ref_normalise("F:\\results\\mergedMIP\\","F:\\results\\performance\\bounds\\MIPLIB\\")
-readdir("F:\\results\\mergedMIP\\1\\")[1][1:end-4]
+Ref_normalise("F:\\results\\KS\\","F:\\results\\performance\\bounds\\")
+readdir("F:\\results\\KS\\")#[1][1:end-4]
 Ref_normalise("/media/ak121396/0526-8445/results/KS/",)
 
 1
@@ -120,9 +114,9 @@ end
 
 ############################    WINDOWS     ####################################
 cd("./indicators_win/")
-readdir("F:\\results\\FPBH\\FLP\\norm\\1")[1][1:end-9]
-Measures("F:\\results\\FPBH\\FLP\\norm\\","F:\\results\\KS\\norm\\FLP\\",
-    "F:/results/performance/ep/FLP\\", "F:/results/performance/hv/FLP\\")
+readdir("F:\\results\\oldGPR\\KP\\norm\\1")#[1][1:end-9]
+Measures("F:\\results\\oldGPR\\KP\\norm\\","F:\\results\\KS\\norm\\KP\\",
+    "F:/results/performance/GPR/ep/KP/", "F:/results/performance/GPR/hv/KP/")
 
 ###############################  Linux    ######################################
 cd("/home/ak121396/Downloads/performance_indi/indicators_linux/")
