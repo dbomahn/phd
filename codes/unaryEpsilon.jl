@@ -51,23 +51,35 @@ readdlm("/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intKP_Y/KP_p-3_n-010_
 
 ########################## obj file converter   ################
 
-files = readdir("F:/results/Kirlikoutput\\FLP\\")
-for i=1:length(files)
-    fname = files[i]
-    P = readdlm("F:/results/Kirlikoutput\\FLP\\"*fname)
-    ins = fname[1:end-6]
-    CSV.write("F:/results/KS/FLP/"*"$ins"*"txt",DataFrame(P, :auto),header=false, delim=' ' )
+fdir = "F:/results/fpbh/MIPLIB/"
+gdir = "F:/results/gpr/MIPLIB/"
+n = readdir(gdir)
+
+# gname = readdir(gdir*"/"*gn[1]); fname = readdir(fdir*"/"*fn[1])
+# F = readdlm(fdir*"/"*fn[2]*"/"*fname[1])
+# G = readdlm(gdir*"/"*gn[2]*"/"*gname[1])
+ins = fname[1:end-3]
+fname
+for i=2:5
+    gname = readdir(gdir*"/"*gn[i]); fname = readdir(fdir*"/"*fn[i])
+    for j=1:5
+        F = readdlm(fdir*"/"*n[i]*"/"*fname[j])
+        G = readdlm(gdir*"/"*n[i]*"/"*gname[j])
+        P = vcat(F,G)
+        ins = fname[j][1:end-3]
+        CSV.write("F:/results/mergedMIP/$i"*"/$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
+    end
 end
 
-fdir = readdir("/home/ak1")
-for j=1:length(fdir)
+fdir = readdir("F:/results/fpbh/MIPLIB\\")
+for j=1:1#length(fdir)-1
     cdir = fdir[j]
-    files = readdir("F:/results/fpbh\\"*cdir)
-    for i=1:length(files)
+    files = readdir("F:/results/fpbh\\MIPLIB/"*cdir)
+    for i=1:length(files)-1
         fname = files[i]
-        P = readdlm("F:/results/fpbh\\"*cdir*"/"*fname)
+        P = readdlm("F:/results/fpbh/MIPLIB\\"*cdir*"/"*fname)
         ins = fname[1:end-7]
-        CSV.write("F:/results/f/KP/$j/"*"$ins"*"txt",DataFrame(P, :auto),header=false, delim=' ' )
+        CSV.write("F:/results/fpbh/MIPLIB\\"*cdir*"/"*"$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
     end
 end
 cdir = fdir[1]

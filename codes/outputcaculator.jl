@@ -66,6 +66,23 @@ dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
 sol = readdir(dir3)
 tb = zeros(10,2); tt = zeros(10,2);
 
+
+dir2 = "F:/results/fpbh/MIPLIB/"
+lendir = readdir(dir2)
+mftime = []
+
+# trecords = readdir(dir2*"/1/time/")
+cput = readdlm(dir2*"/1/time/"*trecords[1])
+#
+# 1
+for i=1:length(lendir)-1
+    trecords = readdir(dir2*"/$i/time/")
+    for j=1:length(trecords)
+        cput = readdlm(dir2*"/$i/time/"*trecords[j])[1]
+        push!(mftime,cput)
+    end
+end
+
 for i=1:10
     for j=1:10
         k=(i-1)*10+j
@@ -78,6 +95,12 @@ for i=1:10
     tt[i,2]=round(mean(tb[:,2]),digits=1)
 end
 
+
+mean([mftime[1],mftime[5],mftime[10],mftime[15],mftime[20]])
+mean([mftime[2],mftime[6],mftime[11],mftime[16],mftime[21]])
+mean([mftime[7],mftime[12],mftime[17]])
+mean([mftime[3],mftime[7],mftime[13],mftime[18],mftime[22]])
+mean([mftime[4],mftime[8],mftime[14],mftime[19],mftime[23]])
 r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
 tt[:,2]
 tt[:,1]

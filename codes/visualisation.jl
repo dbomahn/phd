@@ -1,25 +1,4 @@
-using PlotlyJS,DataFrames,DelimitedFiles,Colors
-
-function box4(t1,t2,t3)
-    trace1 = box(;y=t1,
-                  name="GPR",
-                  marker_color="#3D9970")
-    trace2 = box(;y=t2,
-                  name="FPBH",
-                  marker_color="#FF851B")
-    trace3 = box(;y=t3,
-    # [0.1, 0.3, 0.1, 0.9, 0.6, 0.6, 0.9, 1.0, 0.3, 0.6, 0.8, 0.5],
-                  name="KS",
-                  marker_color="rgb(107, 174, 214)",)
-    data = [trace1, trace2, trace3]
-    layout = Layout(;yaxis=attr(title="HV", zeroline=false))#paper_bgcolor="white", plot_bgcolor="white" ,boxmode="group")
-    plot(data, layout)
-end
-box4()
-
-1
-
-
+using PlotlyJS,DataFrames,DelimitedFiles,Colors,RDatasets
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
 
 ##########################     3D Visualisation       ###########################
@@ -155,24 +134,7 @@ Plot_solution()
 
 
 #######################
-function boxtime(t1,t2,t3)
-    trace1 = box(;y=t1,
-                  name="GPR",
-                  marker_color="#3D9970")
-    trace2 = box(;y=t2,
-                  name="FPBH",
-                  marker_color="#FF851B")
-    trace3 = box(;y=t3,
-    # [0.1, 0.3, 0.1, 0.9, 0.6, 0.6, 0.9, 1.0, 0.3, 0.6, 0.8, 0.5],
-                  name="KS",
-                  marker_color="rgb(107, 174, 214)",)
-    data = [trace1, trace2, trace3]
-    layout = Layout(;yaxis=attr(title="HV", zeroline=false))#paper_bgcolor="white", plot_bgcolor="white" ,boxmode="group")
-    plot(data, layout)
-end
-boxtime()
-
-function boxmeasure(t1,t2,t3,t4,t5,t6)
+function boxmeasure(t1,t2,t3,t4,t5,t6,t7,t8)
     trace1 = box(;y=t1,
                   name="AP_GPR",
                   marker_color="#3D9970")
@@ -191,13 +153,52 @@ function boxmeasure(t1,t2,t3,t4,t5,t6)
     trace6 = box(;y=t6,
                 name="FLP_FPBH",
                 marker_color="#FF851B")
-                #               marker_color="rgb(107, 174, 214)",)
-    data = [trace1,trace2,trace3,trace4,trace5,trace6]
-    layout = Layout(;yaxis=attr(boxmode="group", title="HV indicator value", zeroline=false))#paper_bgcolor="white", plot_bgcolor="white" )yaxis_type="log"
+    # trace7 = box(;y=t7,
+    #             name="MIP_FPGPR",
+    #             marker_color="#3D9970")
+    # trace8 = box(;y=t8,
+    #             name="MIP_FPBH",
+    #             marker_color="#FF851B")
+                #               marker_color="rgb(107, 174, 214)" #light blue)
+    data = [trace1,trace2,trace3,trace4,trace5,trace6] #,trace7,trace8]
+    layout = Layout(;yaxis=attr(boxmode="group", title="CPU time (sec)", zeroline=true, #"HV indicator value"
+         zerolinecolor ="#969696", zerolinewidth= 4))#paper_bgcolor="white", plot_bgcolor="white" )type="log"
     PlotlyJS.plot(data, layout)
 end
-boxmeasure(ag,af,kg,kf,fg,ff)
-
+1
+function boxmeasure(t1,t2,t3,t4,t5,t6,t7,t8)
+    trace1 = box(;y=t1,
+                  name="AP_GPR",
+                  marker_color="#3D9970")
+    trace2 = box(;y=t2,
+                  name="AP_FPBH",
+                  marker_color="#FF851B")
+    trace3 = box(;y=t3,
+                  name="KP_GPR",
+                  marker_color="#3D9970")
+    trace4 = box(;y=t4,
+                  name="KP_FPBH",
+                  marker_color="#FF851B")
+    trace5 = box(;y=t5,
+                name="FLP_GPR",
+                marker_color="#3D9970")
+    trace6 = box(;y=t6,
+                name="FLP_FPBH",
+                marker_color="#FF851B")
+    # trace7 = box(;y=t7,
+    #             name="MIP_FPGPR",
+    #             marker_color="#3D9970")
+    # trace8 = box(;y=t8,
+    #             name="MIP_FPBH",
+    #             marker_color="#FF851B")
+                #               marker_color="rgb(107, 174, 214)" #light blue)
+    data = [trace1,trace2,trace3,trace4,trace5,trace6] #,trace7,trace8]
+    layout = Layout(;yaxis=attr(boxmode="group", title="CPU time (sec)", zeroline=true, #"HV indicator value"
+         zerolinecolor ="#969696", zerolinewidth= 4))#paper_bgcolor="white", plot_bgcolor="white" )type="log"
+    PlotlyJS.plot(data, layout)
+end
+# boxmeasure(ag,af,kg,kf,fg,ff,mg,mf)
+boxmeasure(gapt,fapt,gkpt,fkpt,gflpt,fflpt) #,gmipt,fmipt)
 
 function CollectVal(path1,path2)
     iter = readdir(path1)
@@ -214,9 +215,20 @@ end
 ag,af = CollectVal("F:/results/performance\\GPR/hv/AP/","F:/results/performance/FPBH/hv/AP/")
 kg,kf = CollectVal("F:/results\\performance/GPR/hv/KP/","F:\\results/performance/FPBH/hv/KP/")
 fg,ff = CollectVal("F:/results/performance/GPR/hv/FLP/","F:/results/performance/FPBH/hv/FLP/")
+mg,mf = CollectVal("F:/results/performance\\GPR/hv/MIPLIB/","F:/results/performance/FPBH/hv/MIPLIB/")
 
+ag,af = CollectVal("F:/results/performance\\GPR/ep/AP/","F:/results/performance/FPBH/ep/AP/")
+kg,kf = CollectVal("F:/results\\performance/GPR/ep/KP/","F:\\results/performance/FPBH/ep/KP/")
+fg,ff = CollectVal("F:/results/performance/GPR/ep/FLP/","F:/results/performance/FPBH/ep/FLP/")
+mg,mf = CollectVal("F:/results/performance\\GPR/ep/MIPLIB/","F:/results/performance/FPBH/ep/MIPLIB/")
+boxmeasure(ag,af,kg,kf,fg,ff,mg,mf)
 
+gflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+gkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+gapt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+gmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 
-findall(x->x<0 ,kg)
-
-boxmeasure(agtime,aftime,kgtime,kftime,fgtime,fftime)
+fapt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+fkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+fflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+# fmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
