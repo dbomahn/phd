@@ -19,8 +19,6 @@ readdir("/home/ak121396/Desktop/instances/MIPLIB(official)/LP/")
 numsol = size(yval)
 
 
-
-
 # direc = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK//"
 # direc = "/home/ak121396/Desktop/FPBH/AP/2minTL/time/"
 #cluPR results
@@ -61,39 +59,43 @@ for i=1:7
 end
 #FPBH records
 dir2 = "/home/ak121396/Desktop/FPBH/AP/time/"
+dir2 = "F://results/performance/GPR/ep/MIPLIB\\"
 cput = readdir(dir2)
-dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
+# dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
+dir3 = "F://results/performance/FPBH/ep/MIPLIB\\"
 sol = readdir(dir3)
-tb = zeros(10,2); tt = zeros(10,2);
 
-
-dir2 = "F:/results/fpbh/MIPLIB/"
-lendir = readdir(dir2)
-mftime = []
-
-# trecords = readdir(dir2*"/1/time/")
-cput = readdlm(dir2*"/1/time/"*trecords[1])
-#
-# 1
-for i=1:length(lendir)-1
-    trecords = readdir(dir2*"/$i/time/")
-    for j=1:length(trecords)
-        cput = readdlm(dir2*"/$i/time/"*trecords[j])[1]
-        push!(mftime,cput)
+function calculate(nins,rep,dir)
+    tb = zeros(nins,1); tt = zeros(nins,1);
+    iter = readdir(dir)
+    allt = zeros(nins,rep)
+    for l=1:length(iter)-1
+        pth = dir*iter[l]*"/"
+        files = readdir(pth)
+        for i=1:rep
+            for j=1:nins
+                k=(i-1)*rep+j
+                # t = readdlm(dir2*cput[k], ',' ,Float64)
+                s = readdlm(pth*files[k] ,Float64)[1]
+                tb[j,1] = s #t[1];
+                # tb[j,1] = size(s)[1];
+            end
+            # tt[i,1] = round(mean(tb[:,1]),digits=1);
+            tt[i,1]=round(mean(tb[:,1]),digits=3)
+        end
+        allt[:,l]=tt[:,1]
     end
+    avgy = [mean(allt[i,:]) for i=1:nins]
+    return avgy
 end
 
-for i=1:10
-    for j=1:10
-        k=(i-1)*10+j
-        t = readdlm(dir2*cput[k], ',' ,Float64)
-        s = readdlm(dir3*sol[k] ,Float64)
-        tb[j,1] = t[1];
-        tb[j,2] = size(s)[1];
-    end
-    tt[i,1] = round(mean(tb[:,1]),digits=1);
-    tt[i,2]=round(mean(tb[:,2]),digits=1)
-end
+
+
+
+avgy = calculate(10,10,dir3)
+avgy = calculate(10,10,dir2)
+# avgy = [mean(allt[i,:]) for i=1:10]
+round.(avgy,digits=3)
 
 
 mean([mftime[1],mftime[5],mftime[10],mftime[15],mftime[20]])
@@ -105,6 +107,21 @@ r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
 tt[:,2]
 tt[:,1]
 CSV.write("/home/ak121396/Documents/FPBH.ods", r)
+
+lendir = readdir(dir3)
+tb = zeros(5,1); tb2 = zeros(5,5)
+
+for i=2:length(lendir)
+    records = readdir(dir3*"/$i/")
+    for j=1:length(records)
+        c = readdlm(dir3*"/$i/"*records[j])[1]
+        tb2[j,i-1] = c
+    end
+    # tb2[:,i-1] = tb
+end
+tb2
+my = [mean(tb2[i,1:4]) for i=1:5]
+round.(my,digits=3)
 
 for i=1:12
     f = readdlm(dir*f2[i], ',' ,Float64)
@@ -170,33 +187,6 @@ for i=1:12
     tb2[i,1] = mean(tb[:,i])
 end
 tb2
-
-##########################################################################
-direc = "/home/ak121396/multiobjective/solvers/ep+FP/FPepresults/"
-# "/home/ak121396/Desktop/FPep2hr/record/"
-folders = readdir(direc)
-tb = zeros(7,3)
-for i=1:7
-    f = readdlm(direc*folders[i],',',Float64)
-    for k=1:3
-        tb[i,k] = mean(f[:,k])
-    end
-end
-
-direc = "/home/ak121396/multiobjective/solvers/ep+FP/ep_results/"  # "/home/ak121396/Desktop/epsilon2hr/record/"
-
-folders = readdir(direc)#[4:14]
-tb = zeros(12,8)
-for i=1:12
-    f = readdlm(direc*folders[i],',',Float64)
-    for k=1:8
-        tb[i,k] = mean(f[:,k])
-    end
-end
-################################
-
-
-
 
 
 # ep2 = readdlm("/home/ak121396/Downloads/KirlikSayin2014/ndf/10_020_02.txt.lp.ndf")
