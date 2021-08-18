@@ -185,6 +185,22 @@ function boxmeasure(t1,t2,t3,t4,t5,t6,t7,t8)
     trace6 = box(;y=t6,
                 name="FLP_FPBH",
                 marker_color="#FF851B")
+                #               marker_color="rgb(107, 174, 214)",)
+    data = [trace1,trace2,trace3,trace4,trace5,trace6]
+    # layout = Layout(;yaxis=attr(type="log",boxmode="group", title="HV indicator value",zeroline=true zerolinecolor="rgb(255, 255, 255)",
+    #                             zerolinewidth=2,  margin=attr(l=40, r=30, b=80, t=100) ))#paper_bgcolor="white", plot_bgcolor="white" )yaxis_type="log"
+    layout = Layout(;yaxis=attr(type="log",autorange=true, showgrid=true, zeroline=true,
+                                   dtick=5, gridcolor="rgb(255, 255, 255)",
+                                   gridwidth=1,
+                                   zerolinecolor="rgb(255, 255, 255)",
+                                   zerolinewidth=2),
+                        margin=attr(l=40, r=30, b=80, t=100),
+                        paper_bgcolor="rgb(243, 243, 243)",
+                        plot_bgcolor="rgb(243, 243, 243)",
+                        showlegend=false)
+
+
+
     # trace7 = box(;y=t7,
     #             name="MIP_FPGPR",
     #             marker_color="#3D9970")
@@ -215,6 +231,17 @@ end
 ag,af = CollectVal("F:/results/performance\\GPR/hv/AP/","F:/results/performance/FPBH/hv/AP/")
 kg,kf = CollectVal("F:/results\\performance/GPR/hv/KP/","F:\\results/performance/FPBH/hv/KP/")
 fg,ff = CollectVal("F:/results/performance/GPR/hv/FLP/","F:/results/performance/FPBH/hv/FLP/")
+
+
+ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/hv/AP/","/media/ak121396/0526-8445/results/performance/FPBH/hv/AP/")
+kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/hv/KP/","/media/ak121396/0526-8445/results/performance/FPBH/hv/KP/")
+fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/hv/FLP/","/media/ak121396/0526-8445/results/performance/GPR/hv/FLP/")
+
+
+findall(x->x<0 ,kg)
+
+boxmeasure(agtime,aftime,kgtime,kftime,fgtime,fftime)
+
 mg,mf = CollectVal("F:/results/performance\\GPR/hv/MIPLIB/","F:/results/performance/FPBH/hv/MIPLIB/")
 
 ag,af = CollectVal("F:/results/performance\\GPR/ep/AP/","F:/results/performance/FPBH/ep/AP/")
@@ -232,3 +259,4 @@ fapt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 fkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 fflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 # fmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
+
