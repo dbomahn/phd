@@ -62,65 +62,46 @@ dir2 = "/home/ak121396/Desktop/FPBH/AP/time/"
 dir2 = "F://results/performance/GPR/ep/MIPLIB\\"
 cput = readdir(dir2)
 # dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
-dir3 = "F://results/performance/FPBH/ep/MIPLIB\\"
-sol = readdir(dir3)
+dir3 = "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/"
 
-function calculate(nins,rep,dir)
-    tb = zeros(nins,1); tt = zeros(nins,1);
-    iter = readdir(dir)
-    allt = zeros(nins,rep)
-    for l=1:length(iter)-1
-        pth = dir*iter[l]*"/"
+function calculate(nins,rep,subclas,dir)
+    tb = zeros(nins,1); tt = zeros(subclas,1);
+    allt = zeros(subclas,rep)
+    for l=1:rep
+        pth = dir*"$l/"
         files = readdir(pth)
-        for i=1:rep
+        for i=1:subclas
             for j=1:nins
-                k=(i-1)*rep+j
-                # t = readdlm(dir2*cput[k], ',' ,Float64)
+                k=(i-1)*nins+j
                 s = readdlm(pth*files[k] ,Float64)[1]
                 tb[j,1] = s #t[1];
-                # tb[j,1] = size(s)[1];
             end
-            # tt[i,1] = round(mean(tb[:,1]),digits=1);
             tt[i,1]=round(mean(tb[:,1]),digits=3)
         end
         allt[:,l]=tt[:,1]
     end
-    avgy = [mean(allt[i,:]) for i=1:nins]
-    return avgy
+    return avgy = [mean(allt[i,:]) for i=1:subclas]
+    # return round.(avgy,digits=3)
 end
 
-
-
-
-avgy = calculate(10,10,dir3)
-avgy = calculate(10,10,dir2)
-# avgy = [mean(allt[i,:]) for i=1:10]
+avgy = calculate(10,5,10,dir3)
 round.(avgy,digits=3)
+# avgy = [mean(allt[i,:]) for i=1:10]
 
-
-mean([mftime[1],mftime[5],mftime[10],mftime[15],mftime[20]])
-mean([mftime[2],mftime[6],mftime[11],mftime[16],mftime[21]])
-mean([mftime[7],mftime[12],mftime[17]])
-mean([mftime[3],mftime[7],mftime[13],mftime[18],mftime[22]])
-mean([mftime[4],mftime[8],mftime[14],mftime[19],mftime[23]])
-r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
-tt[:,2]
-tt[:,1]
-CSV.write("/home/ak121396/Documents/FPBH.ods", r)
 
 lendir = readdir(dir3)
 tb = zeros(5,1); tb2 = zeros(5,5)
 
-for i=2:length(lendir)
+for i=1:length(lendir)
     records = readdir(dir3*"/$i/")
     for j=1:length(records)
         c = readdlm(dir3*"/$i/"*records[j])[1]
-        tb2[j,i-1] = c
+        tb2[j,i] = c
     end
     # tb2[:,i-1] = tb
 end
 tb2
-my = [mean(tb2[i,1:4]) for i=1:5]
+my = [mean(tb2[i,:]) for i=1:5]
 round.(my,digits=3)
 
 for i=1:12

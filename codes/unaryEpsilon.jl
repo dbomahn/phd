@@ -60,7 +60,7 @@ n = readdir(gdir)
 # G = readdlm(gdir*"/"*gn[2]*"/"*gname[1])
 ins = fname[1:end-3]
 fname
-for i=2:5
+for i=6:10
     gname = readdir(gdir*"/"*gn[i]); fname = readdir(fdir*"/"*fn[i])
     for j=1:5
         F = readdlm(fdir*"/"*n[i]*"/"*fname[j])

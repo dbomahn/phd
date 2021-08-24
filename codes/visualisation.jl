@@ -1,4 +1,4 @@
-using PlotlyJS,DataFrames,DelimitedFiles,Colors,RDatasets
+using PlotlyJS,DataFrames,DelimitedFiles,Colors
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
 
 ##########################     3D Visualisation       ###########################
@@ -35,9 +35,6 @@ layout = Layout(width=600, height=600, autosize=true, title=title,
                            aspectratio=attr(x=1, y=1, z=1),
                            aspectmode = "manual"))
 PlotlyJS.plot(data, layout)
-
-
-
 
 ###############################  Clustering  #################################
 epx=points[1,:]; epy=points[2,:]; epz=points[3,:]
@@ -134,87 +131,58 @@ Plot_solution()
 
 
 #######################
-function boxmeasure(t1,t2,t3,t4,t5,t6,t7,t8)
-    trace1 = box(;y=t1,
-                  name="AP_GPR",
-                  marker_color="#3D9970")
-    trace2 = box(;y=t2,
-                  name="AP_FPBH",
-                  marker_color="#FF851B")
-    trace3 = box(;y=t3,
-                  name="KP_GPR",
-                  marker_color="#3D9970")
-    trace4 = box(;y=t4,
-                  name="KP_FPBH",
-                  marker_color="#FF851B")
-    trace5 = box(;y=t5,
-                name="FLP_GPR",
-                marker_color="#3D9970")
-    trace6 = box(;y=t6,
-                name="FLP_FPBH",
-                marker_color="#FF851B")
-    # trace7 = box(;y=t7,
-    #             name="MIP_FPGPR",
-    #             marker_color="#3D9970")
-    # trace8 = box(;y=t8,
-    #             name="MIP_FPBH",
-    #             marker_color="#FF851B")
-                #               marker_color="rgb(107, 174, 214)" #light blue)
-    data = [trace1,trace2,trace3,trace4,trace5,trace6] #,trace7,trace8]
-    layout = Layout(;yaxis=attr(boxmode="group", title="CPU time (sec)", zeroline=true, #"HV indicator value"
-         zerolinecolor ="#969696", zerolinewidth= 4))#paper_bgcolor="white", plot_bgcolor="white" )type="log"
-    PlotlyJS.plot(data, layout)
+x0 = []
+for i=1:600
+    push!(x0,"TOFLP")
 end
-1
-function boxmeasure(t1,t2,t3,t4,t5,t6,t7,t8)
-    trace1 = box(;y=t1,
-                  name="AP_GPR",
-                  marker_color="#3D9970")
-    trace2 = box(;y=t2,
-                  name="AP_FPBH",
-                  marker_color="#FF851B")
-    trace3 = box(;y=t3,
-                  name="KP_GPR",
-                  marker_color="#3D9970")
-    trace4 = box(;y=t4,
-                  name="KP_FPBH",
-                  marker_color="#FF851B")
-    trace5 = box(;y=t5,
-                name="FLP_GPR",
-                marker_color="#3D9970")
-    trace6 = box(;y=t6,
-                name="FLP_FPBH",
-                marker_color="#FF851B")
-                #               marker_color="rgb(107, 174, 214)",)
-    data = [trace1,trace2,trace3,trace4,trace5,trace6]
-    # layout = Layout(;yaxis=attr(type="log",boxmode="group", title="HV indicator value",zeroline=true zerolinecolor="rgb(255, 255, 255)",
-    #                             zerolinewidth=2,  margin=attr(l=40, r=30, b=80, t=100) ))#paper_bgcolor="white", plot_bgcolor="white" )yaxis_type="log"
-    layout = Layout(;yaxis=attr(type="log",autorange=true, showgrid=true, zeroline=true,
-                                   dtick=5, gridcolor="rgb(255, 255, 255)",
-                                   gridwidth=1,
-                                   zerolinecolor="rgb(255, 255, 255)",
-                                   zerolinewidth=2),
-                        margin=attr(l=40, r=30, b=80, t=100),
-                        paper_bgcolor="rgb(243, 243, 243)",
-                        plot_bgcolor="rgb(243, 243, 243)",
-                        showlegend=false)
+gt = vcat(gap,gkp,gflp)
+ft = vcat(fap,fkp,fflp)
 
-
-
-    # trace7 = box(;y=t7,
-    #             name="MIP_FPGPR",
-    #             marker_color="#3D9970")
-    # trace8 = box(;y=t8,
-    #             name="MIP_FPBH",
-    #             marker_color="#FF851B")
-                #               marker_color="rgb(107, 174, 214)" #light blue)
-    data = [trace1,trace2,trace3,trace4,trace5,trace6] #,trace7,trace8]
-    layout = Layout(;yaxis=attr(boxmode="group", title="CPU time (sec)", zeroline=true, #"HV indicator value"
-         zerolinecolor ="#969696", zerolinewidth= 4))#paper_bgcolor="white", plot_bgcolor="white" )type="log"
-    PlotlyJS.plot(data, layout)
+x1 = copy(x0)
+for i=1501:1525
+    # push!(x1,"TOMIPLIB")
+    x2[i] = "TOMIPLIB"
 end
-# boxmeasure(ag,af,kg,kf,fg,ff,mg,mf)
-boxmeasure(gapt,fapt,gkpt,fkpt,gflpt,fflpt) #,gmipt,fmipt)
+
+gt2 = vcat(gap,gkp,gflp,gmip)
+ft2 = vcat(fap,fkp,fflp,fmip)
+function HVbox(x0,t1,t2)
+    trace1 = box(;y=t1,
+                  x=x0,
+                  name="FPBH",
+                  marker_color="#FF4136")
+    trace2 = box(;y=t2,
+                  x=x0,
+                  name="GPR",
+                  marker_color="#3D9970")
+    data = [trace1, trace2]
+    layout = Layout(;yaxis=attr(title="HV indicator value", zeroline=false),
+                    boxmode="group")
+    plot(data, layout)
+end
+function epbox(x0,t1,t2)
+    trace1 = box(;y=t1,
+                  x=x0,
+                  name="FPBH",
+                  marker_color="#FF4136")
+    trace2 = box(;y=t2,
+                  x=x0,
+                  name="GPR",
+                  marker_color="#3D9970")
+    data = [trace1, trace2]
+    layout = Layout(;yaxis=attr(title="unary ϵ indicator value", zeroline=false),boxmode="group")
+    plot(data, layout)
+end
+
+# box4(x0,ft,gt) #for AP/KP/FLP
+HVbox(x1,ft2,gt2) # including MIPLIB
+epbox(x2,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
+
+x2 = x1[101:end]
+
+mipHVbox(hf[1,:],hg[1,:],hf[2,:],hg[2,:],hf[3,:],hg[3,:],hf[4,:],hg[4,:],hf[5,:],hg[5,:])
+epsbox(ef[1,:],eg[1,:],ef[2,:],eg[2,:],ef[3,:],eg[3,:])
+
 
 function CollectVal(path1,path2)
     iter = readdir(path1)
@@ -228,27 +196,17 @@ function CollectVal(path1,path2)
     end
     return trace1,trace2
 end
-ag,af = CollectVal("F:/results/performance\\GPR/hv/AP/","F:/results/performance/FPBH/hv/AP/")
-kg,kf = CollectVal("F:/results\\performance/GPR/hv/KP/","F:\\results/performance/FPBH/hv/KP/")
-fg,ff = CollectVal("F:/results/performance/GPR/hv/FLP/","F:/results/performance/FPBH/hv/FLP/")
-
-
-ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/hv/AP/","/media/ak121396/0526-8445/results/performance/FPBH/hv/AP/")
-kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/hv/KP/","/media/ak121396/0526-8445/results/performance/FPBH/hv/KP/")
-fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/hv/FLP/","/media/ak121396/0526-8445/results/performance/GPR/hv/FLP/")
-
-
-findall(x->x<0 ,kg)
-
-boxmeasure(agtime,aftime,kgtime,kftime,fgtime,fftime)
-
-mg,mf = CollectVal("F:/results/performance\\GPR/hv/MIPLIB/","F:/results/performance/FPBH/hv/MIPLIB/")
+ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/AP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/AP/")
+kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/KP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/KP/")
+fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/FLP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/FLP/")
+mg,mf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/","/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/")
 
 ag,af = CollectVal("F:/results/performance\\GPR/ep/AP/","F:/results/performance/FPBH/ep/AP/")
 kg,kf = CollectVal("F:/results\\performance/GPR/ep/KP/","F:\\results/performance/FPBH/ep/KP/")
 fg,ff = CollectVal("F:/results/performance/GPR/ep/FLP/","F:/results/performance/FPBH/ep/FLP/")
 mg,mf = CollectVal("F:/results/performance\\GPR/ep/MIPLIB/","F:/results/performance/FPBH/ep/MIPLIB/")
-boxmeasure(ag,af,kg,kf,fg,ff,mg,mf)
+epsbox(af,ag,kf,kg,ff,fg)
+,mg,mf)
 
 gflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 gkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
@@ -260,3 +218,59 @@ fkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 fflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 # fmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 
+
+hg = reshape(gmip,(5,5)); hf = reshape(fmip, (5,5))
+eg = reshape(mg,(5,5)); ef = reshape(mf, (5,5))
+
+
+
+
+
+
+# function groupbox(t1,t2,t3,t4,t5,t6,t7,t8)
+#     trace1 = box(;y=t1,name="AP_FPBH", marker_color="rgb(255, 76, 27)")
+#     trace2 = box(;y=t2,name="AP_GPR", marker_color="#3D9970")
+#     trace3 = box(;y=t3, name="KP_FPBH", marker_color="rgb(255, 76, 27)")
+#     trace4 = box(;y=t4, name="KP_GPR", marker_color="#3D9970")
+#     trace5 = box(;y=t5, name="FLP_FPBH", marker_color="rgb(255, 76, 27)")
+#     trace6 = box(;y=t6, name="FLP_GPR", marker_color="#3D9970")
+#     trace7 = box(;y=t7, name="neos151", marker_color="rgb(255, 76, 27)")
+#     trace8 = box(;y=t8, name="neos151", marker_color="#3D9970")
+#     data = [trace1,trace2,trace3,trace4,trace5,trace6,trace7,trace8]
+#     layout = Layout(;yaxis=attr(boxmode="group", title="HV indicator value"))#unary epsilon indicator value
+#     PlotlyJS.plot(data, layout)
+# end
+# function mipHVbox(t1,t2,t3,t4,t5,t6,t7,t8,t9,t10)
+#     trace1 = box(;y=t1,
+#                   name="cvs08",
+#                   marker_color="rgb(255, 76, 27)")
+#     trace2 = box(;y=t2,
+#                   name="cvs08",
+#                   marker_color="rgb(54, 128, 56)")
+#     trace3 = box(;y=t3,
+#                   name="cvs16",
+#                   marker_color="rgb(255, 76, 27)")
+#     trace4 = box(;y=t4,
+#                   name="cvs16",
+#                  marker_color="rgb(54, 128, 56)")
+#     trace5 = box(;y=t5,
+#                 name="n2seq",
+#                 marker_color="rgb(255, 76, 27)")
+#     trace6 = box(;y=t6,
+#                 name="n2seq",
+#                 marker_color="rgb(54, 128, 56)")
+#                 #               marker_color="rgb(107, 174, 214)",)
+#     data = [trace1,trace2,trace3,trace4,trace5,trace6]
+#     trace9 = box(;y=t9,
+#                 name="neos159",
+#                 marker_color="rgb(255, 76, 27)")
+#     trace10 = box(;y=t10,
+#                 name="neos159",
+#                 marker_color="rgb(54, 128, 56)")
+#     data = [trace1,trace2,trace3,trace4,trace5,trace6,trace7,trace8,trace9,trace10]
+#     layout = Layout(;xaxis = attr(title = "TOMIPLIB instances"),
+#         yaxis=attr(boxmode="group", title="HV indicator value", type="log"))#unary epsilon indicator value
+#         # zeroline=true, zerolinecolor ="#969696", zerolinewidth= 4,
+#         # paper_bgcolor="white",plot_bgcolor="white", #type="log"
+#     PlotlyJS.plot(data, layout)
+# end

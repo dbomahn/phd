@@ -53,54 +53,6 @@ function fpprHV(fp,fpfiles,pr,prfiles,num) #,pr2,prfiles2,pr3,prfiles3,ks,ksfile
     end
     return tb
 end
-
-# for
-i=15;fpfiles[i] #1:num
-j=22;prfiles[j]
-tb = zeros(i,2);
-
-fpobj = readdlm(fp*fpfiles[i])
-probj = readdlm(pr*prfiles[j])
-# probj2 = readdlm(pr2*prfiles2[i]);probj3 = readdlm(pr3*prfiles3[i]);
-# ksobj = readdlm(ks*(ksfiles[i]))
-if (0;0;0 in fpobj)
-  probj = [probj;0 0 0]
-end
-x = [fpobj[:,1]; probj[:,1]]; #;probj2[:,1];probj3[:,1]; ksobj[:,1]]
-y = [fpobj[:,2]; probj[:,2]]; #;probj2[:,1];probj3[:,1];ksobj[:,2]]
-z = [fpobj[:,3]; probj[:,3]]; #;probj2[:,1];probj3[:,1];ksobj[:,3]]
-
-ideal = [minimum(x),minimum(y),minimum(z)];
-nadir = [maximum(x),maximum(y),maximum(z)];
-
-# FPBH HV calculation
-r = size(fpobj)[1]
-norm = zeros(r,3)
-for k=1:r
-    norm[k,1] = (fpobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1]);
-    norm[k,2] = (fpobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2]);
-    norm[k,3] = (fpobj[:,3][k]-ideal[3])/(nadir[3]-ideal[3]);
-end
-# dfE = normz,normy,normx;
-Y=DataFrame(norm, :auto);
-CSV.write(fp*fpfiles[i][1:end-7]*"normal_Y.csv",Y, header=false, delim=' ' )
-cd("/home/ak121396/Downloads/hv-1.3-src")
-smetric1 =readlines( pipeline(`./hv -r "2 2 2" $(fp*fpfiles[i][1:end-7]*"normal_Y.csv")`))
-tb[i,1] = parse(Float64,smetric1[1]);
-
-# GPR HV calculation
-u = size(probj)[1]
-norm = zeros(u,3)
-for k=1:u
-    norm[k,1] = (probj[:,1][k]-ideal[1])/(nadir[1]-ideal[1]);
-    norm[k,2] = (probj[:,2][k]-ideal[2])/(nadir[2]-ideal[2]);
-    norm[k,3] = (probj[:,3][k]-ideal[3])/(nadir[3]-ideal[3]);
-end
-Y = DataFrame(norm, :auto);
-CSV.write(pr*prfiles[j][1:end-6]*"_normal_Y.csv",Y, header=false, delim=' ' )
-smetric2 =readlines( pipeline(`./hv -r "2 2 2" $(pr*prfiles[j][1:end-6]*"_normal_Y.csv")`))
-tb[i,2] = parse(Float64,smetric2[1]);
-
 ####################################LINUX###################################
 # ksdir = "/home/ak121396/Desktop/solvers/Kirlikoutput/FLP/ndf/"
 ksdir = "F://results/KS/AP/"
@@ -115,7 +67,8 @@ prfiles = readdir(pr)
 ###################################################
 function normHV(ksdir,ksfiles,dir,files,i)
   ksobj = readdlm(ksdir*ksfiles[i])
-  obj = round.(readdlm(dir*files[i]))
+  # obj = round.(readdlm(dir*files[i]))
+  obj = readdlm(dir*files[i])
   # if (0;0;0 in ksobj)
   #   obj = [obj; 0 0 0]
   # end
@@ -133,7 +86,7 @@ function normHV(ksdir,ksfiles,dir,files,i)
       norm[k,2] = (y[k]-ideal[2])/max((nadir[2]-ideal[2]),1)
       norm[k,3] = (z[k]-ideal[3])/max((nadir[3]-ideal[3]),1)
   end
-  Y=DataFrame(norm, :auto);
+  Y=DataFrame(norm) #, :auto);
   CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
   cd("/home/ak121396//Downloads/hv-1.3-src")
   # cd("C:/cygwin64/home/hv-1.3-src/") #WINDOWS
@@ -142,57 +95,62 @@ function normHV(ksdir,ksfiles,dir,files,i)
   return parse(Float64,smetric[1])
 end
 
+mipdir = "F:/results/mergedMIP/";
+mipdir = "/media/ak121396/0526-8445/results/mergedMIP/"
+mipfiles = readdir(mipdir)
 
-function calculateHV(ksdir,ksfiles,path,nins)
-    allt = zeros(nins,5)
-    for l=1:length(path)-1
+# filedir = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
+filedir = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
+table = zeros(5,5)
+for k=1:5
+    mipfiles = readdir(mipdir*"$k")
+    files = readdir(filedir*"$k")
+    for i=1:5#length(mipfiles)
+        hv = normHV(mipdir*"$k/",mipfiles,filedir*"$k/",files,i)
+        table[i,k] = hv
+    end
+    # tb = round(mean(table[:,1]),digits=3)
+end
+round.([mean(table[i,:]) for i=1:5],digits=3)
+
+
+function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
+    allt = zeros(subclas,rep)
+    for l=1:rep
         dir = readdir(path)
         files = readdir(path*dir[l])
-        tb = zeros(nins,1); tt = zeros(nins,1);
-        for i=1:10
-          for j=1:10
-            k = j+(i-1)*10
-            # hv = normHV(ksdir,ksfiles,ksdir,ksfiles,i)
+        tb = zeros(ins,1); tt = zeros(subclas,1);
+        for i=1:subclas
+          for j=1:ins
+            k = j+(i-1)*ins
             hv = normHV(ksdir,ksfiles,path*dir[l]*"/",files,k)
-            # hv = normHV(ksdir,ksfiles,pr,prfiles,k)
-            tb[j,i] = hv
+            tb[j,1] = hv
           end
           tt[i,1]=round(mean(tb[:,1]),digits=4)
         end
         allt[:,l]=tt[:,1]
     end
-    print(allt)
+    return(allt)
 end
+table = calculateHV(5,10,12,ksdir,ksfiles,pr)
 
-calculateHV(ksdir,ksfiles,fpbh,10)
-print(at)
-tt = []
-for i=1:12
-    a = round(mean(table[:,i]),digits=3)
-    push!(tt,a)
-end
 
-mipdir = "F:/results/mergedMIP/"; dir = readdir(mipdir)
-table = zeros(5,1); tb = zeros(5,1);
-for k=1:5
-    mipfiles = readdir(mipdir*dir[k])
-    for i=1:5
-        hv = normHV(mipdir*"$k/",mipfiles,mipdir*"$k/",mipfiles,i)
-        table[i,1] = hv
+ksdir = "/media/ak121396/0526-8445/results/mergedMIP/"
+ksfiles = readdir(ksdir)
+gmip = []
+path = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
+
+fmip = []
+path = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
+for l=1:5
+    dir = readdir(path)
+    files = readdir(path*dir[l])
+    ksfiles = readdir(ksdir*dir[l])
+    for j=1:length(files)-1
+        hv = normHV(ksdir*dir[l]*"/",ksfiles,path*dir[l]*"/",files,j)
+        # push!(gmip,hv)
+        push!(fmip,hv)
     end
-    tb = round(mean(table[:,k]),digits=3)
-end
-
-
-table = zeros(10,10)
-for i=1:10
-  for j=1:10
-    k = j+(i-1)*10
-    # hv = normHV(ksdir,ksfiles,ksdir,ksfiles,i)
-    # hv = normHV(ksdir,ksfiles,fpbh,fpfiles,k)
-    # hv = normHV(ksdir,ksfiles,pr,prfiles,k)
-    table[j,i] = hv
-  end
 end
 
 tt = []
@@ -212,45 +170,6 @@ for i=1:length(gkfiles)
   # for i=1:length(f)
   #   append!(obj,f)
 end
-
-# CPUtime
-readdlm(gfpkirlik*"log/"*gklogs[10])[3,2]
-gklogs = readdir(gfpkirlik*"/log/")
-gkcpu = 0
-for i=1:length(gklogs)
-  f = readdlm(gfpkirlik*"/log/"*gklogs[i])
-  global gkcpu = gkcpu+f[3,2]
-end
-
-########################No.solutions
-direc = "/home/ak121396/Desktop/GFPKS/20_040/ndfile/"
-# direc = "/home/ak121396/Downloads//KirlikSayin2014/ndf/"
-files = readdir(direc)
-KSnum = []
-for i=1:length(files)
-  f = readdlm(direc*files[i])
-  l,m =size(f)
-  push!(KSnum,l)
-end
-clipboard((sum(KSnum)-length(KSnum))/10)
-##average solutions of subclass instances
-avg = []
-for i=1:12
-  push!(avg,mean(launum[10*(i-1)+1:10*i]))
-end
-
-direc = "/home/ak121396/Desktop/GFP2hr/Ycubemean//"
-#epsilon2hr/Y/"
-files = readdir(direc)
-launum = []
-# f = readdlm(direc*files[1])
-for i=1:120
-  f = readdlm(direc*files[i])
-  l,m =size(f)
-  push!(launum,l)
-end
-clipboard(launum)
-
 ###############      Adding origin[0,0,0] to ndpoints     ########################
 # direc = "/home/ak121396/Desktop/epsilon2hr/Y/"
 folders = readdir(direc)[3:13]
@@ -265,9 +184,7 @@ for j in folders
     CSV.write(direc*j*"/"*i, df; append=true, writeheader=false,delim=' ')
   end
 end
-
 ########################windows ##################
-
 
 ################## Finding nadir points: the worst values among obtained points of three algorithms ##########
 # direc = "/home/ak121396/Desktop//"
