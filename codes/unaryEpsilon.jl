@@ -1,4 +1,4 @@
-using DelimitedFiles,DataFrames,CSV
+using DelimitedFiles,DataFrames
 #############################    WINDOWS    ##################################
 
 open("C:/Users/AK121396/Desktop/performance/ex3.txt","w") do io
@@ -15,10 +15,6 @@ run(pipeline(`./indicators_win/hyp_ind ./indicators_win/hyp_ind_param.txt
 F:/results/GPR/KP/1/n-010_ins-01kpY.log
 F:/results/KS/KP/KP_p-3_n-010_ins-01.txt
 C:/Users/AK121396/Desktop/performance/ex.txt
-
-
-
-
 
 ######################### Linux #######################################
 cd("/home/ak121396//Downloads/performance_indi/indicators_linux/")
@@ -49,53 +45,27 @@ readdlm("/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intKP_Y/KP_p-3_n-010_
 
 
 
-########################## obj file converter   ################
-
+########################## obj file converter: merging FPBH&GPR ################
 fdir = "F:/results/fpbh/MIPLIB/"
 gdir = "F:/results/gpr/MIPLIB/"
-n = readdir(gdir)
-
-# gname = readdir(gdir*"/"*gn[1]); fname = readdir(fdir*"/"*fn[1])
-# F = readdlm(fdir*"/"*fn[2]*"/"*fname[1])
-# G = readdlm(gdir*"/"*gn[2]*"/"*gname[1])
-ins = fname[1:end-3]
-fname
 for i=6:10
-    gname = readdir(gdir*"/"*gn[i]); fname = readdir(fdir*"/"*fn[i])
+    gname = readdir(gdir*"/$i/"); fname = readdir(fdir*"/$i/")
     for j=1:5
-        F = readdlm(fdir*"/"*n[i]*"/"*fname[j])
-        G = readdlm(gdir*"/"*n[i]*"/"*gname[j])
+        F = readdlm(fdir*"/$i/"*fname[j])
+        G = readdlm(gdir*"/$i/"*gname[j])
         P = vcat(F,G)
-        ins = fname[j][1:end-3]
+        ins = fname[j][1:end-4]
         CSV.write("F:/results/mergedMIP/$i"*"/$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
     end
 end
 
-fdir = readdir("F:/results/fpbh/MIPLIB\\")
-for j=1:1#length(fdir)-1
-    cdir = fdir[j]
-    files = readdir("F:/results/fpbh\\MIPLIB/"*cdir)
-    for i=1:length(files)-1
+############################# Convert FPBH file ###############################
+for j=6:10#length(fdir)-1
+    files = readdir("F:/results/fpbh\\MIPLIB/$j/")
+    for i=1:length(files)
         fname = files[i]
-        P = readdlm("F:/results/fpbh/MIPLIB\\"*cdir*"/"*fname)
+        P = readdlm("F:/results/fpbh/MIPLIB/$j/"*fname)
         ins = fname[1:end-7]
-        CSV.write("F:/results/fpbh/MIPLIB\\"*cdir*"/"*"$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
+        CSV.write("F:/results/fpbh/MIPLIB/$j/"*"$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
     end
 end
-cdir = fdir[1]
-files = readdir("F:/results/fpbh\\"*cdir)
-fname = files[1]
-ins = fname[1:end-7]
-readdlm("F:/results/fpbh/AP/"*cdir*"\\"*fname)
-
-
-
-
-files = readdir("C:\\Users\\AK121396\\Downloads\\fpbhmip\\")
-for i=1:length(files)
-    fname = files[i]
-    P = readdlm("C:\\Users\\AK121396\\Downloads\\fpbhmip\\"*fname)
-    ins = fname[1:end-3]
-    CSV.write("F:/results/FPBH/MIPLIB/1/"*"$ins"*"txt",DataFrame(P, :auto),header=false, delim=' ' )
-end
-fname = files[1][1:end-3]

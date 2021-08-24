@@ -1,5 +1,5 @@
 ###########################  General Record mean calulation ######################
-using Statistics,DataFrames,DelimitedFiles,CSV#,JLD2
+using Statistics,DataFrames,DelimitedFiles,CSV
 
 dir1 = "/home/ak121396/Desktop/FPBH/MIPLIP/collection/Y/"
 dir1 = "/home/ak121396/Desktop/solvers/Bensolve/MIPLIB//Y/"
@@ -59,9 +59,9 @@ for i=1:7
 end
 #FPBH records
 dir2 = "/home/ak121396/Desktop/FPBH/AP/time/"
-dir2 = "F://results/performance/GPR/ep/MIPLIB\\"
+dir2 = "F://results/performance/FPBH/ep/MIPLIB\\"
 cput = readdir(dir2)
-# dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
+dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
 dir3 = "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/"
 
 function calculate(nins,rep,subclas,dir)
@@ -84,24 +84,24 @@ function calculate(nins,rep,subclas,dir)
     # return round.(avgy,digits=3)
 end
 
-avgy = calculate(10,5,10,dir3)
+avgy = calculate(10,10,5,dir2)
 round.(avgy,digits=3)
 # avgy = [mean(allt[i,:]) for i=1:10]
 
 
-lendir = readdir(dir3)
-tb = zeros(5,1); tb2 = zeros(5,5)
+lendir = readdir(dir2)
+tb = zeros(5,1); tb2 = zeros(5,9)
 
-for i=1:length(lendir)
-    records = readdir(dir3*"/$i/")
+for i=1:9#length(lendir)
+    records = readdir(dir2*"/$i/")
     for j=1:length(records)
-        c = readdlm(dir3*"/$i/"*records[j])[1]
+        c = readdlm(dir2*"/$i/"*records[j])[1]
         tb2[j,i] = c
     end
     # tb2[:,i-1] = tb
 end
 tb2
-my = [mean(tb2[i,:]) for i=1:5]
+my = [mean(tb2[i,1:9]) for i=1:5]
 round.(my,digits=3)
 
 for i=1:12
