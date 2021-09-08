@@ -142,16 +142,30 @@ path = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
 
 fmip = []
 path = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
-for l=1:5
+
+path = "/media/ak121396/0526-8445/results/mergedMIP/"
+miphv = []
+for l=1:10
     dir = readdir(path)
-    files = readdir(path*dir[l])
-    ksfiles = readdir(ksdir*dir[l])
-    for j=1:length(files)-1
-        hv = normHV(ksdir*dir[l]*"/",ksfiles,path*dir[l]*"/",files,j)
+    files = readdir(path*"$l/")
+    ksfiles = readdir(ksdir*"$l/")
+    for j=1:length(files)
+        hv = normHV(ksdir*"$l/",ksfiles,path*"$l/",files,j)
         # push!(gmip,hv)
-        push!(fmip,hv)
+        # push!(fmip,hv)
+        push!(miphv,hv)
     end
 end
+
+mergedhv = reshape(miphv,(5,10))
+round.([mean(mergedhv[i,1:9]) for i=1:5],digits=3)
+
+
+g1 = reshape(gmip,(5,10))
+round.([mean(g1[i,1:9]) for i=1:5],digits=3)
+f1 = reshape(fmip,(5,10))
+round.([mean(f1[i,1:9]) for i=1:5],digits=3)
+
 
 tt = []
 for i=1:12

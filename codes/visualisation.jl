@@ -132,20 +132,21 @@ Plot_solution()
 
 #######################
 x0 = []
+for i=1:500
+    push!(x0,"MOKP")
+end
 for i=1:600
     push!(x0,"TOFLP")
 end
-gt = vcat(gap,gkp,gflp)
-ft = vcat(fap,fkp,fflp)
-
-x1 = copy(x0)
-for i=1501:1525
-    # push!(x1,"TOMIPLIB")
-    x2[i] = "TOMIPLIB"
+# gmip = gmip[1:end-5]
+# fmip = fmip[1:end-5]
+gt = vcat(gap,gkp,gflp,gmip)
+ft = vcat(fap,fkp,fflp,fmip)
+# x1 = copy(x0)
+for i=1:45
+    push!(x0,"TOMIPLIB")
+    # x2[i] = "TOMIPLIB"
 end
-
-gt2 = vcat(gap,gkp,gflp,gmip)
-ft2 = vcat(fap,fkp,fflp,fmip)
 function HVbox(x0,t1,t2)
     trace1 = box(;y=t1,
                   x=x0,
@@ -174,14 +175,13 @@ function epbox(x0,t1,t2)
     plot(data, layout)
 end
 
-# box4(x0,ft,gt) #for AP/KP/FLP
-HVbox(x1,ft2,gt2) # including MIPLIB
-epbox(x2,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
+HVbox(x0,ft,gt) # including MIPLIB
+x1 = x0[101:end]
+epbox(x1,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
 
-x2 = x1[101:end]
 
-mipHVbox(hf[1,:],hg[1,:],hf[2,:],hg[2,:],hf[3,:],hg[3,:],hf[4,:],hg[4,:],hf[5,:],hg[5,:])
-epsbox(ef[1,:],eg[1,:],ef[2,:],eg[2,:],ef[3,:],eg[3,:])
+# mipHVbox(hf[1,:],hg[1,:],hf[2,:],hg[2,:],hf[3,:],hg[3,:],hf[4,:],hg[4,:],hf[5,:],hg[5,:])
+# epsbox(ef[1,:],eg[1,:],ef[2,:],eg[2,:],ef[3,:],eg[3,:])
 
 
 function CollectVal(path1,path2)
@@ -219,11 +219,12 @@ fflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 # fmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 
 
-hg = reshape(gmip,(5,5)); hf = reshape(fmip, (5,5))
-eg = reshape(mg,(5,5)); ef = reshape(mf, (5,5))
+hg = reshape(gmip,(5,9)); hf = reshape(fmip, (5,9))
+eg = reshape(mg,(5,9)); ef = reshape(mf, (5,9))
 
 
-
+round.([mean(hf[i,1:9]) for i=1:5],digits=3)
+1
 
 
 
