@@ -1,5 +1,6 @@
-using DelimitedFiles,DataFrames,JuMP,CPUTime,CPLEX #DataStructures,
+using DelimitedFiles,DataFrames,JuMP,CPLEX#CPUTime, #DataStructures,
 fpath = "/home/ak121396/Desktop/instances/SCND/"
+fpath = "F:/SCND/"
 dt = readdlm(fpath*"Test1S1", '\t')
 
 notafile = readdlm(fpath*"Notations.txt", '=')
@@ -20,17 +21,20 @@ end
 ##########################  Mathematical model  #########################
 # scnd = Model(with_optimizer(GLPK.Optimizer))
 scnd = Model(CPLEX.Optimizer)
+# @variable(scnd, x[1:N["supplier"][1], 1:N["plant"][1],1:N["mode"][1]])
+@variable(scnd, y[1:N["plant"][1]+N["distribution"][1]] )
+@variable(scnd, u[1:1:N["supplier"][1],1:N["plant"][1]] )
 @variable(scnd, xij[1:N["supplier"][1],1:N["plant"][1]] )
 @variable(scnd, xjk[1:N["plant"][1],1:N["distribution"][1]] )
-
+@variable(scnd, xkl[1:N["distribution"][1],1:N["customer"][1]] )
 @variable(scnd, h[1:N["plant"][1]+N["distribution"][1]] )
-@variable(scnd, y[][], )
-@variable(scnd, u[][], )
+
 
 @constraint(scnd, sum(xij[i,m]) == sum(xjk[k,m]))
 @constraint(scnd, dot(data.B[k,:],x) <= dot(xij[1:N[]]))
 @constraint(scnd, dot(data.B[k,:],x) == data.RHS[k])
 optimize!(scnd);
 
-N["customer"][1]
-N["distribution"][1]
+N["cep"][1]
+[1][1]
+N["customer"]
