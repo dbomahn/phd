@@ -1,7 +1,9 @@
-using DataFrames,DelimitedFiles,JuMP,CSV
+using DataFrames,DelimitedFiles,JuMP,CPLEX
 
 dir = "/home/ak121396/Desktop/instances/PublicInstances/"
 data = readdlm(dir*ins[1], ';')
+dir = "C:/Users/AK121396/Desktop/phd/toy.dzn"
+data = readdlm(dir, ';')
 
 fdata = []
 for i in [1,2,size(data)[1]-1]
@@ -83,4 +85,31 @@ mutable struct Data
     end
 end
 
-data = Data(dir*ins[1])
+data = Data(dir*ins[1]) #Linux
+data = Data(dir) #Windows
+
+###########################   Mathematical Model  #############################
+wlp = Model(CPLEX.Optimizer)
+@variable( wlp, y[1:data.W] ) #,binary=true
+@variable( wlp, x[1:data.S,1:data.W])
+@variable( wlp, z[1:data.IC,1:data.W])
+for w=1:data.W
+    @constraint( wlp, sum(x[s,w] for s=1:data.S) <= data.C[w] )
+end
+for s=1:data.S
+    @constraint( wlp, sum(x[s,w] for w=1:data.W) <= data.G[s])
+end
+for w=1:data.W
+    @constraint( wlp, sum(x[s,w] for s=1:data.S) <= (9999999999999999*y[w]) )
+end
+for w=1:data.W
+    for i=1:data.IC
+        @constraint( wlp, x[data.IP[i][1],w] <= 9999999999999999*z[i,w] )
+        @constraint( wlp, x[data.IP[i][2],w] <= 9999999999999999*(1-z[i,w]) )
+    end
+end
+@objective( wlp, Min, sum(data.F[w]*y[w] for w=1:data.W) + sum(sum(data.SC[s,w]*x[s,w] for w=1:data.W) for s=1:data.S) )
+################################  convert to vlp file  ###############################################
+obj = 1
+objnz = n*obj-(count(iszero,coef)+count(iszero,coef2)+count(iszero,coef3))
+NZ = length(B)-count(iszero,B)
