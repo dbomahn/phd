@@ -1,28 +1,30 @@
-using DelimitedFiles,DataFrames,JuMP#,SparseArrays,CPLEX#CPUTime, #DataStructures,
+using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathProgBase
+const MPB = MathProgBase
+
+function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
+    model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
+    MPB.loadproblem!(model,filename) # load what we actually want
+    return model
+end
 fpath = "/home/ak121396/Desktop/instances/SCND/"
-fpath = "F:/scnd/"
+# fpath = "F:/scnd/"
 dt = readdlm(fpath*"Test1S1") #, '\t'
 
 notafile = readdlm(fpath*"Notations.txt", '=')
 nota = notafile[1:end,1]
 N= Dict()
 
-
-
-i=11
+i=17
 id1 = findall(x->x==nota[i], dt)[1][1]
 id2 = findall(x->x==nota[i+1], dt)[1][1]
-id2-id1
 
 W = []
 for x=id1+1:id1+(id2-id1-1)
-    tmp = filter(x->x!="", dt[x,:])[1:end]
-    println(tmp)
-    push!(W,tmp)
+    tmp = filter(x->x!="", dt[x,:])
+    append!(W,tmp)
 end
-W
-filter(x->x!="", dt[id1+1:id1+(id2-id1-1),:])
-dt[id1+1:id1+(id2-id1-1),:]
+
+tcp = reshape(W, (10,6,6))
 
 
 for i=1:length(nota)-1
@@ -59,14 +61,9 @@ Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])))
 
 sum(length(N["fixedcostModepd"][i]) for i=1:length(N["fixedcostModepd"]))
 
-reshape(N["fixedcostModepd"], (1,sum(N["ModeJK"])) )
-
-N["fixedcostModepd"]
-N["fcd"][2][1]
-sum(Mjk[j,1:k])
-
-Mjk
-N["tcd"][2]
+[N["tcp"][1];N["tcp"][2]]
+[1:6]
+reshape(N["tcp"][1],(10,6))
 Mjk
 N["fixedcostModepd"]
 [1]
@@ -103,8 +100,6 @@ scnd = Model()#CPLEX.Optimizer
 @constraint(scnd, dot(data.B[k,:],x) <= dot(xij[1:N[]]))
 @constraint(scnd, dot(data.B[k,:],x) == data.RHS[k])
 optimize!(scnd);
-
-6*6*12*60
 
 N["tcp"][1]
 

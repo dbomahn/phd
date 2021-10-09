@@ -54,13 +54,15 @@ function fpprHV(fp,fpfiles,pr,prfiles,num) #,pr2,prfiles2,pr3,prfiles3,ks,ksfile
     return tb
 end
 ####################################LINUX###################################
-# ksdir = "/home/ak121396/Desktop/solvers/Kirlikoutput/FLP/ndf/"
-ksdir = "F://results/KS/AP/"
+ksdir = "/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intAP_Y/"
+# ksdir = "F://results/KS/AP/"
 ksfiles = readdir(ksdir)
 # fpbh = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
 fpbh = "F:/results/fpbh/AP/1/"
 fpfiles = readdir(fpbh)
 # pr = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK/"
+ben = "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/"
+bfiles = readdir(ben)
 pr = "F:/results/gpr/AP/"
 prfiles = readdir(pr)
 
@@ -68,16 +70,18 @@ prfiles = readdir(pr)
 function normHV(ksdir,ksfiles,dir,files,i)
   ksobj = readdlm(ksdir*ksfiles[i])
   # obj = round.(readdlm(dir*files[i]))
-  obj = readdlm(dir*files[i])
   # if (0;0;0 in ksobj)
   #   obj = [obj; 0 0 0]
   # end
+
+  obj = readdlm(dir*files[i])
   x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
 
-  # AP
+  # Bensolve AP
   # obj2 = DataFrame(obj)
   # obj = obj2[obj2[:x1].!=0,:]
-  # x = obj[:,2]; y=obj[:,3]; z=obj[:,4]; #Bensolve_AP
+  # x = obj[:,2]; y=obj[:,3]; z=obj[:,4];
+
   ideal = [minimum(ksobj[:,y]) for y=1:3]
   nadir = [maximum(ksobj[:,y]) for y=1:3]
   r = length(x); norm = zeros(r,3)
@@ -94,6 +98,21 @@ function normHV(ksdir,ksfiles,dir,files,i)
   smetric =readlines( pipeline(`./hv -r "2 2 2" $(dir*files[i][1:end-4]*"_normal_Y.csv")`))
   return parse(Float64,smetric[1])
 end
+
+table = zeros(10,10)
+for i=1:10
+    for j=1:10
+        k = (i-1)*10+j
+        hv = normHV(ksdir,ksfiles,ben,bfiles,k)
+        table[i,j] = hv
+    end
+    # tb = round(mean(table[:,1]),digits=3)
+end
+table
+round.([mean(table[i,:]) for i=1:10],digits=3)
+
+
+
 
 mipdir = "F:/results/mergedMIP/";
 mipdir = "/media/ak121396/0526-8445/results/mergedMIP/"
@@ -112,6 +131,9 @@ for k=1:5
     # tb = round(mean(table[:,1]),digits=3)
 end
 round.([mean(table[i,:]) for i=1:5],digits=3)
+
+
+
 
 
 function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
