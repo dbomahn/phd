@@ -1,70 +1,20 @@
 using DelimitedFiles,DataFrames,StatsBase,CSV # Run external HV calculator
 
-fp = "/home/ak121396/Desktop/FPBH/MIPLIP/GLPK/"
-fp = "F:/results/mergedMIP\\"
-fpfiles = readdir(fp)
-pr = "/home/ak121396/Desktop/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
-prfiles = readdir(pr)
-
-function fpprHV(fp,fpfiles,pr,prfiles,num) #,pr2,prfiles2,pr3,prfiles3,ks,ksfiles,num)
-    tb = zeros(num,2);
-    for i=1:num
-        fpobj = readdlm(fp*fpfiles[i])
-        probj = readdlm(pr*prfiles[i]);
-        # probj2 = readdlm(pr2*prfiles2[i]);probj3 = readdlm(pr3*prfiles3[i]);
-        # ksobj = readdlm(ks*(ksfiles[i]))
-        if (0;0;0 in fpobj)
-          probj = [probj;0 0 0]
-        end
-        x = [fpobj[:,1]; probj[:,1]] #;probj2[:,1];probj3[:,1]; ksobj[:,1]]
-        y = [fpobj[:,2]; probj[:,2]] #;probj2[:,1];probj3[:,1];ksobj[:,2]]
-        z = [fpobj[:,3]; probj[:,3]] #;probj2[:,1];probj3[:,1];ksobj[:,3]]
-
-        ideal = [minimum(x),minimum(y),minimum(z)]
-        nadir = [maximum(x),maximum(y),maximum(z)]
-
-        # FPBH HV calculation
-        r = size(fpobj)[1]
-        norm = zeros(r,3)
-        for k=1:r
-            norm[k,1] = (fpobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
-            norm[k,2] = (fpobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
-            norm[k,3] = (fpobj[:,3][k]-ideal[3])/(nadir[3]-ideal[3])
-        end
-        # dfE = normz,normy,normx;
-        Y=DataFrame(norm, :auto);
-        CSV.write(fp*fpfiles[i][1:end-7]*"normal_Y.csv",Y, header=false, delim=' ' )
-        cd("/home/ak121396/Downloads/hv-1.3-src")
-        smetric1 =readlines( pipeline(`./hv -r "2 2 2" $(fp*fpfiles[i][1:end-7]*"normal_Y.csv")`))
-        tb[i,1] = parse(Float64,smetric1[1]);
-
-        # GPR HV calculation
-        u = size(probj)[1]
-        norm = zeros(u,3)
-        for k=1:u
-            norm[k,1] = (probj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
-            norm[k,2] = (probj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
-            norm[k,3] = (probj[:,3][k]-ideal[3])/(nadir[3]-ideal[3])
-        end
-        Y = DataFrame(norm, :auto)
-        CSV.write(pr*prfiles[i][1:end-6]*"_normal_Y.csv",Y, header=false, delim=' ' )
-        smetric2 =readlines( pipeline(`./hv -r "2 2 2" $(pr*prfiles[i][1:end-6]*"_normal_Y.csv")`))
-        tb[i,2] = parse(Float64,smetric2[1]);
-    end
-    return tb
-end
 ####################################LINUX###################################
 ksdir = "/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intAP_Y/"
-# ksdir = "F://results/KS/AP/"
-ksfiles = readdir(ksdir)
-# fpbh = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
-fpbh = "F:/results/fpbh/AP/1/"
-fpfiles = readdir(fpbh)
-# pr = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK/"
+fpbh = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
+pr = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK/"
 ben = "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/"
-bfiles = readdir(ben)
-pr = "F:/results/gpr/AP/"
+
+################################Windows #####################################
+# ksdir = "F://results/KS/AP/"
+# pr = "F:/results/gpr/AP/"
+# fpbh = "F:/results/fpbh/AP/1/"
+
+ksfiles = readdir(ksdir)
+fpfiles = readdir(fpbh)
 prfiles = readdir(pr)
+bfiles = readdir(ben)
 
 ###################################################
 function normHV(ksdir,ksfiles,dir,files,i)
@@ -111,9 +61,7 @@ end
 table
 round.([mean(table[i,:]) for i=1:10],digits=3)
 
-
-
-
+###############################################################################
 mipdir = "F:/results/mergedMIP/";
 mipdir = "/media/ak121396/0526-8445/results/mergedMIP/"
 mipfiles = readdir(mipdir)
@@ -131,9 +79,6 @@ for k=1:5
     # tb = round(mean(table[:,1]),digits=3)
 end
 round.([mean(table[i,:]) for i=1:5],digits=3)
-
-
-
 
 
 function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
@@ -195,8 +140,60 @@ for i=1:12
     push!(tt,a)
 end
 tt
+############################### Ref set of FPPB + GPR   ###################################
+fp = "/home/ak121396/Desktop/FPBH/MIPLIP/GLPK/"
+fp = "F:/results/mergedMIP\\"
+fpfiles = readdir(fp)
+pr = "/home/ak121396/Desktop/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
+prfiles = readdir(pr)
 
+function fpprHV(fp,fpfiles,pr,prfiles,num) #,pr2,prfiles2,pr3,prfiles3,ks,ksfiles,num)
+    tb = zeros(num,2);
+    for i=1:num
+        fpobj = readdlm(fp*fpfiles[i])
+        probj = readdlm(pr*prfiles[i]);
+        # probj2 = readdlm(pr2*prfiles2[i]);probj3 = readdlm(pr3*prfiles3[i]);
+        # ksobj = readdlm(ks*(ksfiles[i]))
+        if (0;0;0 in fpobj)
+          probj = [probj;0 0 0]
+        end
+        x = [fpobj[:,1]; probj[:,1]] #;probj2[:,1];probj3[:,1]; ksobj[:,1]]
+        y = [fpobj[:,2]; probj[:,2]] #;probj2[:,1];probj3[:,1];ksobj[:,2]]
+        z = [fpobj[:,3]; probj[:,3]] #;probj2[:,1];probj3[:,1];ksobj[:,3]]
 
+        ideal = [minimum(x),minimum(y),minimum(z)]
+        nadir = [maximum(x),maximum(y),maximum(z)]
+
+        # FPBH HV calculation
+        r = size(fpobj)[1]
+        norm = zeros(r,3)
+        for k=1:r
+            norm[k,1] = (fpobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
+            norm[k,2] = (fpobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
+            norm[k,3] = (fpobj[:,3][k]-ideal[3])/(nadir[3]-ideal[3])
+        end
+        # dfE = normz,normy,normx;
+        Y=DataFrame(norm, :auto);
+        CSV.write(fp*fpfiles[i][1:end-7]*"normal_Y.csv",Y, header=false, delim=' ' )
+        cd("/home/ak121396/Downloads/hv-1.3-src")
+        smetric1 =readlines( pipeline(`./hv -r "2 2 2" $(fp*fpfiles[i][1:end-7]*"normal_Y.csv")`))
+        tb[i,1] = parse(Float64,smetric1[1]);
+
+        # GPR HV calculation
+        u = size(probj)[1]
+        norm = zeros(u,3)
+        for k=1:u
+            norm[k,1] = (probj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
+            norm[k,2] = (probj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
+            norm[k,3] = (probj[:,3][k]-ideal[3])/(nadir[3]-ideal[3])
+        end
+        Y = DataFrame(norm, :auto)
+        CSV.write(pr*prfiles[i][1:end-6]*"_normal_Y.csv",Y, header=false, delim=' ' )
+        smetric2 =readlines( pipeline(`./hv -r "2 2 2" $(pr*prfiles[i][1:end-6]*"_normal_Y.csv")`))
+        tb[i,2] = parse(Float64,smetric2[1]);
+    end
+    return tb
+end
 ########################  Merging GFP+Kirlik output  ######################
 #NDpoint
 x=[0];y=[0];z=[0]
