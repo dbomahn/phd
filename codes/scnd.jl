@@ -6,8 +6,8 @@ function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
     MPB.loadproblem!(model,filename) # load what we actually want
     return model
 end
-fpath = "/home/ak121396/Desktop/instances/SCND/"
-# fpath = "F:/scnd/"
+# fpath = "/home/ak121396/Desktop/instances/SCND/"
+fpath = "E:/scnd/"
 dt = readdlm(fpath*"Test1S1") #, '\t'
 
 notafile = readdlm(fpath*"Notations.txt", '=')
@@ -52,6 +52,9 @@ c = append!(N["fcp"],N["fcd"])
 a = N["vcs"]
 e = append!(N["vcp"],N["vcd"])
 cap = append!(N["cas"],N["cap"],N["cad"])
+
+
+g =
 b = reshape( N["ves"], (N["supplier"],Int(length(N["ves"])/N["supplier"])) )
 q = append!(N["vep"],N["ved"])
 
@@ -59,14 +62,30 @@ Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])))
 Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])))
 Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])))
 
+
+for i=1:N["supplier"]
+    ct =0;
+    for j=1:N["plant"]
+        ct = ct+Mij[i,j]
+        N["fixedcostModepd"]
+
 sum(length(N["fixedcostModepd"][i]) for i=1:length(N["fixedcostModepd"]))
+
+
+
+10000
 
 [N["tcp"][1];N["tcp"][2]]
 [1:6]
 reshape(N["tcp"][1],(10,6))
 Mjk
-N["fixedcostModepd"]
+
+N["fixedcostModesp"]
 [1]
+N["fixedcostModepd"][1]
+N["fixedcostModedc"][1]
+N["ModeJK"]
+
 
 narc = 1:N["supplier"]*N["plant"]+N["plant"]*N["distribution"]+N["distribution"]*N["customer"]
 cou = 0
