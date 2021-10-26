@@ -1,6 +1,6 @@
 using DataStructures,DelimitedFiles,DataFrames,JuMP,CPLEX,GLPK,LinearAlgebra,CPUTime,CSV,Statistics,StatsBase,MathProgBase,MathOptInterface,MathOptFormat,JLD2,SparseArrays
 const MPB = MathProgBase; const MOF = MathOptFormat; const MOI = MathOptInterface;
-@show ARGS[1]; @show ARGS[2]; @show ARGS[3]; @show ARGS[4]; @show ARGS[5];
+TL = 3600
 
 mutable struct Data
     mpsfile::String; vlpfile::String
@@ -130,7 +130,7 @@ end
 function domFilter(sol,obj)
     copysol = Dict(); copyobj = Dict();
     for i=1:length(obj)
-        copysol[i] = sol[i]
+    	copysol[i] = sol[i]
         copyobj[i] = obj[i]
     end
     for i=1:length(obj)-1
@@ -168,7 +168,7 @@ function Postpro(initX,initY,dvar,LB,newsol)
 end
 #############################    Feasibility Pump   ############################
 function FP(candX,n,C,TL)
-    X= []; Y = []; Tabu = []; newsol=0; LPcount = 0; t0=time();
+    X= []; Y = []; Tabu = []; newsol=0; t0=time(); #LPcount=0;
     candlist = copy(candX)
     k=1
     while candlist != [] &&  time()-t0 < TL && k < length(candX)+1
@@ -176,6 +176,10 @@ function FP(candX,n,C,TL)
 		iter=0; Max_iter = 10 #max( round(Int,count(x->0<x<1,x_t)/5), 1 )
         while iter<Max_iter && SearchDone == false
 			# @show iter
+		if time()-t0 >= TL
+			break
+		end
+
             x_r = round.(Int,x_t)
             fx = getobjval(x_r,C)
             if ( (FBcheck(x_r,n) == true) && (dominated(fx,Y)==false) ) #checking feasibility and dominance   #z[1]<=fmax[1]-1 && z[2]<=fmax[2]-1 && z[3]<=fmax[3]-1)
@@ -204,7 +208,7 @@ function FP(candX,n,C,TL)
                 if SearchDone == false
                     push!(Tabu,x_r)
                     x_t = fbsearch(x_r)
-                    LPcount+=1
+                    #LPcount+=1
                     if x_t == 0 #when there's no new feasible lp sol
                         SearchDone = true
                     end
@@ -214,7 +218,7 @@ function FP(candX,n,C,TL)
         end
         k+=1
     end
-    return X,Y,candlist,newsol,LPcount
+    return X,Y,candlist,newsol #,LPcount
 end
 ################################  Data  ####################################
 data = Data(ARGS[1],ARGS[2]); pre = Valu(ARGS[3],ARGS[4]);
@@ -249,7 +253,8 @@ optimize!(dist)
 ######################## Running Feasibility Pump ##########################
 Bentime = readdlm(ARGS[5])[1];
 FP(pre.dvar,data.n,data.C,10)# compiling
-FPtime = @CPUelapsed fpX,fpY,candlist,newsol,LPcount = FP(pre.dvar,data.n,data.C,1800-Bentime)
+FPTL = (TL-Bentime)/2
+FPtime = @CPUelapsed fpX,fpY,candlist,newsol = FP(pre.dvar,data.n,data.C,FPTL)
 # fpX,fpY = domFilter(X2,PF2);
 # clistY = []
 # for i=1:length(candlist)
@@ -257,7 +262,7 @@ FPtime = @CPUelapsed fpX,fpY,candlist,newsol,LPcount = FP(pre.dvar,data.n,data.C
 # end
 # cX = [fpX;candlist]; cY = [fpY;clistY]
 tx = copy(fpX); ty = copy(fpY);
-print("gpr input:",length(fpY), "\n", "unexplored candX: ", length(candlist))
+#print("gpr input:",length(fpY), "\n", "unexplored candX: ", length(candlist))
 
 ####################### Running Path Relinking  ##########################
 function createNB(SI,C,dif,exploredSI)
@@ -345,7 +350,7 @@ function GPR(C,n,dvar,LB,TL)
 end
 
 GPR(data.C,data.n,tx,ty,10) #compiling
-GPRtime = @CPUelapsed candset,candobj,newsol2 = GPR(data.C,data.n,fpX,fpY,3600-FPtime)
+GPRtime = @CPUelapsed candset,candobj,newsol2 = GPR(data.C,data.n,fpX,fpY,TL-FPtime)
 totaltime = FPtime+Bentime+GPRtime
 finalX,finalY = domFilter(candset,candobj);
 otable = zeros(length(finalY),3)
@@ -354,12 +359,15 @@ for i=1:length(finalY)
         otable[i,j] = finalY[i][j]
     end
 end
+newsol3 = length(setdiff(finalY,fpY))
 
 ins = ARGS[2][1:end-4];
-# print("each time: ", Bentime," ",FPtime," ",GPRtime,"\n"); # print("totaltime: ", totaltime)
-CSV.write(ins*"_Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
-record1 = DataFrame(Filename=ins[35:end],FPsol=newsol, candlist=length(candlist), PRsol=newsol2, totalsol=length(finalY), Bentime=Bentime,FPtime=FPtime,PRtime=GPRtime, totaltime=totaltime )
-CSV.write("/home/k2g00/k2g3475/clusterhome/multiobjective/generalPR/precord.csv", record1,append=true, header=false )#, delim=',' )
+# print("each time: ", Bentime," ",FPtime," ",GPRtime,"\n");
+#print("totaltime: ", totaltime)
+#CSV.write(ins*"_1Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
+record1 = DataFrame(Filename=ins[48:end],FPsol=length(fpY),PRsol=newsol2, totalsol=length(finalY)) #,Bentime=Bentime,FPtime=FPtime,PRtime=GPRtime, totaltime=totaltime )
+#record1 = DataFrame(totalsol = length(finalY),t = totaltime)
+CSV.write("/home/k2g00/k2g3475/clusterhome/multiobjective/generalPR/record.csv", record1,append=true, header=false )#, delim=','i )
 # io = open("/home/k2g00/k2g3475/multiobjective/solvers/generalPR/goutputs/time/"*"$ins"*".txt", "a"); println(io,"$totaltime"); close(io)
 # matriX = zeros(Int,length(finalX),data.n)
 # for i=1:length(finalX)

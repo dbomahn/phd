@@ -1,4 +1,4 @@
-using DelimitedFiles,DataFrames,StatsBase,CSV # Run external HV calculator
+using DelimitedFiles,DataFrames,StatsBase,CSV
 
 fp = "/home/ak121396/Desktop/FPBH/MIPLIP/GLPK/"
 fp = "F:/results/mergedMIP\\"
@@ -90,7 +90,7 @@ function normHV(ksdir,ksfiles,dir,files,i)
       norm[k,2] = (y[k]-ideal[2])/max((nadir[2]-ideal[2]),1)
       norm[k,3] = (z[k]-ideal[3])/max((nadir[3]-ideal[3]),1)
   end
-  Y=DataFrame(norm) #, :auto);
+  Y=DataFrame(norm, :auto);
   CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
   cd("/home/ak121396//Downloads/hv-1.3-src")
   # cd("C:/cygwin64/home/hv-1.3-src/") #WINDOWS
@@ -157,8 +157,8 @@ end
 table = calculateHV(5,10,12,ksdir,ksfiles,pr)
 
 
-ksdir = "/media/ak121396/0526-8445/results/mergedMIP/"
-ksfiles = readdir(ksdir)
+refdir = "/media/ak121396/0526-8445/results/mergedMIP/"
+refiles = readdir(refdir)
 gmip = []
 path = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
 
@@ -167,15 +167,15 @@ path = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
 
 path = "/media/ak121396/0526-8445/results/mergedMIP/"
 miphv = []
-for l=1:10
+for l=1:9
     dir = readdir(path)
     files = readdir(path*"$l/")
-    ksfiles = readdir(ksdir*"$l/")
+    refiles = readdir(refdir*"$l/")
     for j=1:length(files)
-        hv = normHV(ksdir*"$l/",ksfiles,path*"$l/",files,j)
+        hv = normHV(refdir*"$l/",refiles,path*"$l/",files,j)
         # push!(gmip,hv)
-        # push!(fmip,hv)
-        push!(miphv,hv)
+        push!(fmip,hv)
+        # push!(miphv,hv)
     end
 end
 
@@ -183,9 +183,9 @@ mergedhv = reshape(miphv,(5,10))
 round.([mean(mergedhv[i,1:9]) for i=1:5],digits=3)
 
 
-g1 = reshape(gmip,(5,10))
+g1 = reshape(gmip,(5,9))
 round.([mean(g1[i,1:9]) for i=1:5],digits=3)
-f1 = reshape(fmip,(5,10))
+f1 = reshape(fmip,(5,9))
 round.([mean(f1[i,1:9]) for i=1:5],digits=3)
 
 

@@ -112,13 +112,13 @@ Normalise("F:/results/fpbh/MIPLIB/","F:/results/performance/bounds/MIPLIB/")
 
 # Measure Uep
 function Measures(normalpath,refpath,eppath)
-    for i=6:10#length(num)
+    for i=1:9#length(num)
         files = readdir(normalpath*"$i")
         for j=1:length(files)
             epstore = eppath*"$i/"*files[j][1:end-9]*"_ep.txt"
-            open("$epstore","w") do io end; 
+            open("$epstore","w") do io end;
             data = normalpath*"$i/"*files[j]
-            # refs = readdir(refpath"); ref = refpath*"/"*refs[j]; #for AP,KP,FLP
+            # refs = readdir(refpath); ref = refpath*"/"*refs[j]; #for AP,KP,FLP
             refs = readdir(refpath*"$i/"); ref = refpath*"$i/"*refs[j];
             # The order of inputs: .exe file    parameter file    approximation-set file    ref file      outputfile location
             run(pipeline(`./eps_ind ./eps_ind_param.txt $data $ref $epstore`))
@@ -126,14 +126,31 @@ function Measures(normalpath,refpath,eppath)
     end
 end
 
+# neos w/ shorter TL
+function Measures(normalpath,refpath,eppath)
+        files = readdir(normalpath)
+        for j=1:length(files)
+            epstore = eppath*files[j][1:end-9]*"_ep.txt"
+            open("$epstore","w") do io end;
+            data = normalpath*files[j]
+            # refs = readdir(refpath); ref = refpath*"/"*refs[j]; #for AP,KP,FLP
+            refs = readdir(refpath); ref = refpath*refs[j];
+            # The order of inputs: .exe file    parameter file    approximation-set file    ref file      outputfile location
+            run(pipeline(`./eps_ind ./eps_ind_param.txt $data $ref $epstore`))
+        end
+    end
+end
 ############################    WINDOWS     ####################################
 cd("./indicators_win/")
 Measures("F:\\results\\gpr/MIPLIB/norm\\","F:\\results/mergedMIP/norm/", "F:/results/performance/GPR/ep/MIPLIB/")
 Measures("F:\\results\\fpbh/MIPLIB/norm\\","F:\\results/mergedMIP/norm/", "F:/results/performance/FPBH/ep/MIPLIB/")
 ###############################  Linux    ######################################
 cd("/home/ak121396/Downloads/performance_indi/indicators_linux/")
-readdir("/media/ak121396/0526-8445/results/oldGPR/KP/norm/1/")[1][1:end-9]
-Measures("/media/ak121396/0526-8445/results/oldGPR/KP/norm/", "/media/ak121396/0526-8445/results/KS/norm/KP/", "/media/ak121396/0526-8445/results/performance/GPR/ep/KP/",)
+readdir("/media/ak121396/0526-8445/results/gpr//MIPLIB/norm/2/")
+
+Measures("/media/ak121396/0526-8445/results/gpr/MIPLIB/neos/norm/", "/media/ak121396/0526-8445/results/mergedMIP/neos/norm/", "/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/neos/")
+Measures("/media/ak121396/0526-8445/results/fpbh/MIPLIB/neos/norm/", "/media/ak121396/0526-8445/results/mergedMIP/neos/norm/", "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/neos/")
+
 
 # The order of inputs: .exe file    parameter file    approximation-set file    ref file      outputfile location
 run(pipeline(`./indicators_win/eps_ind ./indicators_win/eps_ind_param.txt

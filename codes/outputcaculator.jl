@@ -21,8 +21,6 @@ numsol = size(yval)
 
 # direc = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK//"
 # direc = "/home/ak121396/Desktop/FPBH/AP/2minTL/time/"
-#cluPR results
-# dir1 = "/home/ak121396/Desktop/GeneralPR/goutputs/KP/GLPK/"
 dir1 = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
 # cput = readdir(direc)
 sol = readdir(dir1)
@@ -58,11 +56,8 @@ for i=1:7
     CSV.write("/home/ak121396/Documents/GPR.ods",record,append=true,header=false)
 end
 #FPBH records
-dir2 = "/home/ak121396/Desktop/FPBH/AP/time/"
-dir2 = "F://results/performance/FPBH/ep/MIPLIB\\"
 cput = readdir(dir2)
-dir3 = "/home/ak121396/Desktop/FPBH/AP/Y/"
-dir3 = "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/"
+dir1 = "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/"
 
 function calculate(nins,rep,subclas,dir)
     tb = zeros(nins,1); tt = zeros(subclas,1);
@@ -80,22 +75,34 @@ function calculate(nins,rep,subclas,dir)
         end
         allt[:,l]=tt[:,1]
     end
-    return avgy = [mean(allt[i,:]) for i=1:subclas]
-    # return round.(avgy,digits=3)
+    avgy = [mean(allt[i,:]) for i=1:subclas]
+    return round.(avgy,digits=3)
 end
 
-avgy = calculate(10,10,5,dir2)
-round.(avgy,digits=3)
-# avgy = [mean(allt[i,:]) for i=1:10]
+avgy = calculate(10,5,10,dir1)
 
+dir1 = "/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/neos/"
+dir2 = "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/neos/"
+tb = zeros(10,2);
+files = readdir(dir1)
+files2 = readdir(dir2)
+for i=1:10
+    tb[i,1] = readdlm(dir1*files[i])[1]
+    tb[i,2] = readdlm(dir2*files2[i])[1]
+end
 
-lendir = readdir(dir2)
+round(mean(tb[1:5,1]),digits=2)
+round(mean(tb[5:10,1]),digits=2)
+
+round(mean(tb[1:5,2]),digits=2)
+round(mean(tb[5:10,2]),digits=2)
+
+lendir = readdir(dir1)
 tb = zeros(5,1); tb2 = zeros(5,9)
-
 for i=1:9#length(lendir)
-    records = readdir(dir2*"/$i/")
+    records = readdir(dir1*"/$i/")
     for j=1:length(records)
-        c = readdlm(dir2*"/$i/"*records[j])[1]
+        c = readdlm(dir1*"/$i/"*records[j])[1]
         tb2[j,i] = c
     end
     # tb2[:,i-1] = tb
@@ -127,48 +134,6 @@ end
 CSV.write(, df)
 tb1
 tb2
-
-#######################################################
-# Ydomfilter
-dir1 = "/home/ak121396/Desktop/GeneralPR/cluoutputs/Y/"
-sol = readdir(dir1)
-function YdomFilter(obj)
-    copyobj = Dict();
-    for i=1:length(obj)
-        copyobj[i] = obj[i]
-    end
-    for i=1:length(obj)-1
-        for j=i+1:length(obj)
-            if all(obj[i] .>= obj[j]) == true #dominated by PF[j]
-                copyobj[i]=nothing; break
-            elseif all(obj[j] .>= obj[i]) == true
-                copyobj[j]=nothing;
-            end
-        end
-    end
-    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
-
-    return finalobj
-end
-
-tb = zeros(10,12)
-for i=1:7
-    for j=1:10
-        s = readdlm(dir1*sol[(i-1)*10+j] ,Float64)
-        ss = []
-        for j=1:size(s)[1]
-            push!(ss,s[j,:])
-        end
-        tb[j,i] = length(YdomFilter(ss))
-    end
-end
-
-tb2 = zeros(12,1)
-for i=1:12
-    tb2[i,1] = mean(tb[:,i])
-end
-tb2
-
 
 # ep2 = readdlm("/home/ak121396/Downloads/KirlikSayin2014/ndf/10_020_02.txt.lp.ndf")
 # fs = size(ep)[1]
@@ -233,7 +198,6 @@ tbb = zeros(10,1)
 for i=1:10
     tbb[i] =  round(mean(avtb[(i-1)*10+1:i*10]), digits=2)
 end
-
 
 
 ##################AP
