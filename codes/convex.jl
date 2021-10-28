@@ -82,8 +82,29 @@ end
 ctg
 ctf
 
-# gv[2] in P
+#################################
 
-x = sum(hull)/length(hull)
-x ∈ P
-Singleton(x) ⊆ P
+kf = readdir(ksp)
+non = [];
+for i=1:length(kf)
+    @show i; ct=0;
+    ks = readdlm(ksp*kf[i])
+    kv = [ks[k,:] for k=1:size(ks)[1]]
+    hull = convex_hull(kv); P = VPolytope(hull)
+    kvv = setdiff(kv,hull)
+    for l=1:length(kvv)
+        if kvv[l] ∉ P
+            ct+=1
+        end
+    end
+    push!(non,ct)
+end
+
+
+
+# gp = readdlm(gpp*gf[1])
+for l=1:length(kv)
+    if kv[l] ∉ P
+        println(kv[l])
+    end
+end
