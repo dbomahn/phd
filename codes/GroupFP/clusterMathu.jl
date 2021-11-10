@@ -4,78 +4,53 @@ global TimeLimit = 300
 struct path{S<:String}
     dir1::S; dir2::S; dir3::S
 end
-pathes=path("/home/ak121396/Desktop/AP/data/", "/home/ak121396/Desktop/AP/X/","/home/ak121396/Desktop/AP/Y/")
+pathes=path("/home/ak121396/Desktop/instances/AP/dat/",
+    "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/X/",
+    "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/")
 dir1 = pathes.dir1; dir2 = pathes.dir2; dir3 = pathes.dir3
-data = readdir(dir1)
-x = readdir(dir2)
-y = readdir(dir3)
+apf=readdir(dir1); apx = readdir(dir2);apy = readdir(dir3)
+dt = Data(dir1*apf[14]);x = dir2*apx[14];y = dir3*apy[14]
+####################### current Val part #########
+dv = round.(digits=4, readdlm(x))
+objs = round.(digits=4, readdlm(y))
+ind = findall(i-> 0 in objs[i,:]  , 1:size(objs)[1])
+dv2 = dv[setdiff(1:end, ind), :];
+L = objs[setdiff(1:end, ind), 2:end];
+candX = [Vector(dv2[i, :]) for i = 1:size(LBmtx)[1]]
+LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
 
-f=readdlm(dir1*data[i], '\t', String, '\n')
-var = round.(readdlm(dir2*x[i]), digits=4) #round numbers till 2 digits
-objs = round.(readdlm(dir3*y[i])[:,2:end], digits=4)
 
-# fl = readdlm(ARGS[1], '\t', String, '\n')
-# var = round.(readdlm(ARGS[2]), digits=4)
-# objs = round.(readdlm(ARGS[3])[:,2:end] , digits=4)
+##################################clustering####################################
 
-obj=parse(Int,f[1])
-n=parse(Int,f[2])
-P=[]
-for i=3:length(f)
-    a = split(f[i], ('[',']',','))
-    a = filter!(e->e ∉ [ "" ,"[","," ,"]"] ,a)
-    if length(a)>2
-        push!(P,a)
+# (clu.centers)' # get the cluster centers # assignments(clu) # get the assignments of points to clusters
+
+k = round(Int,length(LB)/n); clu = kmeans(L',max(k,2));
+targec = indexin(nsmallest(2,sc),sc)
+
+candx1 = findall(i->i==targec[1],clu.assignments); candx2 = findall(i->i==targec[2],clu.assignments)
+un = Set()
+push!(un,Set([4,5]))
+Set([4,3]) == Set([3,4])
+Set([3,9]) ∉ un
+function matheuristic(candX,LB,n,C,TL,clu)
+    nc = nclusters(clu);  SolPair = Set();
+    while t0-<TL
+
     end
-end
 
-P2 = ones(obj,n*n)
-P2 = round.(Int,P2)
+    sc = counts(clu);
+    targec = findall(i->i in nsmallest(2, sc),sc)
+    candx1 = findall(i->i==targec[1],clu.assignments); candx2 = findall(i->i==targec[2],clu.assignments)
+    id1 = sample(candx1, 1, replace=false)[1]; id2 = sample(candx2, 1, replace=false)[1]
+    x1 = candX[id1]; x2 = candX[id2];
+    push!(SolPair,Set([id1,id2]))
 
-global ct=0;
-for x=1:length(P)
-    for y=1:n
-        p=parse(Int64,P[x][y])
-        idx = Int(floor((x-1)/n))
-        ind = ((x-1)*n+y)%(n*n)
-        if ind != 0
-            P2[idx+1,((x-1)*n+y)%(n*n)] = p
-        else
-            P2[idx+1,(n*n)] = p
-        end
-        if p==0
-            ct =ct+1;
-        end
-    end
-end
-######################## coefficient matrix (B) #############################
-A1 =zeros(n,n*n)
-A2 =zeros(n,n*n)
-A1  = round.(Int,A1)
-A2 = round.(Int,A2)
-for i=1:n
-    for j=1:n
-        A1[i,((i-1)*n)+j] = 1
-            if A1[i,((i-1)*n)+j]==1
-            end
-    end
-end
-for i=1:n
-    for j=1:n
-        A2[i,((j-1)*n)+i] = 1
-        if A2[i, ((j-1)*n)+i]==1
-        end
-    end
-end
-B=[A1;A2]
-#############################
-s,ss = size(var)
-indx= findall(x->x!=0,[sum(var[i,:]) for i=1:s]) #NZ sol
-lpX = [var[i,:] for i in indx]
+    while Set([id1,id2]) ∉ SolPair
+        if x1 == round.(x1) && x2 == round.(x2) #both sols are int
+            fx,fy,fns = weightFP(candX,LB,x1,x2,SolPair,n,C,TL)
 
-pf = hcat(objs[:,1],objs[:,2],objs[:,3])
-L = reshape([pf[i,:] for i in indx],length(lpX),1)
-L2 = transpose(hcat(L...))
+
+#################### Groouping ###############
 fmin = [minimum(L2[:,i]) for i=1:3]
 fmax = [maximum(L2[:,i]) for i=1:3]
 steps = [round.(Int,abs(fmax[i]-fmin[i])/length(L)*n) for i=1:3] #determine steps according to #customers(j)
@@ -89,7 +64,6 @@ for iter=1:length(L)
         push!(cube[loca], iter)
     end
 end
-
 ################################   Functions  ##################################
 ########################        for Feasibility Pump      ######################
 function flip(hxi,j,e)
@@ -131,7 +105,6 @@ function flipoper(Tabu,tx,txi)
     end
     return xi
 end
-
 function fbcheck(txi)
     fb = Model(CPLEX.Optimizer)
     MOI.set(fb, MOI.RawParameter("CPX_PARAM_SCRIND"), false)
@@ -148,7 +121,6 @@ function fbcheck(txi)
         return false
     end
 end
-
 function fbsearch(idx,steps,fmin,txi,fmax) #solveLP
     yub = [idx[j]*steps[j]+fmin[j] for j=1:3]
     ylb = [(idx-[1,1,1])[j]*steps[j]+fmin[j] for j=1:3]
@@ -174,7 +146,6 @@ function fbsearch(idx,steps,fmin,txi,fmax) #solveLP
         return 0; #print("no new lp solution found");
     end
 end
-
 function mindist(sameval,groups,groupkeys,L2,l,que) #find a point which has the minimum distance to the avg value of points in the same cuboid
     # yub = [groupkeys[l][j]*steps[j]+fmin[j] for j=1:3]
     # ylb = [(groupkeys[l]-[1,1,1])[j]*steps[j]+fmin[j] for j=1:3]
@@ -199,7 +170,6 @@ function mindist(sameval,groups,groupkeys,L2,l,que) #find a point which has the 
         return nothing
     end #solveLP
 end
-
 function Grouping(groups,groupkeys,lpX,steps,fmin,L2,n) #find common elements(variable values) from solutions in the same cuboid
     LPcount1 = 0;
     Xf= Dict(); candX = Dict(); loca_check = [];
@@ -238,8 +208,6 @@ function Grouping(groups,groupkeys,lpX,steps,fmin,L2,n) #find common elements(va
     end
     return Xf,candX,loca_check,LPcount1
 end
-
-
 function getlocation(x,fmin,steps)
     L = giveobjval(x)
     # cubes = []
@@ -249,8 +217,6 @@ function getlocation(x,fmin,steps)
     # end
     return loca
 end
-
-
 ## for tri- epsilon
 function giveobjval(x)
     return [sum(P2[1,j]*x[j] for j=1:n*n),sum(P2[2,j]*x[j] for j=1:n*n),sum(P2[3,j]*x[j] for j=1:n*n)]

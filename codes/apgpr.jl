@@ -1,4 +1,4 @@
-using DataStructures,DelimitedFiles,DataFrames,JuMP,CPLEX,LinearAlgebra,CPUTime,CSV,Statistics,Clustering,MathOptInterface,StatsBase,JLD2,SparseArrays
+using DataStructures,DelimitedFiles,DataFrames,JuMP,CPLEX,LinearAlgebra,CPUTime,CSV,StatsBase
 
 mutable struct Data
     input::String; n::Int; C::Array{}; B::Array{};
@@ -62,11 +62,9 @@ mutable struct Val
         new(x,y,dvar,LB,LBmtx)
     end
 end
-
 function getobjval(x,C)
     return [dot(x,C[1,:]),dot(x,C[2,:]),dot(x,C[3,:])]
 end
-
 function createNB(SI,C,dif,exploredSI)
     neibour = []; neiobj = [];
     for i in dif
@@ -93,7 +91,7 @@ function createNB(SI,C,dif,exploredSI)
 end
 function FBcheck(xx,n)
     for k=1:n
-        JuMP.fix(x[k],xx[k])
+        JuMP.fix(x[k],xx[k]; force=true)
     end
     optimize!(ap_m)
     # print("status: ", termination_status(flp), "\n" )
@@ -154,44 +152,100 @@ function Postpro(dvar,LB,newsol)
 
     return finalsol,finalobj
 end
-function GPR(C,n,dvar,LB,TL)
-    IGPair=[]; exploredSI = []; newsol=0;
-    nbtime = 0; SItime = 0; FBtime = 0; t0=time();
-    for i=1:n*10
-    	if time()-t0 >= TL
-            break
-        end
-        I,G = sample(1:length(dvar), 2, replace=false)
-        SI = dvar[I]; SG = dvar[G]; iter=0;
-        while all.(SI != SG) && [I,G]∉IGPair && iter<20 && (time()-t0<TL)
-            dif = findall(i-> SI[i]!=SG[i], 1:n)
-            nbtime = nbtime + @CPUelapsed neibour,neiobj = createNB(SI,C,dif,exploredSI)
-            if length(neiobj)==0
-                break
-            else
-                for l=1:length(neiobj)
-                    FBtime = FBtime + @CPUelapsed feasi = FBcheck(neibour[l],n)
-                    if feasi == true && neibour[l]∉ dvar
-                        push!(dvar, neibour[l]); push!(LB, neiobj[l]);
-                        newsol+=1
+function wFP(candX,LB,x1,x2,n,C,TL)
+    λ = round(rand(Float64, 1)[1]; digits=1)
+    x_t = x1*λ + x2*(1-λ); SearchDone = false; iter=0; Max_iter = 10 #max( round(Int,count(x->0<x<1,x_t)/5), 1 )
+    while time()-t0 < TL && iter<Max_iter && SearchDone == false
+        x_r = round.(Int,x_t); fx = getobjval(x_r,C)
+        if ( (FBcheck(x_r,n*n) == true) && (x_r∉X) ) #checking feasibility and dominance   #z[1]<=fmax[1]-1 && z[2]<=fmax[2]-1 && z[3]<=fmax[3]-1)
+            push!(X,x_r); push!(Y,fx) #add new solval to Y
+            newsol+=1; SearchDone = true
+        else
+            if x_r ∈ Tabu
+                x_r = flipoper(Tabu,x_t,x_r)
+                if x_r==[]
+                    SearchDone = true
+                else
+                    fx = getobjval(x_r,C)
+                    if ( (FBcheck(x_r,n*n) == true) && (x_r∉X) )  #z[1]<=fmax[1]-1 && z[2]<=fmax[2]-1 && z[3]<=fmax[3]-1 )
+                        push!(X,x_r); push!(Y,fx) #add new solval to Y
+                        newsol+=1;
+                        SearchDone = true
                     end
                 end
-                SItime = SItime + @CPUelapsed SI = nextSI(neibour,neiobj,C,SI)
-                if SI∉dvar
-                    push!(exploredSI,SI);
+            end
+            if time()-t0 >= TL
+                break
+            end
+            if SearchDone == false
+                push!(Tabu,x_r)
+                x_t = fbsearch(x_r)
+                if x_t == 0 #when there's no new feasible lp sol
+                    SearchDone = true
                 end
             end
-            iter+=1
         end
-        push!(IGPair,[I,G])
+		iter+=1
+    end
+    return X,Y,newsol
+end
+function wPR(dvar,LB,n,C,TL)
+    IGPair=Set(); exploredSI = []; newsol=0; t0=time();
+    while time()-t0 < TL
+        I,G = sample(1:length(dvar), 2, replace=false)
+        SI = dvar[I]; SG = dvar[G]; iter=0;
+        λ = round(rand(Float64, 1)[1]; digits=1); x_t = round.(SI*λ + SG*(1-λ); digits=1);
+        if  Set([I,G])∉IGPair
+            while all.(SI != x_t) && iter<10 && (time()-t0<TL)
+                dif = findall(i-> SI[i]!=x_t[i], 1:n)
+                neibour,neiobj = createNB(SI,C,dif,exploredSI)
+                if length(neiobj)==0
+                    break
+                else
+                    for l=1:length(neiobj)
+                        feasi = FBcheck(neibour[l],n)
+                        if feasi == true && neibour[l]∉ dvar
+                            push!(dvar, neibour[l]); push!(LB, neiobj[l]);
+                            newsol+=1
+                        end
+                    end
+                    SI = nextSI(neibour,neiobj,C,SI)
+                    if SI∉dvar
+                        push!(exploredSI,SI);
+                    end
+                end
+                iter+=1
+            end
+            while all.(x_t!=SG) && iter<20 && (time()-t0<TL)
+                dif = findall(i-> x_t[i]!=SG[i], 1:n)
+                neibour,neiobj = createNB(SI,C,dif,exploredSI)
+                if length(neiobj)==0
+                    break
+                else
+                    for l=1:length(neiobj)
+                        feasi = FBcheck(neibour[l],n)
+                        if feasi == true && neibour[l]∉ dvar
+                            push!(dvar, neibour[l]); push!(LB, neiobj[l]);
+                            newsol+=1
+                        end
+                    end
+                    SI = nextSI(neibour,neiobj,C,SI)
+                    if SI∉dvar
+                        push!(exploredSI,SI);
+                    end
+                end
+                iter+=1
+            end
+            push!(IGPair,Set([I,G]))
+        end
     end
     return dvar,LB,nbtime,SItime,FBtime,newsol
 end
 
-dt = Data("/home/k2g00/k2g3475/multiobjective/instances/AP/gpr/dat/AP_p-3_n-05_ins-01.dat")
-pr = Val("/home/k2g00/k2g3475/multiobjective/instances/AP/gpr/X/AP_p-3_n-5_ins-01_X.sol","/home/ak121396//multiobjective/instances/KP/gpr/Y/AP_p-3_n-5_ins-01_Y.sol")
-# dt = Data("/home/ak121396/Desktop/instances/AP/dat/AP_p-3_n-35_ins-1.dat")
-# pr = Val("/home/ak121396/Desktop/solvers/Bensolve/APoutputs/X/AP_p-3_n-35_ins-01_X.sol","/home/ak121396//multiobjective/instances/AP/gpr/Y/AP_p-3_n-35_ins-01_Y.sol")
+# dt = Data("/home/k2g00/k2g3475/multiobjective/instances/AP/gpr/dat/AP_p-3_n-05_ins-01.dat")
+# pr = Val("/home/k2g00/k2g3475/multiobjective/instances/AP/gpr/X/AP_p-3_n-5_ins-01_X.sol","/home/ak121396//multiobjective/instances/KP/gpr/Y/AP_p-3_n-5_ins-01_Y.sol")
+dt = Data("/home/ak121396/Desktop/instances/AP/dat/AP_p-3_n-05_ins-1.dat")
+pr = Val("/home/ak121396/Desktop/solvers/Bensolve/APoutputs/X/AP_p-3_n-05_ins-01_X.sol","/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/AP_p-3_n-05_ins-01_Y.sol")
 ap_m = Model(CPLEX.Optimizer);
 MOI.set(ap_m, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
 MOI.set(ap_m, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
@@ -200,8 +254,6 @@ for i=1:dt.n*2
     @constraint( ap_m, dot(dt.B[i,:],x) == 1 );
 end
 optimize!(ap_m);
-GPR(dt.C,dt.n,pr.dvar,pr.LB,10);
-
 
 data = Data(ARGS[1]); pre = Val(ARGS[2],ARGS[3]);
 ap_m = Model(CPLEX.Optimizer);
@@ -245,3 +297,64 @@ io = open("/home/k2g00/k2g3475/multiobjective/solvers/generalPR/goutputs/time/"*
 println(io,"$totaltime"); close(io) # header=false )#, delim=',' )
 CSV.write("/home/k2g00/k2g3475/multiobjective/solvers/generalPR/goutputs/Y/"*"$ins"*"_Y.log",DataFrame(otable, :auto), header=false, delim=' ' )
 sparX = sparse(matriX); JLD2.@save "/home/k2g00/k2g3475/multiobjective/solvers/generalPR/goutputs/X/"*"$ins"*"_X.jdl2" sparX
+
+
+####################Lab#########
+pr = Val("/home/ak121396/Desktop/solvers/Bensolve/APoutputs/X/AP_p-3_n-05_ins-01_X.sol","/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/AP_p-3_n-05_ins-01_Y.sol")
+dt = Data("/home/ak121396/Desktop/instances/AP/dat/AP_p-3_n-05_ins-1.dat")
+ap_m = Model(with_optimizer(CPLEX.Optimizer));
+@variable( ap_m, x[1:dt.n*dt.n],Bin);
+for i=1:dt.n*2
+    @constraint( ap_m, dot(dt.B[i,:],x) == 1 );
+end
+optimize!(ap_m);
+dist = Model(with_optimizer(CPLEX.Optimizer));
+@variable(dist, 0<=dx[1:dt.n*dt.n]<=1)
+for i=1:dt.n*2
+    @constraint( dist, dot(dt.B[i,:],dx) == 1 );
+end
+optimize!(dist);
+MOI.set(ap_m, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+MOI.set(ap_m, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+
+fx,fy,fn = fracFP(pr.dvar,pr.LB,dt.n,dt.C,120)
+gx,gy,gn = wPR(pr.dvar,pr.LB,dt.n*dt.n,dt.C,2)
+wfx,wfy = Postpro(fx,fy,fn)
+wpx,wpy = Postpro(gx,gy,gn)
+
+
+##############kp
+pr = Val("/home/ak121396/Desktop/solvers/Bensolve/KPoutputs/X/KP_p-3_n-20_ins-2.x.sol","/home/ak121396/Desktop/solvers/Bensolve/KPoutputs/Y/KP_p-3_n-20_ins-2.y.sol")
+dt = Data("/home/ak121396/Desktop/instances/KP/dat/KP_p-3_n-20_ins-2.dat")
+kp_m = Model(with_optimizer(CPLEX.Optimizer));
+@variable(kp_m, x[1:dt.n], Bin );
+@constraint( kp_m, -dot(dt.weight,x) >= -(dt.ub) );
+optimize!(kp_m);
+dist = Model(with_optimizer(CPLEX.Optimizer));
+@variable(dist, 0<=dx[1:dt.n]<=1)
+@constraint( dist, -dot(dt.weight,dx) >= -(dt.ub) );
+optimize!(dist);
+MOI.set(kp_m, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+MOI.set(kp_m, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+
+############flp
+flp = Model(with_optimizer(CPLEX.Optimizer));
+@variable(flp, x[1:dt.n] ,Bin);
+@constraint(flp, con1[b=1:dt.j], sum(x[dt.i+dt.j+dt.j*(a-1)+b] for a in 1:dt.i) == x[dt.i+b]);
+@constraint(flp, con2[a=1:dt.i,b=1:dt.j], x[dt.i+dt.j+dt.j*(a-1)+b] <= x[a]);
+optimize!(flp)
+dist = Model(with_optimizer(CPLEX.Optimizer));
+@variable(dist, 0<=dx[1:dt.n]<=1)
+@constraint(dist, con1[b=1:dt.j], sum(dx[dt.i+dt.j+dt.j*(a-1)+b] for a in 1:dt.i) == dx[dt.i+b]);
+@constraint(dist, con2[a=1:dt.i,b=1:dt.j], dx[dt.i+dt.j+dt.j*(a-1)+b] <= dx[a]);
+optimize!(dist);
+MOI.set(flp, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+MOI.set(flp, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+
+xx,yy,nn=fracFP(pr.dvar,pr.LB,dt.n,dt.C,5,dt.i,dt.j)
