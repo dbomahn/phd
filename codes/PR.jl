@@ -82,7 +82,31 @@ function dominated(x,P)
     end
     return st
 end
-
+function similarity(SI,cpP,n)
+    sim = Dict()
+    for k=1:length(cpP)
+        if SI ≠ cpP[k]
+            ct = count(SI[i] == cpP[k][i] for i=1:n)
+            sim[k] =ct
+        end
+    end
+    return sim
+end
+function improvedND(C,SI,ftPtable)
+    SIobj = [dot(C[k,:],SI) for k=1:3]
+    ratiotb = zeros(length(ftPtable),3)
+    for i=1:length(ftPtable)
+        ratiotb[i,:] = ftPtable[i]./SIobj
+    end
+    ranktb = zeros(length(ftPtable),3)
+    for i=1:3
+        ranktb[:,i] = tiedrank(ratiotb[:,i])
+    end
+    ranksum = [sum(ranktb[i,:]) for i=1:length(ftPtable)]
+    hval = maximum(ranksum)
+    ndid = findall(x-> x == hval, ranksum)
+    return rand(ndid)
+end
 function PathRelinking(P,n,C,weight,ub)
     iter=1; candset = []; candobj=[]; IGPair=[]; cpP = [vec(P[i,:]) for i=1:size(P)[1]]
     for i=1:round(Int,size(P)[1]*50)
@@ -130,34 +154,6 @@ function PathRelinking(P,n,C,weight,ub)
     end
     return candset,candobj,iter
 end
-
-function improvedND(C,SI,ftPtable)
-    SIobj = [dot(C[k,:],SI) for k=1:3]
-    ratiotb = zeros(length(ftPtable),3)
-    for i=1:length(ftPtable)
-        ratiotb[i,:] = ftPtable[i]./SIobj
-    end
-    ranktb = zeros(length(ftPtable),3)
-    for i=1:3
-        ranktb[:,i] = tiedrank(ratiotb[:,i])
-    end
-    ranksum = [sum(ranktb[i,:]) for i=1:length(ftPtable)]
-    hval = maximum(ranksum)
-    ndid = findall(x-> x == hval, ranksum)
-    return rand(ndid)
-end
-
-function similarity(SI,cpP,n)
-    sim = Dict()
-    for k=1:length(cpP)
-        if SI ≠ cpP[k]
-            ct = count(SI[i] == cpP[k][i] for i=1:n)
-            sim[k] =ct
-        end
-    end
-    return sim
-end
-
 function PostProc(P,C,cand,candobj,ub,n,weight)
     Pobj = []
     for i=1:size(P)[1]

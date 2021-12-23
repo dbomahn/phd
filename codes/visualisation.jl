@@ -2,11 +2,11 @@ using PlotlyJS,DataFrames,DelimitedFiles,Colors
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
 
 ##########################     3D Visualisation       ###########################
-nms = ["FPBH vs BenFPR plot"]
-title = "FPBH vs GPR: AP_n-15" #this is the caption appearing in the figure
+nms = ["FPBH vs FPGPR plot"]
+title = "FPBH vs FPGPR: " #this is the caption appearing in the figure
 colors = [RGB(0.89, 0.1, 0.1),RGB(0.28, 0.68, 0.3),RGB(0.4,0.4,1), RGB(0.8, 0.40, 0)]
-fpbh = readdlm("/home/ak121396/Desktop/FPBH/AP/GLPK/AP_p-3_n-15_ins-10.ndf")
-gpr = readdlm("/home/ak121396/Desktop/GeneralPR/goutputs/AP/GLPK/n-15_ins-10apY.log")
+fpbh = readdlm("/media/ak121396/0526-8445/results/fpbh/KP/5/KP_p-3_n-070_ ins-03.txt")
+gpr = readdlm("/media/ak121396/0526-8445/results/gpr/KP/5/_n-070_ins03kpY.log")
 data = GenericTrace[]
 points1 = PlotlyJS.scatter3d(;name="FPBH", mode="markers",
                    marker_size=3, marker_color=colors[1], marker_line_width=0,
@@ -119,70 +119,30 @@ f= readdlm("/home/ak121396/Desktop/triflp_Y/01/05_010_01.txtFPep_2hr_Y_.csv")
 x1=f[:,1]; y1=f[:,2];z1=f[:,3]
 
 #########################  Plot solutions of 1 instance  #####################
-rw = [10 5; 8 13; 2 7;]
-trace1 = scatter(;x=rw[:,1],y=rw[:,2], mode="markers",
+obj = [260.1	2553.1;
+    236.7	2713.6;
+    238.5	2591.2;
+    186.5893305391	2533.3313103322;
+    206.8261297131	2510.917672409;
+    220.3257868363	2499.366854594;
+    178.700947814	2843.215863068;
+    178.767837814	2830.384863068;
+    177.6211584268	3017.524146964;
+    179.330821814	2825.056863068;
+    181.363630051	2820.803528352;
+    177.9000429376	2969.20966591067]
+trace1 = scatter(;x=obj[:,1],y=obj[:,2], mode="markers",
                     marker=attr(color="#1f77b4", size=5, symbol="circle",
                                 line=attr(color="rgb(44, 160, 44)", width=0)),
                     line=attr(color="#1f77b4", width=1))
-layout = Layout(autosize=false, width=500, height=500,
-                margin=attr(l=0, r=0, b=0, t=65))
+layout = Layout(autosize=false, width=500, height=500, margin=attr(l=30, r=0, b=0, t=60),
+        xaxis_title = "Cost",yaxis_title = "CO2") #, xaxis_range = [220, 380], yaxis_range=[1000,3000])
 plot([trace1], layout) # trace2,trace3
+
 Plot_solution()
 
 
 #######################
-x0 = []
-for i=1:500
-    push!(x0,"MOKP")
-end
-for i=1:600
-    push!(x0,"TOFLP")
-end
-# gmip = gmip[1:end-5]
-# fmip = fmip[1:end-5]
-gt = vcat(gap,gkp,gflp,gmip)
-ft = vcat(fap,fkp,fflp,fmip)
-# x1 = copy(x0)
-for i=1:45
-    push!(x0,"TOMIPLIB")
-    # x2[i] = "TOMIPLIB"
-end
-function HVbox(x0,t1,t2)
-    trace1 = box(;y=t1,
-                  x=x0,
-                  name="FPBH",
-                  marker_color="#FF4136")
-    trace2 = box(;y=t2,
-                  x=x0,
-                  name="GPR",
-                  marker_color="#3D9970")
-    data = [trace1, trace2]
-    layout = Layout(;yaxis=attr(title="HV indicator value", zeroline=false),
-                    boxmode="group")
-    plot(data, layout)
-end
-function epbox(x0,t1,t2)
-    trace1 = box(;y=t1,
-                  x=x0,
-                  name="FPBH",
-                  marker_color="#FF4136")
-    trace2 = box(;y=t2,
-                  x=x0,
-                  name="GPR",
-                  marker_color="#3D9970")
-    data = [trace1, trace2]
-    layout = Layout(;yaxis=attr(title="unary ϵ indicator value", zeroline=false),boxmode="group")
-    plot(data, layout)
-end
-
-HVbox(x0,ft,gt) # including MIPLIB
-x1 = x0[101:end]
-epbox(x1,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
-
-
-# mipHVbox(hf[1,:],hg[1,:],hf[2,:],hg[2,:],hf[3,:],hg[3,:],hf[4,:],hg[4,:],hf[5,:],hg[5,:])
-# epsbox(ef[1,:],eg[1,:],ef[2,:],eg[2,:],ef[3,:],eg[3,:])
-
 
 function CollectVal(path1,path2)
     iter = readdir(path1)
@@ -197,35 +157,54 @@ function CollectVal(path1,path2)
     return trace1,trace2
 end
 ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/AP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/AP/")
-kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/KP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/KP/")
 fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/FLP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/FLP/")
+kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/KP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/KP/")
 mg,mf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/","/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/")
 
 ag,af = CollectVal("F:/results/performance\\GPR/ep/AP/","F:/results/performance/FPBH/ep/AP/")
 kg,kf = CollectVal("F:/results\\performance/GPR/ep/KP/","F:\\results/performance/FPBH/ep/KP/")
 fg,ff = CollectVal("F:/results/performance/GPR/ep/FLP/","F:/results/performance/FPBH/ep/FLP/")
 mg,mf = CollectVal("F:/results/performance\\GPR/ep/MIPLIB/","F:/results/performance/FPBH/ep/MIPLIB/")
-epsbox(af,ag,kf,kg,ff,fg)
-,mg,mf)
-
-gflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-gkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-gapt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-gmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-
-fapt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-fkpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-fflpt = vec(readdlm("F:/results/Book1.csv",',',Float64))
-# fmipt = vec(readdlm("F:/results/Book1.csv",',',Float64))
 
 
-hg = reshape(gmip,(5,9)); hf = reshape(fmip, (5,9))
-eg = reshape(mg,(5,9)); ef = reshape(mf, (5,9))
+x0 = []
+for i=1:500
+    push!(x0,"MOAP")
+end
+for i=1:600
+    push!(x0,"TOFLP")
+end
+for i=1:500
+    push!(x0,"MOKP")
+end
+for i=1:45
+    push!(x0,"TOMIPLIB")
+end
 
+function HVbox(x0,t1,t2,t3)
+    trace1 = box(;y=t1, x=x0, name="FPBH",  marker_color="#FF4136")
+    trace2 = box(;y=t2, x=x0[1:1100], name="FFP",  marker_color="#F1A232")
+    trace3 = box(;y=t3, x=x0[1101:end], name="FPGPR", marker_color="#3D9970")
+    data = [trace1, trace2, trace3]
+    layout = Layout(;yaxis=attr(title="HV indicator value", zeroline=false),boxmode="group")
+    plot(data, layout)
+end
+HVbox(x0,vcat(af,ff,kf,mf),vcat(ag,fg),vcat(kg,mg))
 
-round.([mean(hf[i,1:9]) for i=1:5],digits=3)
-1
+gt = vcat(ag,fg,kg,mg)
+ft = vcat(af,ff,kf,mf)
 
+HVbox(x0,ft,gt) # including MIPLIB
+
+function epbox(x0,t1,t2,t3)
+    trace1 = box(;y=t1, x=x0, name="FPBH",  marker_color="#FF4136")
+    trace2 = box(;y=t2, x=x0[1:1100], name="FFP",  marker_color="#F1A232")
+    trace3 = box(;y=t3, x=x0[1101:end], name="FPGPR", marker_color="#3D9970")
+    data = [trace1, trace2, trace3]
+    layout = Layout(;yaxis=attr(title="unary ϵ indicator value", zeroline=false),boxmode="group")
+    plot(data, layout)
+end
+epbox(x0,vcat(af,ff,kf,mf),vcat(ag,fg),vcat(kg,mg))
 
 
 # function groupbox(t1,t2,t3,t4,t5,t6,t7,t8)

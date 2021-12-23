@@ -1,27 +1,8 @@
 ###########################  General Record mean calulation ######################
 using Statistics,DataFrames,DelimitedFiles,CSV
 
-dir1 = "/home/ak121396/Desktop/FPBH/MIPLIP/collection/Y/"
-dir1 = "/home/ak121396/Desktop/solvers/Bensolve/MIPLIB//Y/"
-ndf = readdir(dir1)
-
-for i=1:length(ndf)
-    yval = readdlm(dir1*ndf[i])
-    numsol = size(yval)[1]
-    print(numsol,"\n")
-    # if numsol<=4
-    #     print(ndf[i],": ""\n") #,numsol,
-    # end
-end
-
-
-readdir("/home/ak121396/Desktop/instances/MIPLIB(official)/LP/")
-numsol = size(yval)
-
-
 # direc = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK//"
-# direc = "/home/ak121396/Desktop/FPBH/AP/2minTL/time/"
-dir1 = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
+dir1 = "/media/ak121396/0526-8445/results/gpr/AP/"
 # cput = readdir(direc)
 sol = readdir(dir1)
 # tb = zeros(10,2); tt = zeros(10,2); #AP/KP
@@ -43,21 +24,6 @@ end
 print("solutions \n"); sol=tt[:,2]
 CPUtime=tt[:,1]
 r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
-
-for i=1:7
-    f = readdlm(direc*files[i], ',' ,Float64)
-    init = round(mean(f[:,1]),digits=2)
-    newsol = round(mean(f[:,2]),digits=2)
-    totalsol = round(init+newsol, digits=2)
-    feasitime = round(mean(f[:,end-2]),digits=2)
-    cputime = round(mean(f[:,end]),digits=2)
-
-    record = DataFrame(totalsol=totalsol, newsol=newsol, feasitime=feasitime,CPUtime=cputime)
-    CSV.write("/home/ak121396/Documents/GPR.ods",record,append=true,header=false)
-end
-#FPBH records
-cput = readdir(dir2)
-dir1 = "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/"
 
 function calculate(nins,rep,subclas,dir)
     tb = zeros(nins,1); tt = zeros(subclas,1);
@@ -168,76 +134,3 @@ tb2
 #         end
 #     end
 # end
-
-##########################KP
-path = "/home/ak121396/Desktop/FPBH/kp/time/1/"
-timere = readdir(path)
-avtb = zeros(100,1)
-for i=1:100
-
-    avtb[i]  = readdlm(path*timere[i])[1]
-
-end
-
-tbb = zeros(10,1)
-for i=1:10
-    tbb[i] =  round(mean(avtb[(i-1)*10+1:i*10]), digits=2)
-end
-
-path = "/home/ak121396/Desktop/FPBH/kp/10ndf/"
-ndf = readdir(path)
-avtb = zeros(100,1)
-for i=1:100
-
-    f = readdlm(path*ndf[i])
-    a,b = size(f)
-    avtb[i] = a
-end
-tbb = zeros(10,1)
-
-for i=1:10
-    tbb[i] =  round(mean(avtb[(i-1)*10+1:i*10]), digits=2)
-end
-
-
-##################AP
-
-timere = readdir("/home/ak121396/Desktop/FPBH/ap_lp/time/")
-avtb = zeros(100,1)
-for i=1:100
-    avtb[i]  = readdlm("/home/ak121396/Desktop/FPBH/ap_lp/time/"*timere[i])[1]
-end
-
-ndf = readdir("/home/ak121396/Desktop/FPBH/ap_lp/ndf/")
-avtb = zeros(100,1)
-for i=1:100
-
-    f = readdlm("/home/ak121396/Desktop/FPBH/ap_lp/ndf/"*ndf[i])
-    a,b = size(f)
-    avtb[i] = a
-end
-
-a = [
-    1
-    2
-]
-tbb = zeros(10,1)
-for i=1:10
-    tbb[i] =  round(mean(a[(i-1)*10+1:i*10]), digits=2)
-end
-
-
-####################GFP
-timere = readdir("/home/ak121396/Desktop/phd//APresults//")
-
-##########Kirlik
-
-direc = "/home/ak121396/Downloads/KirlikSayin2014/LPfiles/KP/ndf/"
-sol = readdir(direc)
-
-avtb = zeros(100,1)
-for i=1:100
-    tsol = readdlm(direc*sol[i])
-    a,b = size(tsol)
-    avtb[i] = a
-end

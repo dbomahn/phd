@@ -256,17 +256,6 @@ for i=1:10
     # # #########################  Record outputs  ############################
 end
 
-
-
-
-
-
-
-
-
-
-
-
 ############################  for Visualisation  #############################
 points = DataFrame(obj1=LB[:,1], obj2=LB[:,2], obj3=LB[:,3])
 # IB = readdlm("/home/ak121396/Desktop/Bensolve_KP/RoundDown/Y/"*readdir("/home/ak121396/Desktop/Bensolve_KP/RoundDown/Y/")[i])
@@ -285,3 +274,11 @@ for i=1:length(clusort)
 end
 insertcols!(points, 4, :cluster => clusid)
 clustering(points)
+
+######################## clustering PR&FP ###########################
+initclu = dbscan(LB', radius) #, min_neighbors = 1, min_cluster_size = 1)
+core = getproperty.(initclu, :core_indices)
+boundary = getproperty.(initclu, :boundary_indices)
+LBclu = union.(core,boundary); Icluster = Dict();
+clsize = getproperty.(initclu, :size)
+clulist = unique(sort(clsize))

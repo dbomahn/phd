@@ -1,7 +1,12 @@
 using DelimitedFiles,DataFrames,StatsBase,CSV
 
 ####################################LINUX###################################
-ksdir = "/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intAP_Y/"
+ksp = "/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intKP_Y/"
+ffp = "/home/ak121396/Desktop/clu/KP/"
+
+ksdp = "/home/ak121396/Desktop/solvers/Kirlikoutput/FLP/ndf/"
+ffp = "/home/ak121396/Desktop/clu/flpy/"
+
 fpbh = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
 pr = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK/"
 ben = "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/"
@@ -11,7 +16,6 @@ ben = "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/"
 # pr = "F:/results/gpr/AP/"
 # fpbh = "F:/results/fpbh/AP/1/"
 
-ksfiles = readdir(ksdir)
 fpfiles = readdir(fpbh)
 prfiles = readdir(pr)
 bfiles = readdir(ben)
@@ -49,17 +53,29 @@ function normHV(ksdir,ksfiles,dir,files,i)
   return parse(Float64,smetric[1])
 end
 
-table = zeros(10,10)
+tb = zeros(10,10)
 for i=1:10
     for j=1:10
         k = (i-1)*10+j
-        hv = normHV(ksdir,ksfiles,ben,bfiles,k)
+        hv = normHV(ksp,kfiles,fpp,ffiles,k)
+        tb[i,j] = hv
+    end
+    # tb = round(mean(table[:,1]),digits=3)
+end
+tb
+round.([mean(tb[i,:]) for i=1:10],digits=3)
+
+table = zeros(12,10)
+for i=1:12
+    for j=1:10
+        k = (i-1)*10+j
+        hv = normHV(ksp,ksfiles,fpp,ffiles,k)
         table[i,j] = hv
     end
     # tb = round(mean(table[:,1]),digits=3)
 end
 table
-round.([mean(table[i,:]) for i=1:10],digits=3)
+round.([mean(table[i,:]) for i=1:12],digits=3)
 
 ###############################################################################
 mipdir = "F:/results/mergedMIP/";
@@ -80,6 +96,10 @@ for k=1:5
 end
 round.([mean(table[i,:]) for i=1:5],digits=3)
 
+ksp = "/home/ak121396/Desktop/solvers/Kirlikoutput/FLP/ndf/"
+ffp = "/home/ak121396/Desktop/clu/KP/"
+readdir(ffp)
+kfiles = readdir(ksp)
 
 function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
     allt = zeros(subclas,rep)
@@ -99,28 +119,77 @@ function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
     end
     return(allt)
 end
-table = calculateHV(5,10,12,ksdir,ksfiles,pr)
+table = calculateHV(5,10,10,ksp,kfiles,ffp)
+round.([mean(table[i,:]) for i=1:10],digits=3)
+
+refdir = "/media/ak121396/0526-8445/results/KS/AP/"
+refiles = readdir(refdir)
+ag = []
+agpath = "/home/ak121396/Desktop/hvm/gpr/AP/"
+af = []
+afpath = "/home/ak121396/Desktop/hvm/fpbh/AP/"
+for l=1:5
+    refiles = readdir(refdir)
+    gfiles = readdir(agpath*"$l/")
+    ffiles = readdir(afpath*"$l/")
+
+    for j=1:length(refiles)
+        ghv = normHV(refdir,refiles,agpath*"$l/",gfiles,j)
+        fhv = normHV(refdir,refiles,afpath*"$l/",ffiles,j)
+        push!(ag,ghv); push!(af,fhv)
+    end
+end
+
+refdir = "/media/ak121396/0526-8445/results/KS/KP/"
+kg = []
+kgpath = "/home/ak121396/Desktop/hvm/gpr/KP/"
+kf = []
+kfpath = "/home/ak121396/Desktop/hvm//fpbh/KP/"
+
+for l=1:5
+    refiles = readdir(refdir)
+    gfiles = readdir(kgpath*"$l/")
+    ffiles = readdir(kfpath*"$l/")
+
+    for j=1:length(refiles)
+        ghv = normHV(refdir,refiles,kgpath*"$l/",gfiles,j)
+        fhv = normHV(refdir,refiles,kfpath*"$l/",ffiles,j)
+        push!(kg,ghv); push!(kf,fhv)
+    end
+end
+
+refdir = "/media/ak121396/0526-8445/results/KS/FLP/"
+fg = []
+fgpath = "/home/ak121396/Desktop/hvm/gpr/FLP/"
+ff = []
+ffpath = "/home/ak121396/Desktop/hvm/fpbh//FLP/"
+
+for l=1:5
+    refiles = readdir(refdir)
+    gfiles = readdir(fgpath*"$l/")
+    ffiles = readdir(ffpath*"$l/")
+
+    for j=1:length(refiles)
+        ghv = normHV(refdir,refiles,fgpath*"$l/",gfiles,j)
+        fhv = normHV(refdir,refiles,ffpath*"$l/",ffiles,j)
+        push!(fg,ghv); push!(ff,fhv)
+    end
+end
 
 
 refdir = "/media/ak121396/0526-8445/results/mergedMIP/"
-refiles = readdir(refdir)
-gmip = []
-path = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
-
-fmip = []
-path = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
-
-path = "/media/ak121396/0526-8445/results/mergedMIP/"
-miphv = []
+mg = []
+mgpath = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
+mf = []
+mfpath = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
 for l=1:9
-    dir = readdir(path)
-    files = readdir(path*"$l/")
     refiles = readdir(refdir*"$l/")
-    for j=1:length(files)
-        hv = normHV(refdir*"$l/",refiles,path*"$l/",files,j)
-        # push!(gmip,hv)
-        push!(fmip,hv)
-        # push!(miphv,hv)
+    ffiles = readdir(mfpath*"$l/")
+    gfiles = readdir(mgpath*"$l/")
+    for j=1:length(refiles)
+        ghv = normHV(refdir*"$l/",refiles,mgpath*"$l/",gfiles,j)
+        fhv = normHV(refdir*"$l/",refiles,mfpath*"$l/",ffiles,j)
+        push!(mg,ghv); push!(mf,fhv)
     end
 end
 
