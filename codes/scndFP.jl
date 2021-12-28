@@ -51,7 +51,7 @@ mutable struct Valu
 end
 
 function getobjval(x,C)
-    return [dot(x,C[1,:]),dot(x,C[2,:])]
+    return [dot(x,C[1,1:length(x)]),dot(x,C[2,1:length(x)])]
 end
 function flip(x_h,j,e)
     if x_h[e[j]]==1
@@ -177,10 +177,8 @@ function Postpro(candX,candY,newsol)
     return finalsol,finalobj
 end
 
-# dt = Data("/home/ak121396/Desktop/tests1.lp")
-# pr = Valu("/home/ak121396/Desktop/relise/Test1S1_X.jld2","/home/ak121396/Desktop/relise/Test1S1_img_p.sol")
-dt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
-Bentime = readdlm(ARGS[4])[1];
+# dt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
+# Bentime = readdlm(ARGS[4])[1];
 #################### SCND model #########################
 st = findall(i->i!=1,dt.vub)[1]
 scnd = Model(CPLEX.Optimizer);
@@ -289,14 +287,6 @@ CSV.write("/home/k2g00/k2g3475/scnd/record.csv", record1,append=true, header=fal
 CSV.write(ins*"_Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
 
 ###########################################################
-FPtime = @CPUelapsed fcanx,fcany,X_u,newsol = FP(pr.dvar,pr.LB,dt.n,dt.C,300,st)
-fpx,fpy = domFilter(fcanx,fcany)
-
-newsol
-length(candlist)
-cdr = copy(pr.dvar)
-append!(dt.n,cdr[1,:],cdr[5,:])
-
 function GPR(dvar,LB,C,n,TL,st)
     IGPair=[]; exploredSI = []; newsol=0; t0=time();
 	X = copy(dvar); Y = copy(LB);
@@ -332,12 +322,3 @@ function GPR(dvar,LB,C,n,TL,st)
     end
     return X,Y,newsol
 end
-
-
-GPRtime = @CPUelapsed pcanx,pcany,pnew = GPR(pr.dvar,pr.LB,dt.C,dt.n,300,st)
-
-Y_u = [getobjval(X_u[i],dt.C) for i=1:length(X_u)]
-GPRtime = @CPUelapsed pcanx,pcany,pnew = GPR([fcanx;X_u],[fcany;Y_u],dt.C,dt.n,300,st)
-# totaltime = FPtime+Bentime+GPRtime
-
-prx,pry = Postpro(pcanx,pcany,pnew,st)

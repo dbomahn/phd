@@ -33,55 +33,24 @@ mutable struct Data
     end
 end
 
-function getConstraints(i,e,P)
-    # ϵ = 0; ϵ′ = Inf
-    d = mod(i,length(P)+1)
-    i = round(Int,(i-d)/(length(P)+1))
-    # i = div(i,length(P)+1)
-    ϵ = e[d]
-    ϵ′ = e[d+1]
-    return ϵ,ϵ′
-end
-
-function updateConstraints(f,e)
-    i = 1
-    while e[i] < f
-        i+=1
-    end
-    insert!(e[i],i,f)
-    return e
-end
-function dominated(x,P)
-    st = false
-    if x==nothing
-        return true
-    else
-        for k=1:length(P)
-            if all( x .>= P[k])#&& any(x > P[k])
-                st=true; break
-            else
-                continue
-            end
-        end
-        return st
-    end
-end
 dt = Data("/home/ak121396/Desktop/tests1.lp")
 st = findall(i->i!=1,dt.vub)[1]
 
 m1 = Model(CPLEX.Optimizer)
 MOI.set(m1, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
 MOI.set(m1, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-
 @variables(m1, begin
     yu[1:st-1], Bin
     0<= xh[st:dt.n]
 end)
-@variable(m1, x[1:dt.n] )
+@variable(m1, ex[1:dt.n] )
 @variable(m1, 0 <= ep)
-@variable(m1, 0<= ep′ <= Inf)
-@constraint(m1, [k=1:st-1], x[k] == yu[k] )
-@constraint(m1, [k=st:dt.n], x[k] == xh[k] )
+@variable(m1, 0<= ep′ )
+@constraint(m1, [k=1:st-1], ex[k] == yu[k] )
+@constraint(m1, [k=st:dt.n], ex[k] == xh[k] )
+@constraint(m1, epcon1, dot(ex,dt.C[2,:]) <= ep′)
+@constraint(m1, epcon2, ep <= dot(ex,dt.C[2,:]) )
+
 for k=1:dt.m
     if dt.signs[k] == "l"
         @constraint(m1, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) >= dt.RHS[k])
@@ -91,31 +60,39 @@ for k=1:dt.m
         @constraint(m1, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) == dt.RHS[k])
     end
 end
-@constraint(m1, epcon1, dot(x,dt.C[2,:]) <= ep′)
-@constraint(m1, epcon2, ep <= dot(x,dt.C[2,:]) )
-@objective(m1, Min, dot(x,dt.C[1,:]) )
+@objective(m1, Min, dot(ex,dt.C[1,:]) )
 optimize!(m1);
 
+function dominated(y,P)
+    st = false
+    for k=1:length(P)
+        if all( y .>= P[k])# && any(x > P[k])
+            st = true; break
+        else
+            continue
+        end
+    end
+    return st
+end
 function opt(ϵ,ϵ′,C)
     JuMP.fix(ep, ϵ; force = true); JuMP.fix(ep′,ϵ′; force = true);
     optimize!(m1)
     if termination_status(m1) == MOI.OPTIMAL
-        return JuMP.value.(x), [objective_value(m1),dot(JuMP.value.(x),C[2,:])]
+        return JuMP.value.(ex), [objective_value(m1),dot(JuMP.value.(ex),C[2,:])]
     else
         return nothing,nothing
     end
 end
 
 function epsilon(C)
-    P = []; Y = []; ϵ = 2*10^(6); fval = [0,0]; δ =10^(5)
-
+    P = []; Y = []; ϵ = 2*10^(8); fval = [0,0]; δ =10^(7)
     while fval[2] <= ϵ
         s,fval = opt(ϵ-δ,ϵ,C)
-        println(fval)
         if s == nothing
             break
-        elseif dominated(fval,Y)==false
-            push!(P,s); push!(Y,fval)
+        end
+        if dominated(fval,Y)==false
+            push!(P,s); push!(Y,fval);
         end
         ϵ = ϵ-δ
     end
@@ -123,7 +100,4 @@ function epsilon(C)
 end
 
 ex,ey = epsilon(dt.C)
-
-
-
-Aksqha9500
+domFilter(ex,ey)
