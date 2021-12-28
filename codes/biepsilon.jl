@@ -1,4 +1,5 @@
-using DataStructures,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,JLD2,CPLEX,LinearAlgebra,CSV,StatsBase,CPUTime,MathProgBase,MathOptInterface
+using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,LinearAlgebra,StatsBase,MathProgBase,MathOptInterface
+#,CSV,CPUTime,JLD2,
 const MPB = MathProgBase;
 mutable struct Data
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
@@ -33,7 +34,7 @@ mutable struct Data
     end
 end
 
-dt = Data("/home/ak121396/Desktop/tests1.lp")
+dt = Data("./lp/Test4S1.lp") #calling lp file with cplex.jl 0.6
 st = findall(i->i!=1,dt.vub)[1]
 
 m1 = Model(CPLEX.Optimizer)
@@ -48,8 +49,7 @@ end)
 @variable(m1, 0<= ep′ )
 @constraint(m1, [k=1:st-1], ex[k] == yu[k] )
 @constraint(m1, [k=st:dt.n], ex[k] == xh[k] )
-@constraint(m1, epcon1, dot(ex,dt.C[2,:]) <= ep′)
-@constraint(m1, epcon2, ep <= dot(ex,dt.C[2,:]) )
+@constraint(m1, epcon1, dot(ex,dt.C[2,:]) <= ep)
 
 for k=1:dt.m
     if dt.signs[k] == "l"
@@ -61,7 +61,7 @@ for k=1:dt.m
     end
 end
 @objective(m1, Min, dot(ex,dt.C[1,:]) )
-optimize!(m1);
+
 
 function dominated(y,P)
     st = false
@@ -74,8 +74,8 @@ function dominated(y,P)
     end
     return st
 end
-function opt(ϵ,ϵ′,C)
-    JuMP.fix(ep, ϵ; force = true); JuMP.fix(ep′,ϵ′; force = true);
+function opt(ϵ,C)
+    JuMP.fix(ep, ϵ; force = true);
     optimize!(m1)
     if termination_status(m1) == MOI.OPTIMAL
         return JuMP.value.(ex), [objective_value(m1),dot(JuMP.value.(ex),C[2,:])]
@@ -85,9 +85,10 @@ function opt(ϵ,ϵ′,C)
 end
 
 function epsilon(C)
-    P = []; Y = []; ϵ = 2*10^(8); fval = [0,0]; δ =10^(7)
-    while fval[2] <= ϵ
-        s,fval = opt(ϵ-δ,ϵ,C)
+    P = []; Y = []; ϵ = 2*10^(6); δ =2*10^(5); lb = 11^(6); fval = [0,ϵ]
+    while fval[2] >= lb
+        s,fval = opt(ϵ,C)
+        println(fval)
         if s == nothing
             break
         end
