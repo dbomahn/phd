@@ -1,9 +1,9 @@
 using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,LinearAlgebra,StatsBase,MathProgBase,MathOptInterface
 #,CSV,CPUTime,JLD2,
 const MPB = MathProgBase;
-mutable struct Data
+mutable struct importLP
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
-    function Data(lpfile::String)
+    function importLP(lpfile::String)
         lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
         # lpmodel = CPLEX.CplexMathProgModel();
         MPB.loadproblem!(lpmodel,lpfile)
@@ -34,65 +34,69 @@ mutable struct Data
     end
 end
 
-dt = Data("./lp/Test4S1.lp") #calling lp file with cplex.jl 0.6
-st = findall(i->i!=1,dt.vub)[1]
+# dtt = Data("./lp/Test4S1.lp") #calling lp file with cplex.jl 0.6
+dtt = importLP("/home/ak121396/Desktop/instances/SCND/test04S3.lp")
+st = findall(i->i!=1,dtt.vub)[1]
 
 m1 = Model(CPLEX.Optimizer)
 MOI.set(m1, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
 MOI.set(m1, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
 @variables(m1, begin
     yu[1:st-1], Bin
-    0<= xh[st:dt.n]
+    0<= xh[st:dtt.n]
 end)
-@variable(m1, ex[1:dt.n] )
+@variable(m1, ex[1:dtt.n] )
 @variable(m1, 0 <= ep)
-@variable(m1, 0<= ep′ )
+@constraint(m1, epcon1, dot(ex,dtt.C[2,:]) <= ep)
 @constraint(m1, [k=1:st-1], ex[k] == yu[k] )
-@constraint(m1, [k=st:dt.n], ex[k] == xh[k] )
-@constraint(m1, epcon1, dot(ex,dt.C[2,:]) <= ep)
+@constraint(m1, [k=st:dtt.n], ex[k] == xh[k] )
 
-for k=1:dt.m
-    if dt.signs[k] == "l"
-        @constraint(m1, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) >= dt.RHS[k])
-    elseif dt.signs[k] == "u"
-        @constraint(m1, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) <= dt.RHS[k])
+for k=1:dtt.m
+    if dtt.signs[k] == "l"
+        @constraint(m1, dot(dtt.B[k,1:st-1],yu)+dot(dtt.B[k,st:end],xh) >= dtt.RHS[k])
+    elseif dtt.signs[k] == "u"
+        @constraint(m1, dot(dtt.B[k,1:st-1],yu)+dot(dtt.B[k,st:end],xh) <= dtt.RHS[k])
     else
-        @constraint(m1, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) == dt.RHS[k])
+        @constraint(m1, dot(dtt.B[k,1:st-1],yu)+dot(dtt.B[k,st:end],xh) == dtt.RHS[k])
     end
 end
-@objective(m1, Min, dot(ex,dt.C[1,:]) )
+@objective(m1, Min, dot(ex,dtt.C[1,:]) )
 
 
-function dominated(y,P)
-    st = false
-    for k=1:length(P)
-        if all( y .>= P[k])# && any(x > P[k])
-            st = true; break
-        else
-            continue
-        end
-    end
-    return st
-end
+# function dominated(y,P)
+#     st = false
+#     for k=1:length(P)
+#         if all( y .>= P[k])# && any(x > P[k])
+#             st = true; break
+#         else
+#             continue
+#         end
+#     end
+#     return st
+# end
 function opt(ϵ,C)
     JuMP.fix(ep, ϵ; force = true);
     optimize!(m1)
+    @show termination_status(m1)
     if termination_status(m1) == MOI.OPTIMAL
-        return JuMP.value.(ex), [objective_value(m1),dot(JuMP.value.(ex),C[2,:])]
+        return JuMP.value.(ex),[objective_value(m1),dot(JuMP.value.(ex),C[2,:])]
     else
         return nothing,nothing
     end
 end
 
 function epsilon(C)
-    P = []; Y = []; ϵ = 2*10^(6); δ =2*10^(5); lb = 11^(6); fval = [0,ϵ]
+    P = []; Y = []; ϵ = 19*10^(5); δ =10^(5); lb = 2*10^(6); fval = [0,ϵ]
+    # Test1S
+    # ϵ = 5.5*10^(4); δ =10^(5); lb = 10^(6)+50; fval = [0,ϵ]
     while fval[2] >= lb
         s,fval = opt(ϵ,C)
         println(fval)
         if s == nothing
             break
-        end
-        if dominated(fval,Y)==false
+        # end
+        # if dominated(fval,Y)==false
+        else
             push!(P,s); push!(Y,fval);
         end
         ϵ = ϵ-δ
@@ -100,5 +104,8 @@ function epsilon(C)
     return P,Y
 end
 
-ex,ey = epsilon(dt.C)
+ex,ey = epsilon(dtt.C)
+ey
 domFilter(ex,ey)
+
+dot(ex[1:27],dtt.C[1][1:27])
