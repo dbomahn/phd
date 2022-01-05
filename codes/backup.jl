@@ -22,7 +22,7 @@ for i=1:dt.N["supplier"]
         for m=1:dt.Mij[i,j]
             for p=1:5
                 # if is_valid(scnd,xij[i,j,m,p])==true
-                add_to_expression!(exa,sum(dt.a[i][p]*xij[i,j,m,p]) );
+                add_to_expression!(exa,sum(dt.N["vcs"][i][p]*xij[i,j,m,p]) );
                 # end
             end
         end
@@ -39,7 +39,7 @@ for i=1:dt.N["supplier"]
         #     end
         # end
         for m=1:dt.Mij[i,j]
-            add_to_expression!(exg, dt.N["fixedcostModesp"][i][idx]*uij[i,j,m]);
+            add_to_expression!(exg, dt.gij[i][idx]*uij[i,j,m]);
             idx+=1
         end
     end
@@ -53,7 +53,7 @@ for j=1:dt.N["plant"]
         #     end
         # end
         for m=1:dt.Mjk[j,k]
-            add_to_expression!(exg, dt.N["fixedcostModepd"][j][idx]*ujk[j,k,m]);
+            add_to_expression!(exg, dt.gjk[j][idx]*ujk[j,k,m]);
             idx+=1
         end
     end
@@ -67,7 +67,7 @@ for k=1:dt.N["distribution"]
         #     end
         # end
         for m=1:dt.Mkl[k,l]
-            add_to_expression!(exg,dt.N["fixedcostModedc"][k][idx]*ukl[k,l,m]);
+            add_to_expression!(exg,dt.gkl[k][idx]*ukl[k,l,m]);
             idx+=1
         end
     end
@@ -160,12 +160,8 @@ for k=1:dt.N["distribution"]
     end
 end
 #1st obj
-@constraint(scnd, obj1,
-    sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exa +
-    sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2)+
-    exg + exv <=0);
-# @objective(scnd, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +
-#     exa + exv + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:(dt.N["plant"]+dt.N["distribution"]) for p=1:5 for t=1:2));
+@constraint(scnd, obj1, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2) + exg + exv <=0);
+# @objective(scnd, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +exa + exv + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:(dt.N["plant"]+dt.N["distribution"]) for p=1:5 for t=1:2));
 #2nd obj
 @constraint(scnd, obj2, exb+sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr <=0);
 # @objective(scnd,Min,exb + exr + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) );
@@ -209,19 +205,17 @@ for i=1:dt.N["supplier"]
         end
     end
 end
+write_to_file(scnd , "/home/k2g00/k2g3475/scnd/lp/"*file[36:end]*".lp")
 
 # optimize!(scnd)
-# objective_value(scnd)
 # termination_status(scnd)
+# objective_value(scnd)
+# #
+# value.(uij)
+# sum(value.(uij))
 
-# value.(h)
-# sum(value.(ukl[1,1,1]))
 # 7.6471829e7+140000+130000+5.307581191999919e6+
 # 1.6701908309100384e7+3.1115610282100677e7+2.8889434424200263e7+
 # dot(dtt.C[1,:][1+54+145+269+2549+725+1345+12745:54+145+269+2549+725+1345+12745+270],value.(h)[:])
 # (dtt.C[1,:][1+54+145+269+2549+725+1345:54+145+269+2549+725+1345+12745])
-#
-# @show scnd
-dtt.C[1,:][1+54:54+20]
-#
-# dt.N["fixedcostModesp"]
+# dtt.C[1,:][1+54:54+145]

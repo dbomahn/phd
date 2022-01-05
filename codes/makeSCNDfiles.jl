@@ -8,15 +8,15 @@ function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
 end
 
 mutable struct Data
-    filepath::String; N::Dict{}; d::Array{}; m::Int; c::Array{}; a::Array{}; e::Array{}; #cap::Array{};
+    filepath::String; N::Dict{}; d::Array{}; m::Int; c::Array{}; e::Array{}; gij::Array{}; gjk::Array{}; gkl::Array{};
     Mij::Array{}; Mjk::Array{}; Mkl::Array{}; Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; q::Array{};
     upl::Int; udc::Int
-    # gij::Array{}; gjk::Array{}; gkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{};
-    # rij::Array{}; rjk::Array{}; rkl::Array{};
+    # rij::Array{}; rjk::Array{}; rkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{};
     function Data(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("E:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -38,10 +38,12 @@ mutable struct Data
                 N[nota[i]] = W;
             end
         end
-        d = N["demand"]; m = N["transportation"];
-        c = append!(N["fcp"],N["fcd"]);
-        a = N["vcs"]; e = append!(N["vcp"],N["vcd"]);
-        # cap = append!(N["cas"],N["cap"],N["cad"]);
+        d = N["demand"];  m = N["transportation"];
+        c = append!(N["fcp"],N["fcd"]); e = append!(N["vcp"],N["vcd"]);
+        # gij = N["fixedcostModesp"]; gjk = N["fixedcostModepd"];  gkl = N["fixedcostModedc"];
+        gij = replace.(N["fixedcostModesp"], 0=>10^(-3));
+        gjk = replace.(N["fixedcostModepd"], 0=>10^(-3));
+        gkl = replace.(N["fixedcostModedc"], 0=>10^(-3));
         Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])));
         Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])));
         Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
@@ -86,11 +88,13 @@ mutable struct Data
         q = append!(N["vep"],N["ved"]);
         upl = N["upperpants"]; udc = N["upperdistribution"]
 
-        new(filepath,N,d,m,c,a,e,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
+        new(filepath,N,d,m,c,e,gij,gjk,gkl,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
     end
 end
 # @show file = ARGS[1];
-file = "/home/ak121396/Desktop/instances/SCND/test04S3"
+# file = "/home/ak121396/Desktop/instances/SCND/test04S3"
+# file = "E:/scnd/Test4S3"
+file = "/home/k2g00/k2g3475/scnd/instances/test04S3"
 dt = Data(file);
 ##########################  Mathematical model  #########################
 scnd = Model(CPLEX.Optimizer); set_silent(scnd)

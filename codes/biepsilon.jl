@@ -34,8 +34,9 @@ mutable struct importLP
     end
 end
 
-# dtt = Data("./lp/Test4S1.lp") #calling lp file with cplex.jl 0.6
-dtt = importLP("/home/ak121396/Desktop/instances/SCND/test04S3.lp")
+# dtt = importLP("/home/ak121396/Desktop/instances/SCND/test04S3.lp")
+# dtt = importLP("E:/scnd/Test4S3.lp")
+dtt = importLP("/home/k2g00/k2g3475/scnd/lp/"*file[36:end]*".lp")
 st = findall(i->i!=1,dtt.vub)[1]
 
 m1 = Model(CPLEX.Optimizer)
@@ -62,7 +63,6 @@ for k=1:dtt.m
 end
 @objective(m1, Min, dot(ex,dtt.C[1,:]) )
 
-
 # function dominated(y,P)
 #     st = false
 #     for k=1:length(P)
@@ -86,7 +86,7 @@ function opt(ϵ,C)
 end
 
 function epsilon(C)
-    P = []; Y = []; ϵ = 19*10^(5); δ =10^(5); lb = 2*10^(6); fval = [0,ϵ]
+    P = []; Y = []; ϵ = 19*10^(5); δ =10^(5); lb = 10^(6); fval = [0,ϵ]
     # Test1S
     # ϵ = 5.5*10^(4); δ =10^(5); lb = 10^(6)+50; fval = [0,ϵ]
     while fval[2] >= lb
@@ -105,7 +105,10 @@ function epsilon(C)
 end
 
 ex,ey = epsilon(dtt.C)
-ey
-domFilter(ex,ey)
-
-dot(ex[1:27],dtt.C[1][1:27])
+# ey
+# domFilter(ex,ey)
+#
+# dot(ex[1:27],dtt.C[1][1:27])
+# ENV["CPLEX_STUDIO_BINARIES"] = "F:/cplex12.9/cplex/bin/x64_win64/"
+# import Pkg
+# Pkg.add(Pkg.PackageSpec(name = "CPLEX", version = v"0.6"))
