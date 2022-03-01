@@ -1,16 +1,20 @@
-using DataStructures,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,JLD2,CPLEX,LinearAlgebra,CSV,StatsBase,CPUTime,MathProgBase,MathOptInterface
+using DataStructures,DataFrames,DelimitedFiles,JuMP,JLD2,CPLEX,LinearAlgebra,CSV,StatsBase,CPUTime,MathProgBase,MathOptInterface
 const MPB = MathProgBase;
-TL = 3600
-mutable struct Data
+
+mutable struct CallModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
-    function Data(lpfile::String)
+    function CallModel(lpfile::String)
         lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
+        # lpmodel = CPLEX.CplexMathProgModel();
         MPB.loadproblem!(lpmodel,lpfile)
-        Bmtx = MPB.getconstrmatrix(lpmodel);B = Bmtx[3:end,:]
-        C = Bmtx[1:2,:]
+        Bmtx = MPB.getconstrmatrix(lpmodel);
+        B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
+        # cut = find(i-> varub[i]==1 &&varub[i+1]!=1, 1:length(varub))[end]
+        # vub = varub[1:cut]; B = Bmtx[3:end,1:cut]; C = Bmtx[1:2,1:cut]
         m,n=size(B)
         vub = MPB.getvarUB(lpmodel)
-        lb = MPB.getconstrLB(lpmodel)[3:end]; ub = MPB.getconstrUB(lpmodel)[3:end]
+        lb = MPB.getconstrLB(lpmodel)[3:end]
+        ub = MPB.getconstrUB(lpmodel)[3:end]
         RHS = Dict()
         for i=1:m
             if ub[i]==Inf
@@ -49,8 +53,8 @@ mutable struct Valu
     end
 end
 
-function getobjval(x,C)
-    return [dot(x,C[1,1:length(x)]),dot(x,C[2,1:length(x)])]
+function getobjval(x,C,bvar)
+    return [ dot(x,[C[1,:][k] for k in bvar]), dot(x,[C[2,:][k] for k in bvar]) ]
 end
 function flip(x_h,j,e)
     if x_h[e[j]]==1
@@ -91,15 +95,15 @@ function flipoper(Tabu,x_t,x_r)
     return xi
 end
 
-function findsol(x_r,n)
-    for k=1:n
-        JuMP.fix(x[k],x_r[k]; force=true)
+function PRfindsol(x_r,bvar)
+    for (i,v) in enumerate(bvar)
+        JuMP.fix(x[v], x_r[i]; force=true)
     end
     optimize!(scnd)
     if termination_status(scnd) == MOI.OPTIMAL
         return JuMP.value.(x)
     else
-        return false
+        return []
     end
 end
 function fbsearch(x_r) #solveLP
@@ -144,7 +148,7 @@ function domFilter(sol,obj)
     finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
     return finalsol,finalobj
 end
-function createNB(SI,C,dif,exploredSI)
+function createNB(SI,C,dif,exploredSI,dvar)
     neibour = []; neiobj = [];
     for i in dif
         cpSI = copy(SI)
@@ -154,12 +158,11 @@ function createNB(SI,C,dif,exploredSI)
             else
                 cpSI[i] = 1
             end
-            push!(neibour, cpSI);
-            push!(neiobj, getobjval(cpSI,C))
+            push!(neibour, cpSI); push!(neiobj, getobjval(cpSI,C,dvar))
         else #if vari is fractional
-            cpSI[i] = 1; push!(neibour, cpSI); push!( neiobj, getobjval(cpSI,C) )
+            cpSI[i] = 1; push!(neibour, cpSI); push!( neiobj, getobjval(cpSI,C,dvar) )
             cpSI = copy(SI)
-            cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, getobjval(cpSI,C) )
+            cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, getobjval(cpSI,C,dvar) )
         end
     end
     idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
@@ -168,8 +171,8 @@ function createNB(SI,C,dif,exploredSI)
 
     return neibour,neiobj
 end
-function nextSI(neibour,neiobj,C,SI)
-    SIobj = getobjval(SI,C)
+function nextSI(neibour,neiobj,C,SI,dvar)
+    SIobj = getobjval(SI,C,dvar)
     # neiobj = [getobjval(neibour[i],C) for i=1:length(neibour)]
     for i=1:length(neiobj)
         if length(neiobj) == 1  #if there is one candiate sol
@@ -190,7 +193,7 @@ function nextSI(neibour,neiobj,C,SI)
         end
     end
 end
-function Postpro(candX,candY,newsol,st)
+function Postpro(candX,candY,newsol)
     #Filter fractional solutions from LB
     initdv = candX[1:end-newsol]
     initLB = candY[1:end-newsol]
@@ -221,108 +224,113 @@ function Postpro(candX,candY,newsol,st)
     return finalsol,finalobj
 end
 
-dt = Data("/home/ak121396/Desktop/relise/Test4S3.lp")
+mt = CallModel("/home/ak121396/Desktop/relise/Test4S3.lp")
 pr = Valu("/home/ak121396/Desktop/relise/Test4S3_X.jld2","/home/ak121396/Desktop/relise/Test4S3_img_p.sol")
-dt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
+mt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
 Bentime = readdlm(ARGS[4])[1];
 #################### SCND model #########################
-st = findall(i->i!=1,dt.vub)[1]
-scnd = Model(CPLEX.Optimizer);set_silent(scnd);
-@variables(scnd, begin
-    yu[1:st-1], Bin
-    0<= xh[st:dt.n]
-end)
-@variable(scnd, x[1:dt.n] )
-@constraint(scnd, [k=1:st-1], x[k] == yu[k] )
-@constraint(scnd, [k=st:dt.n], x[k] == xh[k] )
-for k=1:dt.m
-    if dt.signs[k] == "l"
-        @constraint(scnd, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) >= dt.RHS[k])
-    elseif dt.signs[k] == "u"
-        @constraint(scnd, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) <= dt.RHS[k])
+scnd = Model(CPLEX.Optimizer);
+MOI.set(scnd, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
+MOI.set(scnd, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
+bvar = findall(i->i==1,mt.vub); rvar = findall(i->i!=1,mt.vub);
+@variable(scnd, yu[i in bvar], Bin)
+@variable(scnd, xh[i in rvar] >=0 )
+@variable(scnd, x[1:mt.n] )
+for i=1:mt.n
+    if i in bvar
+        @constraint(scnd, x[i]==yu[i]  )
     else
-        @constraint(scnd, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) == dt.RHS[k])
+        @constraint(scnd, x[i]==xh[i] )
     end
 end
-@objective(scnd,Min, dot(x,dt.C[2,:]))
-optimize!(scnd);
-objective_value(scnd)
-##################### Feasibility Search model ######################
-dist = Model(CPLEX.Optimizer);set_silent(dist);
-@variables(dist, begin
-    0<= dyu[1:st-1] <=1
-    0<= dxh[st:dt.n]
-end)
-@variable(dist, dx[1:dt.n] )
-@constraint(dist, [k=1:st-1], dx[k] == dyu[k] )
-@constraint(dist, [k=st:dt.n], dx[k] == dxh[k] )
-for k=1:dt.m
-    if dt.signs[k] == "l"
-        @constraint(dist, dot(dt.B[k,1:st-1],dyu)+dot(dt.B[k,st:end],dxh) >= dt.RHS[k])
-    elseif dt.signs[k] == "u"
-        @constraint(dist, dot(dt.B[k,1:st-1],dyu)+dot(dt.B[k,st:end],dxh) <= dt.RHS[k])
+for k=1:mt.m
+    if mt.signs[k] == "l"
+        @constraint(scnd, dot(mt.B[k,:],x) >= mt.RHS[k])
+    elseif mt.signs[k] == "u"
+        @constraint(scnd, dot(mt.B[k,:],x) <= mt.RHS[k])
     else
-        @constraint(dist, dot(dt.B[k,1:st-1],dyu)+dot(dt.B[k,st:end],dxh) == dt.RHS[k])
+        @constraint(scnd, dot(mt.B[k,:],x) == mt.RHS[k])
     end
 end
-optimize!(dist);
-MOI.set(scnd, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
-MOI.set(scnd, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
-MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
-MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+optimize!(scnd)
 
-function FP(candX,candY,n,C,TL,st)
-    X= []; Y = []; Tabu = []; newsol=0; t0=time(); #LPcount=0;
-    candlist = copy(candX)
-    # k=1
-    while candlist != [] &&  time()-t0 < TL
-        k = rand(1:length(candlist))
-        x_t = candlist[k]; SearchDone = false; iter=0; Max_iter = 10
-        while iter<Max_iter && SearchDone == false && time()-t0 < TL
-            x1 = x_t[1:st-1]; x1_r = round.(Int,x1)
-            x_n = findsol(x1_r,st-1)
-            if ( (x_n != false) && (x_n ∉ X) )
-                push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
-                newsol+=1; SearchDone = true;deleteat!(candlist,k)
-                # println("Rounding worked")
+function FBcheck(xx,n)
+    for k=1:n
+        JuMP.fix(x[k],xx[k]; force=true)
+    end
+    optimize!(scnd)
+    if termination_status(scnd) == MOI.OPTIMAL
+        return true
+    else
+        return false
+    end
+end
+
+# function GPR(candX,candY,C,n,TL,bvar)
+#     IGPair=[]; exploredSI = []; t0=time();newsol=0;
+#     while time()-t0 < TL
+# 	    I,G = sample(1:length(candX), 2, replace=false)
+#         SI = candX[I]; SG = candX[G]; iter=0; #Maxiter = length(candX)*10;  #if the algorithm finds infeasible solutions in a row, move to the next iteration
+#         dif = findall(i-> SI[i]!=SG[i], bvar)
+#         while all.(SI != SG) && [I,G]∉IGPair && iter<length(dif) && (time()-t0<TL)
+#             neibour,neiobj = createNB(SI,C,dif,exploredSI)
+#             # newnb: fix 0,1 and calculate frac var
+#             if ( (length(neiobj)==0) || (time()-t0 >= TL) )
+#                 break
+#             else
+#                 for l=1:length(neiobj)
+#                     if ( (FBcheck(neibour[l],n)==true) && neibour[l]∉candX ) #dominance check (dominated(neiobj[l],LB)==false)
+#                         push!(candX, neibour[l]); push!(candY, neiobj[l]);
+#                         println("new sol"); newsol+=1;
+#                     end
+#                 end
+#             end
+#             SI = nextSI(neibour,neiobj,C,SI)
+#             if SI∉candX
+#                 push!(exploredSI,SI);
+#             end
+#             iter+=1
+#         end
+#         push!(IGPair,[I,G])
+#     end
+#     return candX,candY,newsol
+# end
+function GPR(lpX,lpY,C,TL,bvar)
+    candX = copy(lpX); candY = copy(lpY);
+    IGPair=[]; exploredSI = []; t0=time();newsol=0;
+    while time()-t0 < TL
+	    I,G = sample(1:length(candX), 2, replace=false)
+        SI = [candX[I][k] for k in bvar]; SG = [candX[G][k] for k in bvar]; iter=0;
+        SI_r = round.(SI); SG_r = round.(SG)
+        dif = findall(i-> SI_r[i]!=SG_r[i], 1:length(bvar))
+        # println("dif is: ", length(dif))
+        Max_iter = length(findall(i-> 0<i<1,candX[I]))
+        while all.(SI_r != SG_r) && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
+            neibour,neiobj = createNB(SI,C,dif,exploredSI,bvar)
+            if ( (length(neiobj)==0) || (time()-t0 >= TL) )
+                break
             else
-                if x_n ∈ Tabu
-                    x1_r = flipoper(Tabu,x1,x1_r)
-                    if x1_r==[]
-                        SearchDone = true; deleteat!(candlist,k)
-                    else
-                        x_n = findsol(x1_r,st-1)
-                        if ( (x_n != false) && (x_n ∉ X) )
-                            push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
-                            newsol+=1; SearchDone = true;deleteat!(candlist,k)
-                            # println("flip worked")
-                        end
-                    end
-                end
-                if SearchDone == false
-                    push!(Tabu,x_n)
-                    x_t = fbsearch(x1_r)
-                    if x_t == false #when there's no new feasible lp sol
-                        SearchDone = true
-                        deleteat!(candlist,k)
+                for l=1:length(neibour)
+                    xn = PRfindsol(round.(neibour[l]),bvar)
+                    if ( xn!=[] && xn∉candX )
+                        push!(candX, xn); push!(candY, getobjval(xn,C));
+                        newsol+=1;println("new sol");
                     end
                 end
             end
-    		iter+=1
+            SI = nextSI(neibour,neiobj,C,SI,bvar)
+            if SI∉candX
+                push!(exploredSI,SI);
+            end
+            iter+=1
         end
+        push!(IGPair,[I,G])
     end
-
-    return X,Y,candlist,newsol
+    return candX,candY,newsol
 end
-
-FP(pr.dvar,pr.LB,dt.n,dt.C,10,st)# compiling
-FPTL = (TL-Bentime)/2
-FPtime = @CPUelapsed fcanx,fcany,X_u,fnsol = FP(pr.dvar,pr.LB,dt.n,dt.C,FPTL,st)
-
-Y_u = [getobjval(X_u[i],dt.C) for i=1:length(X_u)]
-GPRtime = @CPUelapsed pcanx,pcany,pnew = GPR([fcanx;X_u],[fcany;Y_u],dt.C,dt.n,TL-FPtime,st)
+GPRtime = @CPUelapsed px,py,pn = GPR(pr.dvar,pr.LB,mt.C,120,bvar)
 totaltime = FPtime+Bentime+GPRtime
-prx,pry = Postpro(pcanx,pcany,pnew,st)
+prx,pry = Postpro(px,py,pn)
 
 otable = zeros(length(pry),2)
 for i=1:length(pry)
@@ -335,3 +343,52 @@ ins = ARGS[2][1:end-4];
 record1 = DataFrame(file=ins[26:end], totalsol = length(fpry), t=round(totaltime; digits=2))
 CSV.write("/home/k2g00/k2g3475/scnd/fpr_record.csv", record1,append=true, header=false )#, delim=','i )
 CSV.write(ins*"_Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
+
+
+
+########################################
+# function FP(candX,candY,n,C,TL,st)
+#     X= []; Y = []; Tabu = []; newsol=0; t0=time(); #LPcount=0;
+#     candlist = copy(candX)
+#     # k=1
+#     while candlist != [] &&  time()-t0 < TL
+#         k = rand(1:length(candlist))
+#         x_t = candlist[k]; SearchDone = false; iter=0; Max_iter = 10
+#         while iter<Max_iter && SearchDone == false && time()-t0 < TL
+#             x1 = x_t[1:st-1]; x1_r = round.(Int,x1)
+#             x_n = findsol(x1_r,st-1)
+#             if ( (x_n != false) && (x_n ∉ X) )
+#                 push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+#                 newsol+=1; SearchDone = true;deleteat!(candlist,k)
+#                 # println("Rounding worked")
+#             else
+#                 if x_n ∈ Tabu
+#                     x1_r = flipoper(Tabu,x1,x1_r)
+#                     if x1_r==[]
+#                         SearchDone = true; deleteat!(candlist,k)
+#                     else
+#                         x_n = findsol(x1_r,st-1)
+#                         if ( (x_n != false) && (x_n ∉ X) )
+#                             push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+#                             newsol+=1; SearchDone = true;deleteat!(candlist,k)
+#                             # println("flip worked")
+#                         end
+#                     end
+#                 end
+#                 if SearchDone == false
+#                     push!(Tabu,x_n)
+#                     x_t = fbsearch(x1_r)
+#                     if x_t == false #when there's no new feasible lp sol
+#                         SearchDone = true
+#                         deleteat!(candlist,k)
+#                     end
+#                 end
+#             end
+#     		iter+=1
+#         end
+#     end
+#
+#     return X,Y,candlist,newsol
+# endFP(pr.dvar,pr.LB,mt.n,mt.C,10,st)# compiling
+# FPTL = (TL-Bentime)/2
+# FPtime = @CPUelapsed fcanx,fcany,X_u,fnsol = FP(pr.dvar,pr.LB,mt.n,mt.C,FPTL,st)

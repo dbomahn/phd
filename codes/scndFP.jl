@@ -1,17 +1,102 @@
-using DataStructures,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,JLD2,CPLEX,LinearAlgebra,CSV,StatsBase,CPUTime,MathProgBase,MathOptInterface
+using DataStructures,DataFrames,DelimitedFiles,JuMP,JLD2,CPLEX,LinearAlgebra,CSV,StatsBase,CPUTime,MathProgBase,MathOptInterface
 const MPB = MathProgBase;
-TL = 3600
+
 mutable struct Data
+    filepath::String; N::Dict{}; d::Array{}; m::Int; c::Array{}; e::Array{}; gij::Array{}; gjk::Array{}; gkl::Array{};
+    Mij::Array{}; Mjk::Array{}; Mkl::Array{}; Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; q::Array{};
+    upl::Int; udc::Int
+    # rij::Array{}; rjk::Array{}; rkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{};
+    function Data(filepath)
+        dt = readdlm(filepath);
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("E:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        nota = notafile[1:end,1];  N= Dict();
+        for i=1:length(nota)-1
+            id1 = findall(x->x==nota[i], dt)[1][1];
+            id2 = findall(x->x==nota[i+1], dt)[1][1];
+            if id2-id1<3
+                tmp = filter(x->x!="",  dt[id1+(id2-id1-1),:])
+                if length(tmp)<2
+                    N[nota[i]] = tmp[1];
+                else
+                    N[nota[i]] = tmp;
+                end
+            else
+                W = []
+                for x=id1+1:id1+(id2-id1-1)
+                    tmp = filter(x->x!="", dt[x,:]);
+                    push!(W,tmp);
+                end
+                # tmp = [filter(x->x!="", dt[x,:]) for x in id1+1:id1+(id2-id1-1)]
+                N[nota[i]] = W;
+            end
+        end
+        d = N["demand"];  m = N["transportation"];
+        c = append!(N["fcp"],N["fcd"]); e = append!(N["vcp"],N["vcd"]);
+        gij = N["fixedcostModesp"]; gjk = N["fixedcostModepd"]; gkl = N["fixedcostModedc"];
+        # gij = replace.(N["fixedcostModesp"], 0=>10^(-3));gjk = replace.(N["fixedcostModepd"], 0=>10^(-3)); gkl = replace.(N["fixedcostModedc"], 0=>10^(-3));
+        Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])));
+        Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])));
+        Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
+
+        Vij = [];
+        for i=1:N["supplier"]
+            idx = 1; push!(Vij,[]);
+            for j=1:N["plant"]
+                th = []
+                for m=1:Mij[i,j]
+                    push!(th, N["LcapacityModesp"][i][idx]);
+                    idx+=1
+                end
+                push!(Vij[i],th);
+            end
+        end
+        Vjk = [];
+        for j=1:N["plant"]
+            idx = 1; push!(Vjk,[]);
+            for k=1:N["distribution"]
+                th = []
+                for m=1:Mjk[j,k]
+                    push!(th, N["LcapacityModepd"][j][idx]);
+                    idx+=1
+                end
+                push!(Vjk[j],th);
+            end
+        end
+        Vkl = [];
+        for k=1:N["distribution"]
+            idx = 1; push!(Vkl,[]);
+            for l=1:N["customer"]
+                th= []
+                for m=1:Mkl[k,l]
+                    push!(th, N["LcapacityModedc"][k][idx]);
+                    idx+=1
+                end
+                push!(Vkl[k],th);
+            end
+        end
+        b = reshape( N["ves"], (N["supplier"],Int(length(N["ves"])/N["supplier"])) );
+        q = append!(N["vep"],N["ved"]);
+        upl = N["upperpants"]; udc = N["upperdistribution"]
+
+        new(filepath,N,d,m,c,e,gij,gjk,gkl,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
+    end
+end
+mutable struct CallModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
-    function Data(lpfile::String)
+    function CallModel(lpfile::String)
         lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
         # lpmodel = CPLEX.CplexMathProgModel();
         MPB.loadproblem!(lpmodel,lpfile)
-        Bmtx = MPB.getconstrmatrix(lpmodel);B = Bmtx[3:end,:]
-        C = Bmtx[1:2,:]
+        Bmtx = MPB.getconstrmatrix(lpmodel);
+        B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
+        # cut = find(i-> varub[i]==1 &&varub[i+1]!=1, 1:length(varub))[end]
+        # vub = varub[1:cut]; B = Bmtx[3:end,1:cut]; C = Bmtx[1:2,1:cut]
         m,n=size(B)
         vub = MPB.getvarUB(lpmodel)
-        lb = MPB.getconstrLB(lpmodel)[3:end]; ub = MPB.getconstrUB(lpmodel)[3:end]
+        lb = MPB.getconstrLB(lpmodel)[3:end]
+        ub = MPB.getconstrUB(lpmodel)[3:end]
         RHS = Dict()
         for i=1:m
             if ub[i]==Inf
@@ -33,14 +118,13 @@ mutable struct Data
         new(lpfile,m,n,C,B,RHS,signs,vub)
     end
 end
-
 mutable struct Valu
     x::String; y::String; dvar::Array{}; LB::Array{}; LBmtx::Array{};
     function Valu(x,y)
         JLD2.@load x dv;
         dv0 = Array(dv);
-        dv1 = round.(dv0; digits=4);
-        objs = round.(digits=4, readdlm(y));
+        dv1 = dv0;#round.( digits=4);
+        objs = readdlm(y) #round.(digits=4, );
         ind = findall(i-> 0 in objs[i,:]  , 1:size(objs)[1]);
         dv2 = dv1[setdiff(1:end, ind), :];
         LBmtx = objs[setdiff(1:end, ind), 2:end];
@@ -91,22 +175,33 @@ function flipoper(Tabu,x_t,x_r)
     end
     return xi
 end
-
-function findsol(x_r,n)
-    for k=1:n
+function findsol(x_r,var)
+    for k in var
         JuMP.fix(x[k],x_r[k]; force=true)
     end
     optimize!(scnd)
     if termination_status(scnd) == MOI.OPTIMAL
         return JuMP.value.(x)
     else
+        return []
+    end
+end
+function fbcheck(xx,n)
+    for k=1:n
+        JuMP.fix(x[k],xx[k]; force=true)
+    end
+    optimize!(scnd)
+    if termination_status(scnd) == MOI.OPTIMAL
+        return true
+    else
         return false
     end
 end
-function fbsearch(x_r) #solveLP
-    idx0 = findall(k->k==0, x_r)
-    idx1 = findall(k->k==1, x_r)
-    @objective( dist, Min, sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1) )
+function fbsearch(x,bvar,C,θ) #solveLP
+    idx0 = findall(k->x[k]==0, bvar)
+    idx1 = findall(k->x[k]==1, bvar)
+    @objective( dist, Min, (1-θ)*(sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1)) +
+        θ*((dot(x,C[1,:])+dot(x,C[2,:]))/sqrt(norm(C[1,:])+norm(C[2,:]))) )
     optimize!(dist)
     if termination_status(dist) == MOI.OPTIMAL
         return JuMP.value.(dx)
@@ -115,16 +210,16 @@ function fbsearch(x_r) #solveLP
     end
 end
 function dominated(y,P)
-    st = false
+    bvar = false
     for k=1:length(P)
         if all( y .>= P[k])# && any(x > P[k])
-            st=true; break
+            bvar=true; break
         else
             continue
         end
     end
 
-    return st
+    return bvar
 end
 function domFilter(sol,obj)
     copysol = Dict(); copyobj = Dict();
@@ -177,103 +272,118 @@ function Postpro(candX,candY,newsol)
     return finalsol,finalobj
 end
 
-# dt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
+# dt = CallModel(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
 # Bentime = readdlm(ARGS[4])[1];
 #################### SCND model #########################
-st = findall(i->i!=1,dt.vub)[1]
 scnd = Model(CPLEX.Optimizer);
 MOI.set(scnd, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
 MOI.set(scnd, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-@variables(scnd, begin
-    yu[1:st-1], Bin
-    0<= xh[st:dt.n]
-end)
-@variable(scnd, x[1:dt.n] )
-@constraint(scnd, [k=1:st-1], x[k] == yu[k] )
-@constraint(scnd, [k=st:dt.n], x[k] == xh[k] )
-for k=1:dt.m
-    if dt.signs[k] == "l"
-        @constraint(scnd, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) >= dt.RHS[k])
-    elseif dt.signs[k] == "u"
-        @constraint(scnd, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) <= dt.RHS[k])
+bvar = findall(i->i==1,mt.vub); rvar = findall(i->i!=1,mt.vub);
+@variable(scnd, yu[i in bvar], Bin)
+@variable(scnd, xh[i in rvar] >=0 )
+@variable(scnd, x[1:mt.n] )
+
+for i=1:mt.n
+    if i in bvar
+        @constraint(scnd, x[i]==yu[i]  )
     else
-        @constraint(scnd, dot(dt.B[k,1:st-1],yu)+dot(dt.B[k,st:end],xh) == dt.RHS[k])
+        @constraint(scnd, x[i]==xh[i] )
     end
 end
-optimize!(scnd);
+for k=1:mt.m
+    if mt.signs[k] == "l"
+        @constraint(scnd, dot(mt.B[k,:],x) >= mt.RHS[k])
+    elseif mt.signs[k] == "u"
+        @constraint(scnd, dot(mt.B[k,:],x) <= mt.RHS[k])
+    else
+        @constraint(scnd, dot(mt.B[k,:],x) == mt.RHS[k])
+    end
+end
+
+optimize!(scnd)
 ##################### Feasibility Search model ######################
 dist = Model(CPLEX.Optimizer);
 MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
 MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
-@variables(dist, begin
-    0<= dyu[1:st-1] <=1
-    0<= dxh[st:dt.n]
-end)
-@variable(dist, dx[1:dt.n] )
-@constraint(dist, [k=1:st-1], dx[k] == dyu[k] )
-@constraint(dist, [k=st:dt.n], dx[k] == dxh[k] )
-for k=1:dt.m
-    if dt.signs[k] == "l"
-        @constraint(dist, dot(dt.B[k,1:st-1],dyu)+dot(dt.B[k,st:end],dxh) >= dt.RHS[k])
-    elseif dt.signs[k] == "u"
-        @constraint(dist, dot(dt.B[k,1:st-1],dyu)+dot(dt.B[k,st:end],dxh) <= dt.RHS[k])
+
+@variable(dist, 0 <= dyu[i in bvar] <= 1)
+@variable(dist, dxh[i in rvar] >=0 )
+@variable(dist, dx[1:mt.n] )
+for i=1:mt.n
+    if i in bvar
+        @constraint(dist, dx[i]==dyu[i]  )
     else
-        @constraint(dist, dot(dt.B[k,1:st-1],dyu)+dot(dt.B[k,st:end],dxh) == dt.RHS[k])
+        @constraint(dist, dx[i]==dxh[i] )
+    end
+end
+for k=1:mt.m
+    if mt.signs[k] == "l"
+        @constraint(dist, dot(mt.B[k,:],dx) >= mt.RHS[k])
+    elseif mt.signs[k] == "u"
+        @constraint(dist, dot(mt.B[k,:],dx) <= mt.RHS[k])
+    else
+        @constraint(dist, dot(mt.B[k,:],dx) == mt.RHS[k])
     end
 end
 optimize!(dist);
 
-
-function FP(candX,candY,n,C,TL,st)
-    X= []; Y = []; Tabu = []; newsol=0; t0=time(); #LPcount=0;
+function FP(candX,candY,n,C,TL,bvar,𝚯)
+    X= []; Y = []; Tabu = []; t0=time(); newsol=0; #LPcount=0;
     candlist = copy(candX)
     # k=1
     while candlist != [] &&  time()-t0 < TL
-        k = rand(1:length(candlist))
-        x_t = candlist[k]; SearchDone = false; iter=0; Max_iter = 10
-        while iter<Max_iter && SearchDone == false && time()-t0 < TL
-            x1 = x_t[1:st-1]; x1_r = round.(Int,x1)
-            x_n = findsol(x1_r,st-1)
-            fx = getobjval(x_n,C)
-            if ( (x_n != false) && (dominated(fx,Y)==false) )
-                push!(X,x_n); push!(Y,fx); # candY = [candY; getobjval(x_r,C)'];
-                newsol+=1; SearchDone = true;deleteat!(candlist,k)
-                # println("Rounding worked")
-            else
-                if x_n ∈ Tabu
-                    x1_r = flipoper(Tabu,x1,x1_r)
-                    if x1_r==[]
-                        SearchDone = true; deleteat!(candlist,k)
-                    else
-                        x_n = findsol(x1_r,st-1)
-                        fx = getobjval(x_n,C)
-                        if ( (x_n != false) && (dominated(fx,Y)==false) )
-                            push!(X,x_n); push!(Y,fx); # candY = [candY; getobjval(x_r,C)'];
-                            newsol+=1; SearchDone = true;deleteat!(candlist,k)
-                            # println("flip worked")
+        k = rand(1:length(candlist)); SearchDone = false;
+        x_t = candlist[k]; iter=0; Max_iter = 10#length(findall(i-> 0<i<1,x_t))
+        for θ ∈ 𝚯
+            while iter<Max_iter && time()-t0 < TL && SearchDone == false
+                x_r = x_t
+                for i in bvar
+                    x_r[i] = round(x_t[i])
+                end
+                x_n = findsol(x_r,bvar)
+                if x_n!=[] # && dominated(getobjval(x_n,C),Y)==false)
+                    push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+                    newsol+=1; deleteat!(candlist,k); SearchDone = true;
+                    println("Rounding worked")
+                else
+                    x1_r = [x_r[i] for i in bvar]
+                    if x1_r ∈ Tabu
+                        x1_t = [x_t[i] for i in bvar]
+                        x1_r = flipoper(Tabu,x1_t,x1_r)
+                        if x1_r!=[]
+                            SearchDone = true
+                        else
+                            for i=1:length(bvar)
+                                x_r[bvar[i]] = x1_r[i]
+                            end
+                            x_n = findsol(x_r,bvar)
+                            if x_n!=[] # && dominated(getobjval(x_n,C),Y)==false)
+                                push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+                                newsol+=1; deleteat!(candlist,k); SearchDone = true;
+                                println("Flip worked")
+
+                            end
+                        end
+                    end
+                    if SearchDone == false
+                        push!(Tabu,x1_r)
+                        x_t = fbsearch(x_r,bvar,C,θ)
+                        if x_t == false #when there's no new feasible lp sol
+                            deleteat!(candlist,k); SearchDone = true;
                         end
                     end
                 end
-                if SearchDone == false
-                    push!(Tabu,x_n)
-                    x_t = fbsearch(x1_r)
-                    if x_t == false #when there's no new feasible lp sol
-                        SearchDone = true
-                        deleteat!(candlist,k)
-                    end
-                end
+        		iter+=1
             end
-    		iter+=1
         end
     end
-
-    return X,Y,candlist,newsol
+    return X,Y,candlist,newsol,Tabu
 end
-
-FP(pr.dvar,pr.LB,dt.n,dt.C,10,st)# compiling
-FPTL = (TL-Bentime)
-FPtime = @CPUelapsed fcanx,fcany,candlist,newsol = FP(pr.dvar,pr.LB,dt.n,dt.C,FPTL,st)
-fpx,fpy = domFilter(fcanx,fcany)
+# FP(pr.dvar,pr.LB,mt.n,mt.C,60,bvar)# compiling
+# FPTL = (TL-Bentime)
+𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)]
+FPtime = @CPUelapsed fx,fy,candlist,fn,tabu = FP(pr.dvar,pr.LB,mt.n,mt.C,10,bvar,𝚯)
+fpx,fpy = domFilter(fx,fy)
 otable = zeros(length(fpy),2)
 for i=1:length(fpy)
     for j=1:2
@@ -286,39 +396,53 @@ record1 = DataFrame(file=ins[26:end], totalsol = length(fpy), t=round(FPtime; di
 CSV.write("/home/k2g00/k2g3475/scnd/record.csv", record1,append=true, header=false )#, delim=','i )
 CSV.write(ins*"_Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
 
-###########################################################
-function GPR(dvar,LB,C,n,TL,st)
-    IGPair=[]; exploredSI = []; newsol=0; t0=time();
-	X = copy(dvar); Y = copy(LB);
-	while time()-t0 < TL
-        I,G = sample(1:length(Y), 2, replace=false); infeasi=0; Maxiter = 100
-        SI = round.(X[I][1:st-1]); SG = round.(X[G][1:st-1]);
-		# SI = X[I][1:st-1]; SG = X[G][1:st-1];
-        while all.(SI != SG) && [I,G]∉IGPair && infeasi<Maxiter && (time()-t0<TL)
-            dif = findall(i-> SI[i]!=SG[i], 1:st-1)
-            neibour,neiobj = createNB(SI,C,dif,exploredSI)
-			if length(neiobj)==0
-                break
-            else
-	            for l=1:length(neibour)
-					x_n = findsol(neibour[l],st-1)
-					if ( (x_n != false) && (dominated(x_n,X)==false) )
-	                    push!(X,x_n); push!(Y,getobjval(x_n,C));
-	                    newsol+=1;
-						print("newsol added \n")
-	                else
-						infeasi+=1;
-						print("infeasible \n")
-	                end
-	            end
-	            SI = nextSI(neibour,neiobj,C,SI)
-	            if SI∉X
-	                push!(exploredSI,SI);
-	            end
-			end
-        end
-        push!(IGPair,[I,G])
-
-    end
-    return X,Y,newsol
-end
+1
+# function FP(candX,candY,n,C,TL,bvar,rvar)
+#     X= []; Y = []; Tabu = []; t0=time(); newsol=0; #LPcount=0;
+#     candlist = copy(candX)
+#     # k=1
+#     while candlist != [] &&  time()-t0 < TL
+#         k = rand(1:length(candlist))
+#         x_t = candlist[k]; SearchDone = false; iter=0; Max_iter = 10
+#         while iter<Max_iter && SearchDone == false && time()-t0 < TL
+#             x_r = x_t
+#             for i in bvar
+#                 x_r[i] = round(x_t[i])
+#             end
+#
+#             x_n = findsol(x_r,bvar)
+#
+#             if (x_n !=false && dominated(getobjval(x_n,C),Y)==false)
+#                 push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+#                 newsol+=1;
+#                 deleteat!(candlist,k); SearchDone = true;
+#                 println(fx,"Rounding worked")
+#             else
+#                 if x_n ∈ Tabu
+#                     x_r = flipoper(Tabu,x_t,x_r)
+#                     if x_r==[]
+#                         deleteat!(candlist,k); SearchDone = true;
+#                     else
+#                         x_n = findsol(x_r,bvar)
+#                         if (x_n != false && dominated(getobjval(x_n,C),Y)==false)
+#                             push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+#                             newsol+=1;
+#                             deleteat!(candlist,k); SearchDone = true;
+#                             println("flip worked")
+#                         end
+#                     end
+#                 end
+#                 if SearchDone == false
+#                     push!(Tabu,x_n)
+#                     x_t = fbsearch(x_r)
+#                     if x_t == false #when there's no new feasible lp sol
+#                         deleteat!(candlist,k); SearchDone = true;
+#                     end
+#                 end
+#             end
+#     		iter+=1
+#         end
+#     end
+#
+#     return X,Y,candlist,newsol
+# end
