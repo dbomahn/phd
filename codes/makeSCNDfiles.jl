@@ -1,4 +1,4 @@
-using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface,CPUTime
+using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface#,CPUTime
 const MPB = MathProgBase
 
 function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
@@ -14,8 +14,8 @@ mutable struct Data
     # rij::Array{}; rjk::Array{}; rkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{};
     function Data(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("E:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("E:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -90,7 +90,8 @@ mutable struct Data
     end
 end
 # @show file = ARGS[1];
-file = "/home/ak121396/Desktop/instances/SCND/test01S1"
+file = "E:/scnd/Test1S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test01S1"
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S1"
 dt = Data(file);
 ##########################  Mathematical model  #########################
