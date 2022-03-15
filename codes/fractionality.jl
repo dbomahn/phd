@@ -70,8 +70,8 @@ union([[1,2]],[[3,3]],[[1,2]])
 
 
 #######################    FLP    ########################
-x = readdir("/home/k2g00/k2g3475/clusterhome/pastinstance/flp/varval/")
-y = readdir("/home/k2g00/k2g3475/clusterhome/pastinstance/flp/PF/")
+x = readdir("/home/k2g00/k2g3475/pastinstance/flp/varval/")
+y = readdir("/home/k2g00/k2g3475/pastinstance/flp/PF/")
 mutable struct Vall
     x::String; y::String; dvar::Array{}; LB::Array{}; LBmtx::Array{};
     function Vall(x,y)
@@ -87,9 +87,14 @@ mutable struct Vall
 end
 
 
-
-xpath = "/home/k2g00/k2g3475/clusterhome/pastinstance/ap/gpr/X/"
-ypath = "/home/k2g00/k2g3475/clusterhome/pastinstance/ap/gpr/Y/"
+xpath = "/home/k2g00/k2g3475/pastinstance/ap/gpr/X/"
+ypath = "/home/k2g00/k2g3475/pastinstance/ap/gpr/Y/"
+xpath = "/home/k2g00/k2g3475/pastinstance/kp/gpr/X/"
+ypath = "/home/k2g00/k2g3475/pastinstance/kp/gpr/Y/"
+xpath = "/home/k2g00/k2g3475/clusterhome/miplib/vlp/final/x/"
+ypath = "/home/k2g00/k2g3475/clusterhome/miplib/vlp/final/y/"
+xpath = "/home/k2g00/k2g3475/pastinstance/flp/varval/"
+ypath = "/home/k2g00/k2g3475/pastinstance/flp/PF/"
 x = readdir(xpath)
 y = readdir(ypath)
 
@@ -113,9 +118,35 @@ for i=1:length(x)
         end
     end
 
-    cd1 = collect(values(D1)); cd0 = collect(values(D0)); cdf = collect(values(Df));
-    push!(o,(count(i->(i>l*0.4),cd1)/l)*100); push!(z,(count(i->(i>l*0.4),cd0)/l)*100); push!(f,(count(i->(i>l*0.4),cdf)/l)*100)
+    # cd1 = collect(values(D1)); cd0 = collect(values(D0));
+    cdf = collect(values(Df));
+    # push!(o,(cd1./l)*100); push!(z,(cd0./l)*100);
+    push!(f,mean(cdf)/l)
+
+    # push!(o,(count(i->(i>l*0.4),cd1)/l)*100); push!(z,(count(i->(i>l*0.4),cd0)/l)*100); push!(f,(count(i->(i>l*0.4),cdf)/l)*100)
 end
+
+
+f = [] ; s = []
+for i=1:length(x)
+    # pre = Vall(xpath*x[i],ypath*y[i])
+    pre = Valu(xpath*x[i],ypath*y[i])
+    fr = 0;
+    for j=1:length(pre.dvar)
+        if any(i->0<i<1,pre.dvar[j])
+            fr+=1
+        end
+    end
+    push!(s,length(pre.dvar))
+    push!(f,fr)
+end
+
+s = []
+for i=1:length(x)
+    pre = Vall(xpath*x[i],ypath*y[i])
+    push!(s,length(pre.dvar))
+end
+clipboard(f)
 mean(f)
 mean(o)
 mean(z)
@@ -153,5 +184,3 @@ for i=1:120
     end
     push!(rt,ct/(size(f)[1]-3))
 end
-
-        

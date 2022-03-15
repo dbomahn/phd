@@ -106,17 +106,7 @@ function PRfindsol(x_r,bvar)
         return []
     end
 end
-function fbsearch(x_r) #solveLP
-    idx0 = findall(k->k==0, x_r)
-    idx1 = findall(k->k==1, x_r)
-    @objective( dist, Min, sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1) )
-    optimize!(dist)
-    if termination_status(dist) == MOI.OPTIMAL
-        return JuMP.value.(dx)
-    else
-        return false;
-    end
-end
+
 function dominated(x,P)
     st = false
     for k=1:length(P)

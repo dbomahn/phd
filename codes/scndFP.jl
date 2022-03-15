@@ -2,88 +2,6 @@ using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,LinearAlgebra,StatsBas
 # using JLD2,CSV,CPUTime
 const MPB = MathProgBase;
 
-# mutable struct Data
-#     filepath::String; N::Dict{}; d::Array{}; m::Int; c::Array{}; e::Array{}; gij::Array{}; gjk::Array{}; gkl::Array{};
-#     Mij::Array{}; Mjk::Array{}; Mkl::Array{}; Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; q::Array{};
-#     upl::Int; udc::Int
-#     # rij::Array{}; rjk::Array{}; rkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{};
-#     function Data(filepath)
-#         dt = readdlm(filepath);
-#         notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-#         # notafile = readdlm("E:/scnd/Notations.txt", '=');
-#         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
-#         nota = notafile[1:end,1];  N= Dict();
-#         for i=1:length(nota)-1
-#             id1 = findall(x->x==nota[i], dt)[1][1];
-#             id2 = findall(x->x==nota[i+1], dt)[1][1];
-#             if id2-id1<3
-#                 tmp = filter(x->x!="",  dt[id1+(id2-id1-1),:])
-#                 if length(tmp)<2
-#                     N[nota[i]] = tmp[1];
-#                 else
-#                     N[nota[i]] = tmp;
-#                 end
-#             else
-#                 W = []
-#                 for x=id1+1:id1+(id2-id1-1)
-#                     tmp = filter(x->x!="", dt[x,:]);
-#                     push!(W,tmp);
-#                 end
-#                 # tmp = [filter(x->x!="", dt[x,:]) for x in id1+1:id1+(id2-id1-1)]
-#                 N[nota[i]] = W;
-#             end
-#         end
-#         d = N["demand"];  m = N["transportation"];
-#         c = append!(N["fcp"],N["fcd"]); e = append!(N["vcp"],N["vcd"]);
-#         gij = N["fixedcostModesp"]; gjk = N["fixedcostModepd"]; gkl = N["fixedcostModedc"];
-#         # gij = replace.(N["fixedcostModesp"], 0=>10^(-3));gjk = replace.(N["fixedcostModepd"], 0=>10^(-3)); gkl = replace.(N["fixedcostModedc"], 0=>10^(-3));
-#         Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])));
-#         Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])));
-#         Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
-#
-#         Vij = [];
-#         for i=1:N["supplier"]
-#             idx = 1; push!(Vij,[]);
-#             for j=1:N["plant"]
-#                 th = []
-#                 for m=1:Mij[i,j]
-#                     push!(th, N["LcapacityModesp"][i][idx]);
-#                     idx+=1
-#                 end
-#                 push!(Vij[i],th);
-#             end
-#         end
-#         Vjk = [];
-#         for j=1:N["plant"]
-#             idx = 1; push!(Vjk,[]);
-#             for k=1:N["distribution"]
-#                 th = []
-#                 for m=1:Mjk[j,k]
-#                     push!(th, N["LcapacityModepd"][j][idx]);
-#                     idx+=1
-#                 end
-#                 push!(Vjk[j],th);
-#             end
-#         end
-#         Vkl = [];
-#         for k=1:N["distribution"]
-#             idx = 1; push!(Vkl,[]);
-#             for l=1:N["customer"]
-#                 th= []
-#                 for m=1:Mkl[k,l]
-#                     push!(th, N["LcapacityModedc"][k][idx]);
-#                     idx+=1
-#                 end
-#                 push!(Vkl[k],th);
-#             end
-#         end
-#         b = reshape( N["ves"], (N["supplier"],Int(length(N["ves"])/N["supplier"])) );
-#         q = append!(N["vep"],N["ved"]);
-#         upl = N["upperpants"]; udc = N["upperdistribution"]
-#
-#         new(filepath,N,d,m,c,e,gij,gjk,gkl,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
-#     end
-# end
 mutable struct CallModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
     function CallModel(lpfile::String)
@@ -92,7 +10,7 @@ mutable struct CallModel
         MPB.loadproblem!(lpmodel,lpfile)
         Bmtx = MPB.getconstrmatrix(lpmodel);
         B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
-        # cut = find(i-> varub[i]==1 &&varub[i+1]!=1, 1:length(varub))[end]
+        # cut = findall(i-> varub[i]==1 &&varub[i+1]!=1, 1:length(varub))[end]
         # vub = varub[1:cut]; B = Bmtx[3:end,1:cut]; C = Bmtx[1:2,1:cut]
         m,n=size(B)
         vub = MPB.getvarUB(lpmodel)
@@ -134,10 +52,13 @@ mutable struct Valu
         new(x,y,dvar,LB,LBmtx)
     end
 end
-mt = CallModel("F:/scnd/test01S1.lp")
-pr = Valu("F:/scnd/test01S1_pre_img_p.sol","F:/scnd/test01S1_img_p.sol")
+mt = CallModel("F:/scnd/test01S2.lp")
+pr = Valu("F:/scnd/test01S1_pre_img_p.sol","F:/scnd/test01S2_img_p.sol")
+mt = CallModel("/home/ak121396/Desktop/instances/SCND/test01S2.lp")
+pr = Valu("/home/ak121396/Desktop/instances/SCND/test01S2_pre_img_p.sol","/home/ak121396/Desktop/instances/SCND/test01S2_img_p.sol")
+
 function getobjval(x,C)
-    return [dot(x,C[1,1:length(x)]),dot(x,C[2,1:length(x)])]
+    return [dot(x,C[1,:]),dot(x,C[2,:])]
 end
 function flip(x_h,j,e)
     if x_h[e[j]]==1
@@ -204,6 +125,18 @@ function fbsearch(x,bvar,C,θ) #solveLP
     idx1 = findall(k->x[k]==1, bvar)
     @objective( dist, Min, (1-θ)*(sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1)) +
         θ*((dot(x,C[1,:])+dot(x,C[2,:]))/sqrt(norm(C[1,:])+norm(C[2,:]))) )
+    optimize!(dist)
+    if termination_status(dist) == MOI.OPTIMAL
+        return JuMP.value.(dx)
+    else
+        return false;
+    end
+end
+
+function fbsearch(x_r,bvar,C) #solveLP
+    idx0 = findall(k->x[k]==0, bvar)
+    idx1 = findall(k->x[k]==1, bvar)
+    @objective( dist, Min, sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1) )
     optimize!(dist)
     if termination_status(dist) == MOI.OPTIMAL
         return JuMP.value.(dx)
@@ -328,64 +261,70 @@ for k=1:mt.m
     end
 end
 optimize!(dist);
-
-function FP(candX,candY,n,C,TL,bvar,𝚯)
+𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)]
+function FP(candX,n,C,TL,bvar)#,𝚯)
     X= []; Y = []; Tabu = []; t0=time(); newsol=0; #LPcount=0;
     candlist = copy(candX)
     # k=1
-    while candlist != [] &&  time()-t0 < TL
+    while candlist != [] #&&  time()-t0 < TL
         k = rand(1:length(candlist)); SearchDone = false;
         x_t = candlist[k]; iter=0; Max_iter = 5#length(findall(i-> 0<i<1,x_t))
-        for θ ∈ 𝚯
-            while iter<Max_iter && time()-t0 < TL && SearchDone == false
-                x_r = x_t
-                for i in bvar
-                    x_r[i] = round(x_t[i])
-                end
-                x_n = findsol(x_r,bvar)
-                if x_n!=[] # && dominated(getobjval(x_n,C),Y)==false)
-                    push!(X,x_n); push!(Y,getobjval(x_n,C));
-                    newsol+=1; deleteat!(candlist,k); SearchDone = true;
-                    # println("Rounding worked")
-                else
-                    x1_r = [x_r[i] for i in bvar]
-                    if x1_r ∈ Tabu
-                        x1_t = [x_t[i] for i in bvar]
-                        x1_r = flipoper(Tabu,x1_t,x1_r)
-                        if x1_r==[]
-                            SearchDone = true;
-                        else
-                            for i=1:length(bvar)
-                                x_r[bvar[i]] = x1_r[i]
-                            end
-                            x_n = findsol(x_r,bvar)
-                            if x_n!=[] # && dominated(getobjval(x_n,C),Y)==false)
-                                push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
-                                newsol+=1; deleteat!(candlist,k); SearchDone = true;
-                                println("Flip worked")
-                            end
-                        end
-                    end
-                    if SearchDone == false
-                        push!(Tabu,x1_r)
-                        x_t = fbsearch(x_r,bvar,C,θ)
-                        if x_t == false #when there's no new feasible lp sol
-                            deleteat!(candlist,k); SearchDone = true;
-                        end
-                    end
-                end
-        		iter+=1
+        # for θ ∈ 𝚯
+        while iter<Max_iter #&& time()-t0 < TL && SearchDone == false
+            x_r = x_t
+            for i in bvar
+                x_r[i] = round(x_t[i])
             end
+            x_n = findsol(x_r,bvar)
+            if x_n∈X
+                deleteat!(candlist,k); break;
+            end
+            if x_n!=[]
+                push!(X,x_n); push!(Y,getobjval(x_n,C));
+                newsol+=1; deleteat!(candlist,k); SearchDone = true;
+                println("Rounding worked")
+            else
+                x1_r = [x_r[i] for i in bvar]
+                if x1_r ∈ Tabu
+                    x1_t = [x_t[i] for i in bvar]
+                    x1_r = flipoper(Tabu,x1_t,x1_r)
+                    if x1_r==[]
+                        SearchDone = true;
+                    else
+                        for i=1:length(bvar)
+                            x_r[bvar[i]] = x1_r[i]
+                        end
+                        x_n = findsol(x_r,bvar)
+                        if x_n∈X
+                            deleteat!(candlist,k); break
+                        end
+                        if x_n!=[] # && dominated(getobjval(x_n,C),Y)==false)
+                            push!(X,x_n); push!(Y,getobjval(x_n,C)); # candY = [candY; getobjval(x_r,C)'];
+                            newsol+=1; deleteat!(candlist,k); SearchDone = true;
+                            println("Flip worked")
+                        end
+                    end
+                end
+                if SearchDone == false
+                    push!(Tabu,x1_r)
+                    x_t = fbsearch(x_r,bvar,C)#,θ)
+                    if x_t == false #when there's no new feasible lp sol
+                        deleteat!(candlist,k); SearchDone = true;
+                    end
+                end
+            end
+    		iter+=1
         end
+        # end
     end
     return X,Y,candlist,newsol,Tabu
 end
 # FP(pr.dvar,pr.LB,mt.n,mt.C,60,bvar)# compiling
 # FPTL = (TL-Bentime)
-𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)]
-# FPtime = @CPUelapsed
-fx,fy,candlist,fn,tabu = FP(pr.dvar,pr.LB,mt.n,mt.C,30,bvar,𝚯)
+FPtime = @CPUelapsed fx,fy,candlist,fn,tabu = FP(pr.dvar,mt.n,mt.C,60,bvar)#,𝚯)
+fy,length(candlist)
 fpx,fpy = domFilter(fx,fy)
+fpy
 otable = zeros(length(fpy),2)
 for i=1:length(fpy)
     for j=1:2
