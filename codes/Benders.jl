@@ -1,14 +1,16 @@
 using JuMP,CPLEX,LinearAlgebra,MathProgBase
 const MPB = MathProgBase
 
+"If we use weighted sum for BD, obj values must be normalised"
+"We can use the weighted sum code by Gandibluex (Vopt?) and just solve sub problems with BD"
 
 https://github.com/matbesancon/SimpleBenders.jl/blob/master/test/runtests.jl
 https://matbesancon.xyz/post/2019-05-08-simple-benders/
 https://co-at-work.zib.de/slides/Donnerstag_24.9/Benders_decomposition-Fundamentals.pdf
 
-mutable struct CallModel
+mutable struct SCNDModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Array{}; signs::Array{}; vub::Array{}
-    function CallModel(lpfile::String)
+    function SCNDModel(lpfile::String)
         lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
         # lpmodel = CPLEX.CplexMathProgModel();
         MPB.loadproblem!(lpmodel,lpfile)
@@ -42,8 +44,55 @@ mutable struct CallModel
         new(lpfile,m,n,C,B,RHS,signs,vub)
     end
 end
-mt = CallModel("F:/scnd/Test1S2.lp")
+mt = SCNDModel("F:/scnd/Test1S2.lp")
 # mt = CallModel("/home/ak121396/Desktop/instances/SCND/test01S2.lp")
+
+mutable struct FLPModel
+    lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Array{}; signs::Array{}; vub::Array{}
+    function FLPModel(datafile::String)
+        datafile = readdlm("F:paper_instances/Khombole-10.txt", '#')
+        data = filter(x->x!="", datafile)
+        nt = findall(x->data[x][1]==' ', 1:length(data))[1]
+        a = split(data[nt])
+        b = parse.(Int, split(data[1]," "))
+        par = Dict(zip(a,b))
+
+
+
+        lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
+        # lpmodel = CPLEX.CplexMathProgModel();
+        MPB.loadproblem!(lpmodel,lpfile)
+        Bmtx = MPB.getconstrmatrix(lpmodel);
+        B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
+        # cut = find(i-> varub[i]==1 &&varub[i+1]!=1, 1:length(varub))[end]
+        # vub = varub[1:cut]; B = Bmtx[3:end,1:cut]; C = Bmtx[1:2,1:cut]
+        m,n=size(B)
+        vub = MPB.getvarUB(lpmodel)
+        lb = MPB.getconstrLB(lpmodel)[3:end]
+        ub = MPB.getconstrUB(lpmodel)[3:end]
+
+        RHS = []
+        for i=1:m
+            if ub[i]==Inf
+                push!(RHS,lb[i])
+            else
+                push!(RHS,ub[i])
+            end
+        end
+        signs = []
+        for i=1:m
+            if ub[i] == Inf
+                push!(signs,"l")
+            elseif lb[i] == -Inf
+                push!(signs,"u")
+            else
+                push!(signs, "s")
+            end
+        end
+        new(lpfile,m,n,C,B,RHS,signs,vub)
+    end
+end
+
 
 struct SubProblemData
     b::Vector{Float64}
