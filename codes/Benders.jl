@@ -62,9 +62,9 @@ end
 
 function DualSubProblem(d::SubProblemData, m::Model)
     # α = @variable(m, α[i = 1:size(d.A, 1)] >= 0)
-    eqpoint = findall(i-> d.signs[i]=="l" && d.signs[i+1]=="s", 1:length(d.signs)-1)[1]+1
+    eqpoint = findall(i-> d.signs[i]=="l", 1:length(d.signs))
     @variable(m, α[i = 1:size(d.A, 1)] )
-    for i=1:eqpoint-1
+    for i in eqpoint
       @constraint(m, α[i] >= 0)
     end
     @constraint(m, d.A' * α .<= d.c)
@@ -152,7 +152,7 @@ mas0 = mt.B[firstcon[1]:firstcon[end],:]
 mascon = hcat(mas0[:,1:range1],mas0[:,range2+1:end])
 mRHS = mt.RHS[firstcon[1]:firstcon[end]]
 msigns = mt.signs[firstcon[1]:firstcon[end]]
-W = [0.3,0.6,0.9]
+# W = [0.3,0.6,0.9]
 
 # initialize the problem
 w=1

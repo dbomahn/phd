@@ -82,7 +82,9 @@ function flipoper(Tabu,x_t,x_r)
             j+=1
         end
     end
+
     if xi==[]
+        j = 1
         while j<=M
             x_h=copy(x_r)
             Num = Int64(rand(ceil(length(x_r)/2):length(x_r)-1))
@@ -98,6 +100,7 @@ function flipoper(Tabu,x_t,x_r)
     end
     return xi
 end
+
 function findsol(x_r,var)
     for k in var
         JuMP.fix(x[k],x_r[k]; force=true)
