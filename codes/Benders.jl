@@ -1,18 +1,13 @@
 using JuMP,CPLEX,LinearAlgebra,MathProgBase,CPUTime
 const MPB = MathProgBase
-<<<<<<< HEAD
 
 "If we use weighted sum for BD, obj values must be normalised"
 "We can use the weighted sum code by Gandibluex (Vopt?) and just solve sub problems with BD"
 
-https://github.com/matbesancon/SimpleBenders.jl/blob/master/test/runtests.jl
-https://matbesancon.xyz/post/2019-05-08-simple-benders/
-https://co-at-work.zib.de/slides/Donnerstag_24.9/Benders_decomposition-Fundamentals.pdf
-=======
+
 # https://github.com/matbesancon/SimpleBenders.jl/blob/master/test/runtests.jl
 # https://matbesancon.xyz/post/2019-05-08-simple-benders/
 # https://co-at-work.zib.de/slides/Donnerstag_24.9/Benders_decomposition-Fundamentals.pdf
->>>>>>> 4a5dd24ce929c15f3d7b614169d6e704914263f7
 
 mutable struct SCNDModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Array{}; signs::Array{}; vub::Array{}
@@ -49,18 +44,41 @@ mutable struct SCNDModel
         new(lpfile,m,n,C,B,RHS,signs,vub)
     end
 end
-<<<<<<< HEAD
 mt = SCNDModel("F:/scnd/Test1S2.lp")
 # mt = CallModel("/home/ak121396/Desktop/instances/SCND/test01S2.lp")
 
 mutable struct FLPModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Array{}; signs::Array{}; vub::Array{}
     function FLPModel(datafile::String)
-        datafile = readdlm("F:paper_instances/Khombole-10.txt", '#')
-        data = filter(x->x!="", datafile)
-        nt = findall(x->data[x][1]==' ', 1:length(data))[1]
-        a = split(data[nt])
-        b = parse.(Int, split(data[1]," "))
+        dt = readdlm("/home/ak121396/Desktop/instances/ORspectrum_instances/Thienaba-10.txt",'\t') #
+        dt = readdlm("F:paper_instances/Thienaba-10.txt",'\n')
+        hash = findall(i->'#' in dt[i], 1:length(dt))
+        sc = dt[hash[end]+1:end]
+        nodes = length(split(sc[1]," "))
+        xi = zeros(Int,length(sc),nodes)
+        for i=1:length(sc)
+            for j=1:nodes
+                scn = parse.(Int,split(sc[i]," "))
+                xi[i,j] = scn[j]
+            end
+        end
+        stca = split.(dt[hash[end-1]+1:hash[end-1]+nodes]," ")
+        stopcapa = [parse(Int,stca[i][2]) for i=1:nodes]
+        pop = split.(dt[hash[end-2]+1:hash[end-2]+nodes]," ")
+        popsize = [parse(Int,pop[i][2]) for i=1:nodes]
+        opening = split.(dt[hash[end-3]+1:hash[end-3]+nodes], " ")
+        opencost= [parse(Int,opening[i][2]) for i=1:nodes]
+        m = length(dt[hash[end-5]+1:hash[end-4]-1])
+        dist = dt[hash[end-4]+1:hash[end-4]+m]
+        dij = zeros(Int,m,m)
+        for i=1:m
+            for j=1:m
+                distm = parse.(Int,split(dist[i]," "))
+                dij[i,j] = distm[j]
+            end
+        end
+        a = split(dt[hash[1]]," ")[2:end]
+        b = parse.(Int,split(dt[hash[2]+1]," "))
         par = Dict(zip(a,b))
 
 
