@@ -1,6 +1,39 @@
 using PlotlyJS,DataFrames,DelimitedFiles,Colors
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
+#############################        2D plot      ###########################
+sol = Valu("/home/ak121396/Desktop/instances/SCND/test01S2_pre_img_p.sol","/home/ak121396/Desktop/instances/SCND/test01S2fp_img_p.sol")
+exact = [8.52038e+007	2.2839e+006
+    8.52122e+007	2.27922e+006
+    8.55325e+007	2.19361e+006
+    8.7254e+007	2.10499e+006
+    8.94719e+007	2.01774e+006
+    9.17385e+007	1.93238e+006
+    9.42412e+007	1.84723e+006
+    9.68962e+007	1.76151e+006
+    1.20186e+008	1.5156e+006]
 
+trace1 = scatter(
+    x=sol.LBmtx[:,1],y=sol.LBmtx[:,2],name="Ben+FP"       # this sets its legend entry
+)
+
+trace2 = scatter(x=exact[:,1],y=exact[:,2],name="exactFP"       # this sets its legend entry
+)
+
+
+
+layout = Layout(
+    title="Plot Title",
+    xaxis_title="1st obj",
+    yaxis_title="2nd obj",
+    legend_title="Legend Title",
+    font=attr(
+        family="Courier New, monospace",
+        size=18,
+        color="RebeccaPurple"
+    )
+)
+
+plot([trace1, trace2], layout)
 ##########################     3D Visualisation       ###########################
 nms = ["FPBH vs FPGPR plot"]
 title = "FPBH vs FPGPR: " #this is the caption appearing in the figure
@@ -156,6 +189,7 @@ function CollectVal(path1,path2)
     end
     return trace1,trace2
 end
+
 ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/AP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/AP/")
 fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/FLP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/FLP/")
 kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/KP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/KP/")
@@ -171,41 +205,41 @@ x0 = []
 for i=1:500
     push!(x0,"MOAP")
 end
-for i=1:600
-    push!(x0,"TOFLP")
-end
 for i=1:500
     push!(x0,"MOKP")
+end
+for i=1:600
+    push!(x0,"TOFLP")
 end
 for i=1:45
     push!(x0,"TOMIPLIB")
 end
 
-function HVbox(x0,t1,t2,t3)
+function HVbox(x0,t1,t3)
     trace1 = box(;y=t1, x=x0, name="FPBH",  marker_color="#FF4136")
-    trace2 = box(;y=t2, x=x0[1:1100], name="FFP",  marker_color="#F1A232")
-    trace3 = box(;y=t3, x=x0[1101:end], name="FPGPR", marker_color="#3D9970")
-    data = [trace1, trace2, trace3]
+    # trace2 = box(;y=t2, x=x0[1:1100], name="FFP",marker_color= "#F1A232")
+    trace3 = box(;y=t3, x=x0, name="LPBM", marker_color="#3D9970")
+    data = [trace1, trace3] # trace2,
     layout = Layout(;yaxis=attr(title="HV indicator value", zeroline=false),boxmode="group")
     plot(data, layout)
 end
-HVbox(x0,vcat(af,ff,kf,mf),vcat(ag,fg),vcat(kg,mg))
+HVbox(x0,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
 
-gt = vcat(ag,fg,kg,mg)
-ft = vcat(af,ff,kf,mf)
-
-HVbox(x0,ft,gt) # including MIPLIB
-
-function epbox(x0,t1,t2,t3)
+function epbox(x0,t1,t3)
     trace1 = box(;y=t1, x=x0, name="FPBH",  marker_color="#FF4136")
-    trace2 = box(;y=t2, x=x0[1:1100], name="FFP",  marker_color="#F1A232")
-    trace3 = box(;y=t3, x=x0[1101:end], name="FPGPR", marker_color="#3D9970")
-    data = [trace1, trace2, trace3]
+    # trace2 = box(;y=t2, x=x0[1:1100], name="LPBM",  marker_color= "#3D9970")#"#F1A232")
+    trace3 = box(;y=t3, x=x0, name="LPBM", marker_color="#3D9970")
+    data = [trace1, trace3]
     layout = Layout(;yaxis=attr(title="unary ϵ indicator value", zeroline=false),boxmode="group")
     plot(data, layout)
 end
-epbox(x0,vcat(af,ff,kf,mf),vcat(ag,fg),vcat(kg,mg))
+ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/AP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/AP/")
+fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/FLP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/FLP/")
+kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/KP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/KP/")
+mg,mf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/","/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/")
 
+epbox(x0,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
+1
 
 # function groupbox(t1,t2,t3,t4,t5,t6,t7,t8)
 #     trace1 = box(;y=t1,name="AP_FPBH", marker_color="rgb(255, 76, 27)")

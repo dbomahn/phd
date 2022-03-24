@@ -125,9 +125,9 @@ round.([mean(table[i,:]) for i=1:10],digits=3)
 refdir = "/media/ak121396/0526-8445/results/KS/AP/"
 refiles = readdir(refdir)
 ag = []
-agpath = "/home/ak121396/Desktop/hvm/gpr/AP/"
+agpath = "/home/ak121396/Desktop/forHV/gpr/AP/"
 af = []
-afpath = "/home/ak121396/Desktop/hvm/fpbh/AP/"
+afpath = "/home/ak121396/Desktop/forHV/fpbh/AP/"
 for l=1:5
     refiles = readdir(refdir)
     gfiles = readdir(agpath*"$l/")
@@ -142,9 +142,9 @@ end
 
 refdir = "/media/ak121396/0526-8445/results/KS/KP/"
 kg = []
-kgpath = "/home/ak121396/Desktop/hvm/gpr/KP/"
+kgpath = "/home/ak121396/Desktop/forHV/gpr/KP/"
 kf = []
-kfpath = "/home/ak121396/Desktop/hvm//fpbh/KP/"
+kfpath = "/home/ak121396/Desktop/forHV//fpbh/KP/"
 
 for l=1:5
     refiles = readdir(refdir)
@@ -160,9 +160,9 @@ end
 
 refdir = "/media/ak121396/0526-8445/results/KS/FLP/"
 fg = []
-fgpath = "/home/ak121396/Desktop/hvm/gpr/FLP/"
+fgpath = "/home/ak121396/Desktop/forHV/gpr/FLP/"
 ff = []
-ffpath = "/home/ak121396/Desktop/hvm/fpbh//FLP/"
+ffpath = "/home/ak121396/Desktop/forHV/fpbh//FLP/"
 
 for l=1:5
     refiles = readdir(refdir)
@@ -179,9 +179,9 @@ end
 
 refdir = "/media/ak121396/0526-8445/results/mergedMIP/"
 mg = []
-mgpath = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
+mgpath = "/home/ak121396/Desktop/forHV/gpr/MIPLIB/"
 mf = []
-mfpath = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
+mfpath = "/home/ak121396/Desktop/forHV/fpbh/MIPLIB/"
 for l=1:9
     refiles = readdir(refdir*"$l/")
     ffiles = readdir(mfpath*"$l/")
