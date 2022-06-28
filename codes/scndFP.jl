@@ -1,12 +1,11 @@
-using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,LinearAlgebra,StatsBase,MathProgBase,MathOptInterface
-# using JLD2,CSV,CPUTime
+using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,LinearAlgebra,StatsBase,MathProgBase,MathOptInterface,JLD2,CPUTime
+# using CSV
 const MPB = MathProgBase;
 
 mutable struct CallModel
     lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
     function CallModel(lpfile::String)
         lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
-        # lpmodel = CPLEX.CplexMathProgModel();
         MPB.loadproblem!(lpmodel,lpfile)
         Bmtx = MPB.getconstrmatrix(lpmodel);
         B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
@@ -40,8 +39,8 @@ end
 mutable struct Valu
     x::String; y::String; dvar::Array{}; LB::Array{}; LBmtx::Array{};
     function Valu(x,y)
-        # JLD2.@load x dv; dv0 = Array(dv);
-        dv0 = readdlm(x)
+        JLD2.@load x dv; dv0 = Array(dv);
+        # dv0 = readdlm(x)
         dv1 = round.(dv0; digits=4);
         objs = round.(readdlm(y); digits=4);
         ind = findall(i-> 0 in objs[i,:]  , 1:size(objs)[1]);
@@ -52,15 +51,8 @@ mutable struct Valu
         new(x,y,dvar,LB,LBmtx)
     end
 end
-mt = CallModel("F:/scnd/test01S2.lp")
-pr = Valu("F:/scnd/test01S1_pre_img_p.sol","F:/scnd/test01S2_img_p.sol")
-mt = CallModel("/home/ak121396/Desktop/instances/SCND/test01S2.lp")
-pr = Valu("/home/ak121396/Desktop/instances/SCND/test01S2_pre_img_p.sol","/home/ak121396/Desktop/instances/SCND/test01S2_img_p.sol")
-
-function getobjval(x,C)
-    return [dot(x,C[1,:]),dot(x,C[2,:])]
-end
 function flip(x_h,j,e)
+    # @show x_h,j,e
     if x_h[e[j]]==1
         x_h[e[j]] = 0
     else
@@ -89,7 +81,7 @@ function flipoper(Tabu,x_t,x_r)
             x_h=copy(x_r)
             Num = Int64(rand(ceil(length(x_r)/2):length(x_r)-1))
             R = sample(1:M,Num, replace=false)
-            for i in R
+            for r in R
                 x_h = flip(x_h,r)
                 if x_h ∉ Tabu
                     xi = x_h
@@ -123,19 +115,18 @@ function fbcheck(xx,n)
         return false
     end
 end
-function fbsearch(x,bvar,C,θ) #solveLP
-    idx0 = findall(k->x[k]==0, bvar)
-    idx1 = findall(k->x[k]==1, bvar)
-    @objective( dist, Min, (1-θ)*(sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1)) +
-        θ*((dot(x,C[1,:])+dot(x,C[2,:]))/sqrt(norm(C[1,:])+norm(C[2,:]))) )
-    optimize!(dist)
-    if termination_status(dist) == MOI.OPTIMAL
-        return JuMP.value.(dx)
-    else
-        return false;
-    end
-end
-
+# function fbsearch(x,bvar,C,θ) #solveLP
+#     idx0 = findall(k->x[k]==0, bvar)
+#     idx1 = findall(k->x[k]==1, bvar)
+#     @objective( dist, Min, (1-θ)*(sum(dx[i] for i in idx0) + sum(1-(dx[j]) for j in idx1)) +
+#         θ*((dot(x,C[1,:])+dot(x,C[2,:]))/sqrt(norm(C[1,:])+norm(C[2,:]))) )
+#     optimize!(dist)
+#     if termination_status(dist) == MOI.OPTIMAL
+#         return JuMP.value.(dx)
+#     else
+#         return false;
+#     end
+# end
 function fbsearch(x_r,bvar,C) #solveLP
     idx0 = findall(k->x[k]==0, bvar)
     idx1 = findall(k->x[k]==1, bvar)
@@ -209,44 +200,45 @@ function Postpro(candX,candY,newsol)
 
     return finalsol,finalobj
 end
+mt = CallModel("/home/ak121396/Desktop/relise/test01S2.lp");
+pr = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Desktop/relise/test01S2_img_p.sol");
 
 # dt = CallModel(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
 # Bentime = readdlm(ARGS[4])[1];
 #################### SCND model #########################
 scnd = Model(CPLEX.Optimizer);
-MOI.set(scnd, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
-MOI.set(scnd, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-bvar = findall(i->i==1,mt.vub); rvar = findall(i->i!=1,mt.vub);
-@variable(scnd, yu[i in bvar], Bin)
-@variable(scnd, xh[i in rvar] >=0 )
-@variable(scnd, x[1:mt.n] )
-
+MOI.set(scnd, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+# MOI.set(scnd, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
+bvar = findall(i->i==1,mt.vub)
+rvar = findall(i->i!=1,mt.vub)
+@variable(scnd, yu[i in bvar], Bin);
+@variable(scnd, xh[i in rvar] >=0 );
+@variable(scnd, x[1:mt.n] );
 for i=1:mt.n
     if i in bvar
-        @constraint(scnd, x[i]==yu[i]  )
+        @constraint(scnd, x[i]==yu[i]  );
     else
-        @constraint(scnd, x[i]==xh[i] )
+        @constraint(scnd, x[i]==xh[i] );
     end
 end
 for k=1:mt.m
     if mt.signs[k] == "l"
-        @constraint(scnd, dot(mt.B[k,:],x) >= mt.RHS[k])
+        @constraint(scnd, dot(mt.B[k,:],x) >= mt.RHS[k]);
     elseif mt.signs[k] == "u"
-        @constraint(scnd, dot(mt.B[k,:],x) <= mt.RHS[k])
+        @constraint(scnd, dot(mt.B[k,:],x) <= mt.RHS[k]);
     else
-        @constraint(scnd, dot(mt.B[k,:],x) == mt.RHS[k])
+        @constraint(scnd, dot(mt.B[k,:],x) == mt.RHS[k]);
     end
 end
-
-optimize!(scnd)
+optimize!(scnd);
 ##################### Feasibility Search model ######################
 dist = Model(CPLEX.Optimizer);
 MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
-MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+# MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
 
-@variable(dist, 0 <= dyu[i in bvar] <= 1)
-@variable(dist, dxh[i in rvar] >=0 )
-@variable(dist, dx[1:mt.n] )
+@variable(dist, 0 <= dyu[i in bvar] <= 1);
+@variable(dist, dxh[i in rvar] >=0 );
+@variable(dist, dx[1:mt.n] );
 for i=1:mt.n
     if i in bvar
         @constraint(dist, dx[i]==dyu[i]  )
@@ -264,16 +256,16 @@ for k=1:mt.m
     end
 end
 optimize!(dist);
-𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)]
+# 𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)];
 function FP(candX,n,C,TL,bvar)#,𝚯)
     X= []; Y = []; Tabu = []; t0=time(); newsol=0; #LPcount=0;
     candlist = copy(candX)
     # k=1
-    while candlist != [] #&&  time()-t0 < TL
+    while candlist != [] &&  time()-t0 < TL
         k = rand(1:length(candlist)); SearchDone = false;
-        x_t = candlist[k]; iter=0; Max_iter = 5#length(findall(i-> 0<i<1,x_t))
+        x_t = candlist[k]; iter=0; Max_iter = length(findall(i-> 0<i<1,x_t)) #10
         # for θ ∈ 𝚯
-        while iter<Max_iter #&& time()-t0 < TL && SearchDone == false
+        while iter<Max_iter && time()-t0 < TL && SearchDone == false
             x_r = x_t
             for i in bvar
                 x_r[i] = round(x_t[i])
@@ -322,9 +314,14 @@ function FP(candX,n,C,TL,bvar)#,𝚯)
     end
     return X,Y,candlist,newsol,Tabu
 end
-# FP(pr.dvar,pr.LB,mt.n,mt.C,60,bvar)# compiling
+function getobjval(x,C)
+    return [dot(x,C[1,:]),dot(x,C[2,:])]
+end
+
+fx,fy,candlist,fn,tabu = FP(pr.dvar,mt.n,mt.C,60,bvar)#,𝚯)# compiling
 # FPTL = (TL-Bentime)
-FPtime = @CPUelapsed fx,fy,candlist,fn,tabu = FP(pr.dvar,mt.n,mt.C,60,bvar)#,𝚯)
+# FPtime = @CPUelapsed
+fx,fy,candlist,fn,tabu = FP(pr.dvar,mt.n,mt.C,3600,bvar,𝚯)
 fy,length(candlist)
 fpx,fpy = domFilter(fx,fy)
 fpy

@@ -1,7 +1,7 @@
 using PlotlyJS,DataFrames,DelimitedFiles,Colors
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
 #############################        2D plot      ###########################
-sol = Valu("/home/ak121396/Desktop/instances/SCND/test01S2_pre_img_p.sol","/home/ak121396/Desktop/instances/SCND/test01S2fp_img_p.sol")
+sol = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Desktop/relise/test01S2_img_p.sol");
 exact = [8.52038e+007	2.2839e+006
     8.52122e+007	2.27922e+006
     8.55325e+007	2.19361e+006
@@ -13,10 +13,10 @@ exact = [8.52038e+007	2.2839e+006
     1.20186e+008	1.5156e+006]
 
 trace1 = scatter(
-    x=sol.LBmtx[:,1],y=sol.LBmtx[:,2],name="Ben+FP"       # this sets its legend entry
+    x=sol.LBmtx[:,1],y=sol.LBmtx[:,2],name="bensolve",mode="markers")      # this sets its legend entry
 )
 
-trace2 = scatter(x=exact[:,1],y=exact[:,2],name="exactFP"       # this sets its legend entry
+trace2 = scatter(x=exact[:,1],y=exact[:,2],name="epsilon"       # this sets its legend entry
 )
 
 
