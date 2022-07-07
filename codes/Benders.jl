@@ -1,20 +1,22 @@
-using JuMP,CPLEX,LinearAlgebra,MathProgBase,DelimitedFiles,SparseArrays,CPUTime
-# import Printf
-"If we use weighted sum for BD, obj values must be normalised"
+cd("C:/Users/AK121396/Desktop/ProjectBenders")
+# activate .
+using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime
+# import Printf SparseArrays,MathProgBase,
+"If we use weighted sum for BD, obj values must be normalised."
 "Maybe we can use the weighted sum code by Gandibluex (Vopt)? and just solve sub problems with BD"
 # https://github.com/matbesancon/SimpleBenders.jl/blob/master/test/runtests.jl
 # https://matbesancon.xyz/post/2019-05-08-simple-benders/ #matrix form
 # https://co-at-work.zib.de/slides/Donnerstag_24.9/Benders_decomposition-Fundamentals.pdf
 
 ##############  Benders decomposition using Mathematical models  ###############
-mutable struct Data
+mutable struct Data3
     filepath::String; N::Dict{}; d::Array{}; c::Array{};  Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     gij::Array{}; gjk::Array{}; gkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
-    function Data(filepath)
+    function Data3(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("E:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -232,8 +234,9 @@ mutable struct Data
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-dt = Data(file);
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "F:scnd/Test1S2"
+dt = Data3(file);
 ##########################  Mathematical model  #########################
 #Master Problem
 struct build_master
@@ -401,10 +404,7 @@ value.(fy)
 sum(value.(fuij))
 sum(value.(fujk))
 feasicuts[2][3]
-nfeasisut[1]
-noptcut
-202860
-1
+
 
 #Sub problem (primal)
 # sub = Model(CPLEX.Optimizer);
@@ -436,147 +436,151 @@ noptcut
 # @objective( sub, Min, w[1]*( exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2)) +
 #     exv + w[2]*( exb + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr) );
 
-######################### Mathematical model ###################################
-################   original SCND  Benders Decomposition     ################################
-w = [0.5,0.5]
-mas = Model(CPLEX.Optimizer);
-MOI.set(mas, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
-MOI.set(mas, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-@variable(mas, yjt[1:dt.N["plant"],1:2], Bin  );
-@variable(mas, ykt[1:dt.N["distribution"],1:2], Bin  );
-@variable(mas, uij[1:dt.N["supplier"],1:dt.N["plant"], 1:dt.m] , Bin);
-@variable(mas, ujk[1:dt.N["plant"],1:dt.N["distribution"],1:dt.m] , Bin);
-@variable(mas, ukl[1:dt.N["distribution"],1:dt.N["customer"],1:dt.m] , Bin);
-@variable(mas, θ)
-exg = AffExpr(0);
-for i=1:I
-    idx = 1;
-    for j=1:J
-        for m=1:Mij[i,j]
-            add_to_expression!(exg, dt.gij[i][idx]*uij[i,j,m]);
-            idx+=1
-        end
-    end
-end
-@objective(mas, Min, w[1]*(sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg) + θ);
-#####################  modelling with matrices ############################
-mutable struct CallModel
-    lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Array{}; signs::Array{}; vub::Array{}
-    function CallModel(lpfile::String)
-        lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
-        MPB.loadproblem!(lpmodel,lpfile)
-        Bmtx = MPB.getconstrmatrix(lpmodel);
-        B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
-        # cut = find(i-> varub[i]==1 &&varub[i+1]!=1, 1:length(varub))[end]
-        # vub = varub[1:cut]; B = Bmtx[3:end,1:cut]; C = Bmtx[1:2,1:cut]
-        m,n=size(B)
-        vub = MPB.getvarUB(lpmodel)
-        lb = MPB.getconstrLB(lpmodel)[3:end]
-        ub = MPB.getconstrUB(lpmodel)[3:end]
 
-        RHS = []
-        for i=1:m
-            if ub[i]==Inf
-                push!(RHS,lb[i])
-            else
-                push!(RHS,ub[i])
-            end
-        end
-        signs = []
-        for i=1:m
-            if ub[i] == Inf
-                push!(signs,"l")
-            elseif lb[i] == -Inf
-                push!(signs,"u")
-            else
-                push!(signs, "s")
-            end
-        end
-        new(lpfile,m,n,C,B,RHS,signs,vub)
-    end
-end
-function print_iteration(k, args...)
-    f(x) = Printf.@sprintf("%12.4e", x)
-    println(lpad(k, 9), " ", join(f.(args), " "))
-    return
-end
-# mt = SCNDModel("F:/scnd/Test1S2.lp")
-mt = CallModel("/home/ak121396/Desktop/instances/SCND/test01S2.lp") #small_ins.lp")
-bvar = findall(i->i==1,mt.vub); rvar = findall(i->i!=1,mt.vub);
-c1b = [mt.C[1,i] for i in bvar];  #c2b is zeros
-c1r = [mt.C[1,i] for i in rvar]; c2r = [mt.C[2,i] for i in rvar];
-range1 = findall(i-> mt.vub[i]==1 && mt.vub[i+1]!=1, 1:length(mt.vub)-1)[1]
-range2 = findall(i-> mt.vub[i]!=1 && mt.vub[i+1]==1, 1:length(mt.vub)-1)[1]
-firstcon = findall(i->sum(mt.B[i,range1+1:range2])==0, 1:length(mt.RHS))
-secondcon = findall(i->i ∉ firstcon, 1:length(mt.RHS))
-mas0 = nothing;
-for i in firstcon
-    mas0 = [mas0; mt.B[i,:]']
-end
-mas1 = mas0[2:end,:];
-mascon = hcat(mas1[:,1:range1],mas1[:,range2+1:end]) #master problem constraints
-mRHS = [mt.RHS[i] for i in firstcon];
-msigns = [mt.signs[i] for i in firstcon];
-sub0 = nothing;
-for i in secondcon
-    sub0 = [sub0; mt.B[i,:]']
-end
-sub1 = sub0[2:end,:];
-# subcon = [mt.B[1:firstcon[1]-1,range1+1:range2]; mt.B[firstcon[end]+1:end,range1+1:range2]]
-sRHS = [mt.RHS[i] for i in secondcon]
-subsigns = [mt.signs[i] for i in secondcon]
-dim_x = length(c1b); dim_y = length(c1r);
-M = sum(mt.RHS[i] for i in findall(i->i<0, mt.RHS));
+##################with callback function
+function solve_dsp(yb,ubij,ubjk,ubkl,w) #dsp::DualSubP,
+    sub = direct_model(CPLEX.Optimizer());
+    set_optimizer_attribute(sub, "CPX_PARAM_REDUCE", 0); # turning presolve off
+    set_silent(sub) #MOI.set(sub, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
+    MOI.set(sub, MOI.NumberOfThreads(), 1) # MOI.set(sub, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
 
-A_1 = hcat(sub1[:,1:range1],sub1[:,range2+1:end])
-A_2 = sub1[:,range1+1:range2]
-# b = [mRHS; sRHS]
-inequal = findall(i->subsigns[i]!="s",1:length(subsigns))
-equal = findall(i->subsigns[i]=="s",1:length(subsigns))
-inRHS = [sRHS[j] for j in inequal]
-eqRHS = [sRHS[j] for j in equal]
-A1,A1e,A2,A2e = zeros(1,dim_x),zeros(1,dim_x),zeros(1,dim_y),zeros(1,dim_y);
-for j=1:size(A_1,1)
-    if j in inequal
-        A1 = [A1; A_1[j,:]']; A2 = [A2; A_2[j,:]']
-    else
-        A1e = [A1e; A_1[j,:]']; A2e = [A2e; A_2[j,:]']
-    end
-end
-inA1 = A1[2:end,:]; eqA1 = A1e[2:end,:];
-inA2 = A2[2:end,:]; eqA2 = A2e[2:end,:];
+    @variables(sub, begin
+        α1[1:dt.N["plant"],1:5]
+        α2[1:dt.N["distribution"],1:5]
+        α3[1:dt.N["plant"],1:5]
+        α4[1:dt.N["distribution"],1:5]
+    end)
+    @variable(sub, α5[1:dt.N["customer"],1:5] >= 0);
+    @variable(sub, α6[1:dt.N["supplier"]] >= 0);
+    @variable(sub, α7[1:dt.N["plant"],1:2] >= 0);
+    @variable(sub, α8[1:dt.N["distribution"],1:2] >= 0);
+    @variable(sub, α9[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j]] >= 0);
+    @variable(sub, α10[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k]] >= 0);
+    @variable(sub, α11[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l]] >= 0);
+    @variable(sub, α12[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j]] >= 0);
+    @variable(sub, α13[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k]] >= 0);
+    @variable(sub, α14[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l]] >= 0);
 
-#####################   Benders Decomposition  #######################
-#Master problem
-model = Model(CPLEX.Optimizer)
-@variable(model, x[1:dim_x], Bin);
-# @variable(model, 0<=x[1:dim_x]<=1) LP relaxation
-@variable(model, θ >= M)
-for k=1:length(msigns)
-    if msigns[k] == "l"
-        @constraint(model, dot(mascon[k,:]',x) >= mRHS[k])
-    elseif msigns[k] == "u"
-        @constraint(model, dot(mascon[k,:]',x) <= mRHS[k])
-    else
-        @constraint(model, dot(mascon[k,:]',x) == mRHS[k])
-    end
-end
-@objective(model, Min, c1b' * x + θ)
+    @constraint(sub, [i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],p=1:5], α1[j,p]-α3[j,p]-α6[i]+α9[i,j,m]-α12[i,j,m] <= w[1]*(dt.N["vcs"][i][p]+dt.vij[i][j][m][p])+w[2]*(dt.b[i,p]+dt.rij[i][j][m][p]));
+    @constraint(sub, [j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],p=1:5], -α1[j,p]+α2[k,p]-α4[k,p]+α10[j,k,m]-α13[j,k,m] <= w[1]*(dt.vjk[j][k][m][p])+w[2]*(dt.rjk[j][k][m][p]));
+    @constraint(sub, [k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],p=1:5], -α2[k,p]+α5[l,p]+α11[k,l,m]-α14[k,l,m] <= w[1]*(dt.vkl[k][l][m][p])+w[2]*(dt.rkl[k][l][m][p]));
+    @constraint(sub, [j=1:dt.N["plant"],t=1:2,p=1:5], α3[j,p]-α7[j,t] <= w[1]*(dt.N["vcp"][j][2*(t-1)+p])+w[2]*(dt.N["vep"][j][2*(t-1)+p]));
+    @constraint(sub, [k=1:dt.N["distribution"],t=1:2,p=1:5], α4[k,p]-α8[k,t] <= w[1]*(dt.N["vcd"][k][2*(t-1)+p])+w[2]*(dt.N["ved"][k][2*(t-1)+p]));
+    @objective(sub, Max, sum(α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*α6[i] for i=1:dt.N["supplier"])-
+        sum(dt.N["cap"][j]*yb[j,t]*α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*yb[dt.N["plant"]+k,t]*α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
+        sum(dt.Vij[i][j][m]*ubij[i,j,m]*α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
+        sum(dt.Vjk[j][k][m]*ubjk[j,k,m]*α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
+        sum(dt.Vkl[k][l][m]*ubkl[k,l,m]*α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+        sum(dt.bigM*ubij[i,j,m]*α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+        sum(dt.bigM*ubjk[j,k,m]*α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
+        sum(dt.bigM*ubkl[k,l,m]*α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
+        )
+    optimize!(sub) # optimize!(dsp.m)
+    st = termination_status(sub) # (dsp.m)
 
-1
-function solve_subproblem(x)
-    model = Model(CPLEX.Optimizer)
-    @variable(model, y[1:dim_y] >= 0)
-    con = @constraint(model, inA2 * y .<= inRHS - inA1 * x)
-    econ = @constraint(model, eqA2 * y .== eqRHS - eqA1 *x)
-    @objective(model, Min, c1r' * y)# + c2r' * y*w[2] )
-    optimize!(model)
-    st = termination_status(model)
     if st == MOI.OPTIMAL
-        return (res = :OptimalityCut, obj = objective_value(model), y = value.(y), π = dual.(con), σ = dual.(econ) )
-    elseif st == MOI.INFEASIBLE
-        return (res = :FeasibilityCut, obj = objective_value(model), y = value.(y), π = dual.(con), σ = dual.(econ) )
+        return (res = :OptimalityCut, obj = objective_value(sub), α5 = value.(α5), α6 = value.(α6), α7 = value.(α7), α8= value.(α8), α9= value.(α9), α10= value.(α10), α11= value.(α11), α12= value.(α12),α13= value.(α13),α14= value.(α14) )
+      elseif st == MOI.DUAL_INFEASIBLE
+        # println( value.(α5),  value.(α6), value.(α7), value.(α8),  value.(α9),  value.(α10), value.(α11), value.(α12),value.(α13),value.(α14) )
+        return ( res = :FeasibilityCut, α5 = value.(α5), α6 = value.(α6), α7 = value.(α7), α8= value.(α8), α9= value.(α9), α10= value.(α10), α11= value.(α11), α12= value.(α12),α13= value.(α13),α14= value.(α14) )
+        # lens = [length(dsp.α5),length(dsp.α6),length(dsp.α7),length(dsp.α8),length(dsp.α9),length(dsp.α10),length(dsp.α11),length(dsp.α1),length(dsp.α2),length(dsp.α3),length(dsp.α4)]
+        # rays = Vector{Float64}(undef,sum(dsp.lens))
+        # CPXgetray(backend(dsp.m).env, backend(dsp.m).lp, rays) # vr = value.(rays)
+        # pvci = [sum(lens[1:l]) for l=1:length(lens)]
+        # insert!(pvci,1,0)
+        # slices = [rays[pvci[l]+1:pvci[l+1]] for l=1:length(pvci)-1]
+        # return ( res = :FeasibilityCut, α5=slices[8], α6=slices[1], α7=slices[10], α8=slices[11], α9=slices[2], α10=slices[5], α11=slices[9] )
     else
-        error("DualSubProblem error: status $st")
+      error("DualSubProblem error: status $st")
     end
 end
+
+
+function bd_callback(cb_data)#benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Containers.SparseAxisArray{VariableRef},ujk::JuMP.Containers.SparseAxisArray{VariableRef},ukl::JuMP.Containers.SparseAxisArray{VariableRef})
+    # ,uij::Array{VariableRef},ujk::Array{VariableRef},ukl::Array{VariableRef})
+     # dsp = DualSubP(sub,w)
+
+    # @variable(mas, θ>= -1000);
+    # @objective(mas, Min, w[1]*(sum(dt.c[j][t]*y[j,t] for j=1:dt.N["plant"]+dt.N["distribution"] for t=1:2)+
+    #     sum(dt.gij[i][j][m]*uij[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
+    #     sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
+    #     sum(dt.gkl[k][l][m]*ukl[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])) + θ );
+    # optimize!(mas); st = termination_status(mas)
+    nopt_cons, nfeasi_cons = (0, 0)
+    feasicuts = [];    # optcuts = Vector{Float64}[]
+
+    yb = callback_value.(cb_data, y);    ubij = callback_value.(cb_data, uij);    ubjk = callback_value.(cb_data, ujk)
+    ubkl = callback_value.(cb_data, ukl);    θb = callback_value(cb_data, θ)
+    subp = solve_dsp(yb,ubij,ubjk,ubkl,w)
+
+
+    # while (st == MOI.INFEASIBLE) || (st == MOI.OPTIMAL)
+    #     optimize!(mas);
+    #     st = termination_status(mas)
+    #     θ1 = value(θ); yb = value.(y); ubij = value.(uij); ubjk = value.(ujk); ubkl = value.(ukl)
+    #     subp = solve_dsp(dsp,yb,ubij,ubjk,ubkl)
+    #     push!(thetas,θ1)
+    if subp.res == :OptimalityCut
+        @info "Optimality cut found"
+        # println(θb,"  and  ",round(subp.obj; digits=4))
+        if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+            return (mas, y, uij, ujk, ukl, nopt_cons, nfeasi_cons, feasicuts)
+            # break
+        else
+            nopt_cons+=1
+            cut = @build_constraint( θ ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
+                sum(dt.N["cap"][j]*y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
+                sum(dt.Vij[i][j][m]*uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
+                sum(dt.Vjk[j][k][m]*ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
+                sum(dt.Vkl[k][l][m]*ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
+                sum(dt.bigM*uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+                sum(dt.bigM*ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
+                sum(dt.bigM*ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
+                );
+            MOI.submit(mas, MOI.LazyConstraint(cb_data), cut)
+            # push!(optcuts, cut)
+        end
+    else
+        @info "Feasibility cut found"
+        nfeasi_cons += 1
+        cut = @build_constraint( 0 ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
+            sum(dt.N["cap"][j]*y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
+            sum(dt.Vij[i][j][m]*uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
+            sum(dt.Vjk[j][k][m]*ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
+            sum(dt.Vkl[k][l][m]*ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+            sum(dt.bigM*uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+            sum(dt.bigM*ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
+            sum(dt.bigM*ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
+            );
+        # push!(feasicuts, cut)
+        MOI.submit(mas, MOI.LazyConstraint(cb_data), cut)
+        push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+    end
+    # @info "Addin g the cut $(cut)"
+    # end
+    return (mas, y, uij, ujk, ukl, nopt_cons, nfeasi_cons, feasicuts)
+end
+
+
+mas = Model(CPLEX.Optimizer); set_silent(mas)
+MOI.set(mas, MOI.NumberOfThreads(), 1);set_silent(mas)
+@variable(mas, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin);
+@variable(mas, uij[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j]], Bin);
+@variable(mas, ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k]], Bin);
+@variable(mas, ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l]], Bin);
+@variable(mas, θ>= -1000);
+@constraint(mas,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
+@constraint(mas,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= 1);
+@constraint(mas,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= 1);
+@constraint(mas,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= 1);
+@constraint(mas, sum(y[j,t] for j=1:dt.N["plant"] for t=1:2) <= dt.upl);
+@constraint(mas, sum(y[k+dt.N["plant"],t] for k=1:dt.N["distribution"] for t=1:2) <= dt.udc);
+@objective(mas, Min, w[1]*(sum(dt.c[j][t]*y[j,t] for j=1:dt.N["plant"]+dt.N["distribution"] for t=1:2)+
+    sum(dt.gij[i][j][m]*uij[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
+    sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
+    sum(dt.gkl[k][l][m]*ukl[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])) + θ );
+
+MOI.set(mas, MOI.LazyConstraintCallback(), bd_callback)
+@CPUelapsed optimize!(mas)
+objective_value(mas)==objective_value(scnd)
+value.(y)

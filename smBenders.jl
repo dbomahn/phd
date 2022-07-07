@@ -1,15 +1,16 @@
 using StatsBase,DelimitedFiles,Distributions,CPLEX,JuMP,LinearAlgebra,CPUTime
 #######################  small instance Benders Decomposition  ########################
-struct build_master
+struct build_master1
     y::Matrix{VariableRef}
     uij::JuMP.Containers.SparseAxisArray{VariableRef}
     ujk::JuMP.Containers.SparseAxisArray{VariableRef}
     ukl::JuMP.Containers.SparseAxisArray{VariableRef}
     m::Model
 end
-function build_master()
+function build_master1()
     mas = Model(CPLEX.Optimizer);
     set_silent(mas); MOI.set(mas, MOI.NumberOfThreads(), 1);
+    MOI.NodeCount()
     @variable(mas, y[1:J+K,1:2], Bin);
     # @variable(mas, ykt[1:K,1:2], Bin);
     @variable(mas, uij[i=1:I,j=1:J,1:Mij[i,j]], Bin);
@@ -22,10 +23,10 @@ function build_master()
     @constraint(mas,[k=1:K,l=1:L], sum(ukl[k,l,m] for m=1:Mkl[k,l]) <=1);
     @constraint(mas, sum(y[J+k,t] for k=1:K for t=1:2) <= Kmax);
     # optimize!(mas)
-    return build_master(y,uij,ujk,ukl,mas)
+    return build_master1(y,uij,ujk,ukl,mas)
 end
 
-struct DualSubP
+struct DualSubP1
     # data::SubProblemData
     α1::Vector{VariableRef}
     α2::Vector{VariableRef}
@@ -44,7 +45,8 @@ struct DualSubP
     m::Model
 end
 
-function DualSubP(sub::Model,w)
+function DualSubP1(w)
+    sub = direct_model(CPLEX.Optimizer());
     set_optimizer_attribute(sub, "CPX_PARAM_REDUCE", 0); # presolve must be turned off
     set_silent(sub)
     MOI.set(sub, MOI.NumberOfThreads(), 1)
@@ -71,19 +73,19 @@ function DualSubP(sub::Model,w)
     @constraint(sub, [k=1:K,l=1:L,m=1:Mkl[k,l]], -α2[k]+α5[l]+α11[k,l,m]-α14[k,l,m] <= w[1]*tcc[k][l][m]+w[2]*cec[k][l][m]);
     @constraint(sub, [j=1:J,t=1:2], α3[j]-α7[j,t] <= w[1]*vcp[j,t]+w[2]*vep[j,t]);
     @constraint(sub, [k=1:K,t=1:2], α4[k]-α8[k,t] <= w[1]*vcd[k,t]+w[2]*ved[k,t]);
-    return DualSubP(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
+    return DualSubP1(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
 end
 
-function solve_dsp(dsp::DualSubP,yb,ubij,ubjk,ubkl)
+function solve_dsp1(dsp::DualSubP1,yb,ubij,ubjk,ubkl)
     @objective(dsp.m, Max, dot(demand,dsp.α5)-dot(cas,dsp.α6)-
         sum(cap[j]*dsp.α7[j,t]*yb[j,t] for j=1:J for t=1:2) -
         sum(cad[k]*dsp.α8[k,t]*yb[J+k,t] for k=1:K for t=1:2) +
         sum(Lcapasp[i][j][m]*dsp.α9[i,j,m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
         sum(Lcapapd[j][k][m]*dsp.α10[j,k,m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
         sum(Lcapadc[k][l][m]*dsp.α11[k,l,m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
-        sum(bigM*ubij[i,j,m]*dsp.α12[i,j,m] for i=1:I for j=1:J for m=1:dt.Mij[i,j]) -
-        sum(bigM*ubjk[j,k,m]*dsp.α13[j,k,m] for j=1:J for k=1:K for m=1:dt.Mjk[j,k]) -
-        sum(bigM*ubkl[k,l,m]*dsp.α14[k,l,m] for k=1:K for l=1:L for m=1:dt.Mkl[k,l])
+        sum(bigM*ubij[i,j,m]*dsp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+        sum(bigM*ubjk[j,k,m]*dsp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+        sum(bigM*ubkl[k,l,m]*dsp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
         );
     optimize!(dsp.m)
     st = termination_status(dsp.m)
@@ -98,38 +100,39 @@ function solve_dsp(dsp::DualSubP,yb,ubij,ubjk,ubkl)
       error("DualSubProblem error: status $st")
     end
 end
-function benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Containers.SparseAxisArray{VariableRef},ujk::JuMP.Containers.SparseAxisArray{VariableRef},ukl::JuMP.Containers.SparseAxisArray{VariableRef})
-    sub = direct_model(CPLEX.Optimizer()); dsp = DualSubP(sub,w)
 
-    @variable(mas, θ>= -1000);
-    @objective(mas, Min, w[1]*(sum(fc[j][t]*y[j,t] for j=1:J+K for t=1:2)+
-        sum(gij[i][j][m]*uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
-        sum(gjk[j][k][m]*ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
-        sum(gkl[k][l][m]*ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θ);
-    optimize!(mas); st = termination_status(mas)
+function benders_decomposition1(w, mas::build_master1) #, y::Matrix{VariableRef},uij::JuMP.Containers.SparseAxisArray{VariableRef},ujk::JuMP.Containers.SparseAxisArray{VariableRef},ukl::JuMP.Containers.SparseAxisArray{VariableRef})
+
+    @variable(mas.m, θ>= -1000);
+    @objective(mas.m, Min, w[1]*(sum(fc[j][t]*mas.y[j,t] for j=1:J+K for t=1:2)+
+        sum(gij[i][j][m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+        sum(gjk[j][k][m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+        sum(gkl[k][l][m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θ);
+    optimize!(mas.m); st = termination_status(mas.m)
     nopt_cons, nfeasi_cons = (0, 0)
     feasicuts = [];
+    dsp = DualSubP1(w)
 
     while (st == MOI.INFEASIBLE) || (st == MOI.OPTIMAL)
-        optimize!(mas);
-        st = termination_status(mas)
-        θ1 = value(θ); yb = value.(y); ubij = value.(uij); ubjk = value.(ujk); ubkl = value.(ukl)
-        subp = solve_dsp(dsp,yb,ubij,ubjk,ubkl)
+        optimize!(mas.m);
+        st = termination_status(mas.m)
+        θ1 = value(θ); yb = value.(mas.y); ubij = value.(mas.uij); ubjk = value.(mas.ujk); ubkl = value.(mas.ukl)
+        subp = solve_dsp1(dsp,yb,ubij,ubjk,ubkl)
         if subp.res == :OptimalityCut
             # @info "Optimality cut found"
             if round(θ1; digits=4) ≥ round(subp.obj; digits=4)
                 break
             else
                 nopt_cons+=1
-                cut = @constraint( mas, θ ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
-                    sum(cap[j]*subp.α7[j,t]*y[j,t] for j=1:J for t=1:2) -
-                    sum(cad[k]*subp.α8[k,t]*y[k+J,t] for k=1:K for t=1:2) +
-                    sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
-                    sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
-                    sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
-                    sum(bigM*uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:dt.Mij[i,j]) -
-                    sum(bigM*ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:dt.Mjk[j,k]) -
-                    sum(bigM*ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:dt.Mkl[k,l])
+                cut = @constraint( mas.m, θ ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+                    sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
+                    sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
+                    sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+                    sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+                    sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
+                    sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+                    sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+                    sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
                     )
                     # build_constraint
                     # MOI.submit(mas, MOI.LazyConstraint(), cut)
@@ -137,27 +140,28 @@ function benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Co
         else
             # @info "Feasibility cut found"
             nfeasi_cons += 1
-            cut = @constraint( mas, 0 ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
-                sum(cap[j]*subp.α7[j,t]*y[j,t] for j=1:J for t=1:2) -
-                sum(cad[k]*subp.α8[k,t]*y[k+J,t] for k=1:K for t=1:2) +
-                sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
-                sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
-                sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
-                sum(bigM*uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:dt.Mij[i,j]) -
-                sum(bigM*ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:dt.Mjk[j,k]) -
-                sum(bigM*ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:dt.Mkl[k,l]))
+            cut = @constraint( mas.m, 0 ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+                sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
+                sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
+                sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+                sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+                sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
+                sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+                sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+                sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]))
             # push!(feasicuts, cut)
             push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
         end
         # @info "Adding the cut $(cut)"
     end
-    return (mas, y, uij, ujk, ukl, nopt_cons, nfeasi_cons, feasicuts)
+    return (mas, nopt_cons, nfeasi_cons, feasicuts) # y, uij, ujk, ukl,
 end
 
 
-w = [0.5,0.5];
-w1buildTime = @CPUelapsed mas = build_master();
-w1algoTime = @CPUelapsed fmodel,fy,fuij,fujk,fukl,fnoptcut,fnfeasicut,firstcuts = benders_decomposition(w,mas.m,mas.y,mas.uij,mas.ujk,mas.ukl);
+w1buildTime = @CPUelapsed mas1 = build_master1();
+w1algoTime = @CPUelapsed fmas,fnoptcut,fnfeasicut,firstcuts = benders_decomposition1(w,mas1) #,mas.y,mas.uij,mas.ujk,mas.ukl);
+w1algoTime
+node_count(mas1.m)
 (fnoptcut+fnfeasicut)
 value.(fujk)
 
@@ -178,9 +182,9 @@ function build_master2(m::Model,firstcuts,secondcuts)
             sum(Lcapasp[i][j][m]*firstcuts[i].α9[i,j,m]*mp.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
             sum(Lcapapd[j][k][m]*firstcuts[i].α10[j,k,m]*mp.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
             sum(Lcapadc[k][l][m]*firstcuts[i].α11[k,l,m]*mp.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
-            sum(bigM*mp.uij[i,j,m]*firstcuts[i].α12[i,j,m] for i=1:I for j=1:J for m=1:dt.Mij[i,j]) -
-            sum(bigM*mp.ujk[j,k,m]*firstcuts[i].α13[j,k,m] for j=1:J for k=1:K for m=1:dt.Mjk[j,k]) -
-            sum(bigM*mp.ukl[k,l,m]*firstcuts[i].α14[k,l,m] for k=1:K for l=1:L for m=1:dt.Mkl[k,l]))
+            sum(bigM*mp.uij[i,j,m]*firstcuts[i].α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+            sum(bigM*mp.ujk[j,k,m]*firstcuts[i].α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+            sum(bigM*mp.ukl[k,l,m]*firstcuts[i].α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]))
     end
     for i=1:length(secondcuts)
         @constraint(mp.m,  0 ≥ dot(demand,secondcuts[i].α5)-dot(cas,secondcuts[i].α6)-
@@ -189,9 +193,9 @@ function build_master2(m::Model,firstcuts,secondcuts)
             sum(Lcapasp[i][j][m]*secondcuts[i].α9[i,j,m]*mp.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
             sum(Lcapapd[j][k][m]*secondcuts[i].α10[j,k,m]*mp.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
             sum(Lcapadc[k][l][m]*secondcuts[i].α11[k,l,m]*mp.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
-            sum(bigM*mp.uij[i,j,m]*secondcuts[i].α12[i,j,m] for i=1:I for j=1:J for m=1:dt.Mij[i,j]) -
-            sum(bigM*mp.ujk[j,k,m]*secondcuts[i].α13[j,k,m] for j=1:J for k=1:K for m=1:dt.Mjk[j,k]) -
-            sum(bigM*mp.ukl[k,l,m]*secondcuts[i].α14[k,l,m] for k=1:K for l=1:L for m=1:dt.Mkl[k,l]))
+            sum(bigM*mp.uij[i,j,m]*secondcuts[i].α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+            sum(bigM*mp.ujk[j,k,m]*secondcuts[i].α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+            sum(bigM*mp.ukl[k,l,m]*secondcuts[i].α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]))
     end
 
     return mp
@@ -251,6 +255,16 @@ value.(huij)
 value.(hukl)
 hcuts
 1
+
+
+
+
+
+
+
+
+
+
 # sub = Model(CPLEX.Optimizer);
 # set_optimizer_attribute(sub, "CPX_PARAM_REDUCE", 0)
 # MOI.set(sub, MOI.NumberOfThreads(), 1);set_silent(sub)
