@@ -386,8 +386,8 @@ end
 
 gij,gjk,gkl = mode_fixed_cost(I,J,K,L,Mij,Mjk,Mkl);
 ######################### Build mathematical model #############################
-w = [0.5,0.5]
-function build_scndmodel(w)
+w = [0.5,0.5]; bigM = sum(demand);
+function build_scndmodel(w,bigM)
     scnd = direct_model(CPLEX.Optimizer());
     MOI.set(scnd, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut
     set_silent(scnd)
@@ -451,7 +451,6 @@ function build_scndmodel(w)
     @constraint(scnd,[j=1:J,k=1:K], sum(ujk1[j,k,m] for m=1:Mjk[j,k]) <= 1);
     @constraint(scnd,[k=1:K,l=1:L], sum(ukl1[k,l,m] for m=1:Mkl[k,l]) <= 1);
     ########### constraint 11 #############
-    bigM = sum(demand);
     @constraint(scnd,[i=1:I,j=1:J,m=1:Mij[i,j]], sum(xij1[i,j,m] ) <= bigM*uij1[i,j,m]);
     @constraint(scnd, [j=1:J,k=1:K,m=1:Mjk[j,k]], sum(xjk1[j,k,m] ) <= bigM*ujk1[j,k,m]);
     @constraint(scnd,[k=1:K, l=1:L, m=1:Mkl[k,l]], sum(xkl1[k,l,m] ) <= bigM*ukl1[k,l,m]);
@@ -465,8 +464,9 @@ function build_scndmodel(w)
     return scnd
 end
 
-scnd = build_scndmodel(w)
-miptime = @CPUelapsed optimize!(scnd)
+scnd = build_scndmodel(w,bigM)
+optimize!(scnd)
+solve_time(scnd)
 @show termination_status(scnd)
 objective_value(scnd)
 node_count(scnd)

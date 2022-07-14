@@ -245,6 +245,7 @@ scnd = Model(CPLEX.Optimizer);
 # @variable(scnd, 0<= ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l]] <= 1);
 ##############################  IP   #####################################
 MOI.set(scnd, MOI.NumberOfThreads(), 1);set_silent(scnd)
+# MOI.set(scnd, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut
 @variable(scnd, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin);
 @variable(scnd, uij[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j]], Bin);
 @variable(scnd, ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k]], Bin);
@@ -358,8 +359,10 @@ BigM = sum(sum(dt.N["demand"]));
 @constraint(scnd,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],p=1:5], sum(xij[i,j,m,p] ) <= BigM*uij[i,j,m]);
 @constraint(scnd,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],p=1:5] ,sum(xjk[j,k,m,p] ) <= BigM*ujk[j,k,m]);
 @constraint(scnd,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],p=1:5], sum(xkl[k,l,m,p] ) <= BigM*ukl[k,l,m]);
-@CPUelapsed optimize!(scnd)
+optimize!(scnd)
+solve_time(scnd)
 objective_value(scnd)
+node_count(scnd)
 ############ Suppliers Availibility  ################
 # for i=1:dt.N["supplier"]
 #     for p=1:5
