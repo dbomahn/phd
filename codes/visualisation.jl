@@ -12,13 +12,10 @@ exact = [8.52038e+007	2.2839e+006
     9.68962e+007	1.76151e+006
     1.20186e+008	1.5156e+006]
 
-trace1 = scatter(
-    x=sol.LBmtx[:,1],y=sol.LBmtx[:,2],name="bensolve",mode="markers")      # this sets its legend entry
-)
-
-trace2 = scatter(x=exact[:,1],y=exact[:,2],name="epsilon"       # this sets its legend entry
-)
-
+benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2])
+sort!(benobj, :x)
+trace1 = scatter(x=exact[:,1],y=exact[:,2],name="epsilon",mode="lines+markers")
+trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines")      # this sets its legend entry
 
 
 layout = Layout(

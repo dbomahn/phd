@@ -1,4 +1,5 @@
-using DataStructures,DataFrames,DelimitedFiles,JuMP,JLD2,CPLEX,LinearAlgebra,CSV,StatsBase,CPUTime,MathProgBase,MathOptInterface
+using DataStructures,DataFrames,DelimitedFiles,JuMP,JLD2,CPLEX,LinearAlgebra,StatsBase,CPUTime,MathProgBase,MathOptInterface
+# using CSV
 const MPB = MathProgBase;
 
 mutable struct CallModel
@@ -53,9 +54,6 @@ mutable struct Valu
     end
 end
 
-function getobjval(x,C,bvar)
-    return [ dot(x,[C[1,:][k] for k in bvar]), dot(x,[C[2,:][k] for k in bvar]) ]
-end
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -99,8 +97,8 @@ function PRfindsol(x_r,bvar)
     for (i,v) in enumerate(bvar)
         JuMP.fix(x[v], x_r[i]; force=true)
     end
-    optimize!(scnd)
-    if termination_status(scnd) == MOI.OPTIMAL
+    optimize!(scnd2)
+    if termination_status(scnd2) == MOI.OPTIMAL
         return JuMP.value.(x)
     else
         return []
@@ -214,47 +212,98 @@ function Postpro(candX,candY,newsol)
     return finalsol,finalobj
 end
 
-mt = CallModel("/home/ak121396/Desktop/relise/Test4S3.lp")
-pr = Valu("/home/ak121396/Desktop/relise/Test4S3_X.jld2","/home/ak121396/Desktop/relise/Test4S3_img_p.sol")
-mt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
-Bentime = readdlm(ARGS[4])[1];
+mt = CallModel("/home/ak121396/Desktop/relise/newlp.lp");
+pr = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Desktop/relise/test01S2_img_p.sol");
+# mt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
+# Bentime = readdlm(ARGS[4])[1];
 #################### SCND model #########################
-scnd = Model(CPLEX.Optimizer);
-MOI.set(scnd, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
-MOI.set(scnd, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-bvar = findall(i->i==1,mt.vub); rvar = findall(i->i!=1,mt.vub);
-@variable(scnd, yu[i in bvar], Bin)
-@variable(scnd, xh[i in rvar] >=0 )
-@variable(scnd, x[1:mt.n] )
+scnd2 = Model(CPLEX.Optimizer);
+MOI.set(scnd2, MOI.RawParameter("CPX_PARAM_SCRIND"), false );
+# MOI.set(scnd2, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
+bvar = findall(i->i==1,mt.vub); # rvar = findall(i->i!=1,mt.vub);
+@variable(scnd2, x[1:mt.n]>=0 );
 for i=1:mt.n
     if i in bvar
-        @constraint(scnd, x[i]==yu[i]  )
-    else
-        @constraint(scnd, x[i]==xh[i] )
+        set_binary(x[i])
+    # else
+    #     set_lower_bound(x[i],0);
     end
 end
 for k=1:mt.m
     if mt.signs[k] == "l"
-        @constraint(scnd, dot(mt.B[k,:],x) >= mt.RHS[k])
+        @constraint(scnd2, dot(mt.B[k,:],x) >= mt.RHS[k])
     elseif mt.signs[k] == "u"
-        @constraint(scnd, dot(mt.B[k,:],x) <= mt.RHS[k])
+        @constraint(scnd2, dot(mt.B[k,:],x) <= mt.RHS[k])
     else
-        @constraint(scnd, dot(mt.B[k,:],x) == mt.RHS[k])
+        @constraint(scnd2, dot(mt.B[k,:],x) == mt.RHS[k])
     end
 end
-optimize!(scnd)
+optimize!(scnd2)
 
 function FBcheck(xx,n)
     for k=1:n
         JuMP.fix(x[k],xx[k]; force=true)
     end
-    optimize!(scnd)
-    if termination_status(scnd) == MOI.OPTIMAL
+    optimize!(scnd2)
+    if termination_status(scnd2) == MOI.OPTIMAL
         return true
     else
         return false
     end
 end
+function getobjval(x,C,bvar)
+    return [ dot(x,[C[1,:][k] for k in bvar]), dot(x,[C[2,:][k] for k in bvar]) ]
+end
+function GPR(lpX,lpY,C,TL,bvar)
+    candX = copy(lpX); candY = copy(lpY);
+    IGPair=[]; exploredSI = []; t0=time();newsol=0;
+    while time()-t0 < TL
+	    I,G = sample(1:length(candX), 2, replace=false)
+        SI = [candX[I][k] for k in bvar]; SG = [candX[G][k] for k in bvar]; iter=0;
+        SI_r = round.(SI); SG_r = round.(SG)
+        dif = findall(i-> SI_r[i]!=SG_r[i], 1:length(bvar))
+        # println("dif is: ", length(dif))
+        Max_iter = 10 #length(findall(i-> 0<i<1,candX[I]))
+        print("maximum iteration",Max_iter)
+        while all.(SI_r != SG_r) && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
+            neibour,neiobj = createNB(SI,C,dif,exploredSI,bvar)
+            if (length(neiobj)==0) #(time()-t0 >= TL)
+                break
+            else
+                for l=1:length(neibour)
+                    xn = PRfindsol(round.(neibour[l]),bvar)
+                    if ( xn!=[] && xn∉candX )
+                        push!(candX, xn); push!(candY, getobjval(xn,C));
+                        newsol+=1;println("new sol");
+                    end
+                end
+            end
+            SI = nextSI(neibour,neiobj,C,SI,bvar)
+            if SI∉candX
+                push!(exploredSI,SI);
+            end
+            @show iter+=1
+        end
+        push!(IGPair,[I,G])
+    end
+    return candX,candY,newsol
+end
+GPRtime = @CPUelapsed px,py,pn = GPR(pr.dvar,pr.LB,mt.C,600,bvar)
+totaltime = FPtime+Bentime+GPRtime
+prx,pry = Postpro(px,py,pn)
+
+otable = zeros(length(pry),2)
+for i=1:length(pry)
+    for j=1:2
+        otable[i,j] = pry[i][j]
+    end
+end
+
+ins = ARGS[2][1:end-4];
+record1 = DataFrame(file=ins[26:end], totalsol = length(fpry), t=round(totaltime; digits=2))
+CSV.write("/home/k2g00/k2g3475/scnd/fpr_record.csv", record1,append=true, header=false )#, delim=','i )
+CSV.write(ins*"_Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
+
 
 # function GPR(candX,candY,C,n,TL,bvar)
 #     IGPair=[]; exploredSI = []; t0=time();newsol=0;
@@ -285,56 +334,6 @@ end
 #     end
 #     return candX,candY,newsol
 # end
-function GPR(lpX,lpY,C,TL,bvar)
-    candX = copy(lpX); candY = copy(lpY);
-    IGPair=[]; exploredSI = []; t0=time();newsol=0;
-    while time()-t0 < TL
-	    I,G = sample(1:length(candX), 2, replace=false)
-        SI = [candX[I][k] for k in bvar]; SG = [candX[G][k] for k in bvar]; iter=0;
-        SI_r = round.(SI); SG_r = round.(SG)
-        dif = findall(i-> SI_r[i]!=SG_r[i], 1:length(bvar))
-        # println("dif is: ", length(dif))
-        Max_iter = length(findall(i-> 0<i<1,candX[I]))
-        while all.(SI_r != SG_r) && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
-            neibour,neiobj = createNB(SI,C,dif,exploredSI,bvar)
-            if ( (length(neiobj)==0) || (time()-t0 >= TL) )
-                break
-            else
-                for l=1:length(neibour)
-                    xn = PRfindsol(round.(neibour[l]),bvar)
-                    if ( xn!=[] && xn∉candX )
-                        push!(candX, xn); push!(candY, getobjval(xn,C));
-                        newsol+=1;println("new sol");
-                    end
-                end
-            end
-            SI = nextSI(neibour,neiobj,C,SI,bvar)
-            if SI∉candX
-                push!(exploredSI,SI);
-            end
-            iter+=1
-        end
-        push!(IGPair,[I,G])
-    end
-    return candX,candY,newsol
-end
-GPRtime = @CPUelapsed px,py,pn = GPR(pr.dvar,pr.LB,mt.C,120,bvar)
-totaltime = FPtime+Bentime+GPRtime
-prx,pry = Postpro(px,py,pn)
-
-otable = zeros(length(pry),2)
-for i=1:length(pry)
-    for j=1:2
-        otable[i,j] = pry[i][j]
-    end
-end
-
-ins = ARGS[2][1:end-4];
-record1 = DataFrame(file=ins[26:end], totalsol = length(fpry), t=round(totaltime; digits=2))
-CSV.write("/home/k2g00/k2g3475/scnd/fpr_record.csv", record1,append=true, header=false )#, delim=','i )
-CSV.write(ins*"_Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
-
-
 
 ########################################
 # function FP(candX,candY,n,C,TL,st)
