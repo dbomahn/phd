@@ -91,24 +91,23 @@ mutable struct Data1
         q = append!(N["vep"],N["ved"]);
         upl = N["upperpants"]; udc = N["upperdistribution"]
 
-        new(filepath,N,d,m,c,e,gij,gjk,gkl,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
+        new(filepath,N ,d,m,c,e,gij,gjk,gkl,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
     end
 end
 # file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file = "F:/scnd/Test1S2"
+file = "F:/scnd/Test6S3"
 dt = Data1(file);
 rgs = rand(4:5,1)[1]
 xcoordi = sample(1:5, 2); ycoordi = sample(1:5, 2);
-cluij = [xcoordi ycoordi];
+cluij = [xcoordi ycoordi];``
 xcoordi = sample(1:5, 2); ycoordi = sample(1:5, 2);
 clukl = [xcoordi ycoordi];
 I = Int(ceil(dt.N["supplier"]/3))
-J=I; K=2*I; L=5*I; Jmax = max(2,ceil(J/2)); Kmax =max(2,I);
-# if I<=3
-#     J=I; K=2*I; L=5*I; Jmax = 2; Kmax = 2
-# else
-#     J=I; K=2*I; L=10*I; Jmax = ceil(J/2); Kmax =I;
-# end
+if I<=3
+    J=I; K=2*I; L=5*I; Jmax = 2; Kmax = 2
+else
+    J=I; K=2*I; L=5*I; Jmax = ceil(J/2); Kmax =I;
+end
 cluijkl = round.(Int,0.6*[I,J,K,L]);
 Mij = dt.Mij[1:I,1:J]; Mjk = dt.Mjk[1:J,1:K]; Mkl = dt.Mkl[1:K,1:L];
 

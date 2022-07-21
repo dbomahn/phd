@@ -183,7 +183,7 @@ file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 # runtime = @CPUelapsed sol = fpbh(fpbh_model, solution_polishing=false, timelimit=60.0)
 #
 
-#################################
+#################### Mathematical Model of SCND ###############
 
 using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,vOptGeneric
 # using CPUTime
@@ -193,9 +193,9 @@ mutable struct Data2
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/model/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/model/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -266,11 +266,11 @@ mutable struct Data2
             for j=1:N["plant"]
                 tmp2 = []
                 if j==1
-                    for m=1:Mij[i,1]
+                    for m=Mij[i,1]:-1:1
                         push!(tmp2, N["tcp"][i][5*(m-1)+1:5*(m-1)+5])
                     end
                 else
-                    for m=1:Mij[i,j]
+                    for m=Mij[i,j]:-1:1
                         push!(tmp2, N["tcp"][i][5*sum(Mij[i,1:j-1])+5*(m-1)+1:5*sum(Mij[i,1:j-1])+5*(m-1)+5]);
                     end
                 end
@@ -284,11 +284,11 @@ mutable struct Data2
             for k=1:N["distribution"]
                 tmp2 = []
                 if k==1
-                    for m=1:Mjk[j,1]
+                    for m=Mjk[j,1]:-1:1
                         push!(tmp2, N["tcd"][j][5*(m-1)+1:5*(m-1)+5])
                     end
                 else
-                    for m=1:Mjk[j,k]
+                    for m=Mjk[j,k]:-1:1
                         push!(tmp2, N["tcd"][j][5*sum(Mjk[j,1:k-1])+5*(m-1)+1:5*sum(Mjk[j,1:k-1])+5*(m-1)+5]);
                     end
                 end
@@ -302,11 +302,11 @@ mutable struct Data2
             for l=1:N["customer"]
                 tmp2 = []
                 if l==1
-                    for m=1:Mkl[k,1]
+                    for m=Mkl[k,1]:-1:1
                         push!(tmp2, N["tcc"][k][5*(m-1)+1:5*(m-1)+5])
                     end
                 else
-                    for m=1:Mkl[k,l]
+                    for m=Mkl[k,l]:-1:1
                         push!(tmp2, N["tcc"][k][5*sum(Mkl[k,1:l-1])+5*(m-1)+1:5*sum(Mkl[k,1:l-1])+5*(m-1)+5]);
                     end
                 end
@@ -413,7 +413,7 @@ mutable struct Data2
     end
 end
 file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-# file = "F:/scnd/Test1S2"
+# file = "F:/model/Test1S2"
 dt = Data2(file);
 function buildmodel()
     model = vModel(CPLEX.Optimizer);
@@ -462,6 +462,11 @@ function buildmodel()
     @constraint(model,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= 1);
     @constraint(model,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= 1);
     @constraint(model,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= 1);
+    ########### constraint 11 #############
+    BigM = sum(sum(dt.N["demand"]));
+    @constraint(model,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) <= BigM*uij[i,j,m]);
+    @constraint(model,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] ,sum(xjk[j,k,m,p] for p=1:5) <= BigM*ujk[j,k,m]);
+    @constraint(model,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) <= BigM*ukl[k,l,m]);
     ########### constraint 12 #############
     @constraint(model,[i=1:dt.N["supplier"], j=1:dt.N["plant"], m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) >= dt.Vij[i][j][m]*uij[i,j,m] );
     @constraint(model,[j=1:dt.N["plant"], k=1:dt.N["distribution"], m=1:dt.Mjk[j,k]], sum(xjk[j,k,m,p] for p=1:5) >= dt.Vjk[j][k][m]*ujk[j,k,m]);
@@ -469,11 +474,6 @@ function buildmodel()
     ########### constraint 13-14 #############
     @constraint(model,sum(y[j,t] for j=1:dt.N["plant"] for t=1:2) <= dt.upl);
     @constraint(model,sum(y[j,t] for j=dt.N["plant"]+1:dt.N["distribution"]+dt.N["plant"] for t=1:2) <= dt.udc);
-    # ########### BigM:: products can be delivered only by chosen transportation mode #############
-    BigM = sum(sum(dt.N["demand"]));
-    @constraint(model,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],p=1:5], sum(xij[i,j,m,p] ) <= BigM*uij[i,j,m]);
-    @constraint(model,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],p=1:5] ,sum(xjk[j,k,m,p] ) <= BigM*ujk[j,k,m]);
-    @constraint(model,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],p=1:5], sum(xkl[k,l,m,p] ) <= BigM*ukl[k,l,m]);
     return model
 end
 model = buildmodel()
