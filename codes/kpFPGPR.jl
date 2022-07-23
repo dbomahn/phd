@@ -121,9 +121,7 @@ end
 1
 #############################    Feasibility Pump   ############################
 function FP(candX,n,C,TL)
-	while time()-t0 < TL
-	X = []; Y = [];	Tabu = []; newsol=0;
-    candlist = copy(candX);k=1; t0=time();
+	X = []; Y = [];	Tabu = []; newsol=0; candlist = copy(candX);k=1; t0=time();
 	# k = rand(1:length(candlist))
     while candlist != [] &&  time()-t0 < TL && k < length(candX)+1
         x_t = candlist[k]; SearchDone = false

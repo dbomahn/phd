@@ -1,32 +1,48 @@
-using StatsBase,DelimitedFiles,Distributions,CPLEX,JuMP,LinearAlgebra,CPUTime
+using StatsBase,DelimitedFiles,Distributions,CPLEX,JuMP,MathOptInterface,LinearAlgebra,CPUTime
 #######################  small instance Benders Decomposition  ########################
-struct build_master1
+mutable struct lazy_master
     y::Matrix{VariableRef}
     uij::JuMP.Containers.SparseAxisArray{VariableRef}
     ujk::JuMP.Containers.SparseAxisArray{VariableRef}
     ukl::JuMP.Containers.SparseAxisArray{VariableRef}
+    θ::VariableRef
     m::Model
 end
-function build_master1()
+function lazy_master(w)
     mas = Model(CPLEX.Optimizer);
-    set_silent(mas); MOI.set(mas, MOI.NumberOfThreads(), 1);
+    MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut. without dynamic search
+    MOI.set(mas, MOI.NumberOfThreads(), 1);
+    # MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Display"),2)
+    set_silent(mas);
     MOI.NodeCount()
     @variable(mas, y[1:J+K,1:2], Bin);
     # @variable(mas, ykt[1:K,1:2], Bin);
     @variable(mas, uij[i=1:I,j=1:J,1:Mij[i,j]], Bin);
     @variable(mas, ujk[j=1:J,k=1:K,1:Mjk[j,k]], Bin);
     @variable(mas, ukl[k=1:K,l=1:L,1:Mkl[k,l]], Bin);
+    @variable(mas, θ>= -1000);
+
+    # @variable(mas, 0<=y[1:J+K,1:2]<=1);
+    # @variable(mas, 0<=uij[i=1:I,j=1:J,1:Mij[i,j]]<=1);
+    # @variable(mas, 0<=ujk[j=1:J,k=1:K,1:Mjk[j,k]]<=1);
+    # @variable(mas, 0<=ukl[k=1:K,l=1:L,1:Mkl[k,l]]<=1);
+
+
     @constraint(mas,[j=1:J+K], sum(y[j,:]) <= 1);
     # @constraint(mas,[k=1:K], -sum(ykt[k,:]) >= -1);
     @constraint(mas,[i=1:I,j=1:J], sum(uij[i,j,m] for m=1:Mij[i,j]) <= 1);
     @constraint(mas,[j=1:J,k=1:K], sum(ujk[j,k,m] for m=1:Mjk[j,k]) <= 1);
     @constraint(mas,[k=1:K,l=1:L], sum(ukl[k,l,m] for m=1:Mkl[k,l]) <=1);
     @constraint(mas, sum(y[J+k,t] for k=1:K for t=1:2) <= Kmax);
-    # optimize!(mas)
-    return build_master1(y,uij,ujk,ukl,mas)
-end
 
-struct DualSubP1
+    @objective(mas, Min, w[1]*(sum(fc[j][t]*y[j,t] for j=1:J+K for t=1:2)+
+        sum(gij[i][j][m]*uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+        sum(gjk[j][k][m]*ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+        sum(gkl[k][l][m]*ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θ);
+
+    return lazy_master(y,uij,ujk,ukl,θ,mas)
+end
+struct DualSubP
     # data::SubProblemData
     α1::Vector{VariableRef}
     α2::Vector{VariableRef}
@@ -44,13 +60,13 @@ struct DualSubP1
     α14::JuMP.Containers.SparseAxisArray{VariableRef}
     m::Model
 end
-
-function DualSubP1(w)
+function DualSubP(w)
     sub = direct_model(CPLEX.Optimizer());
     set_optimizer_attribute(sub, "CPX_PARAM_REDUCE", 0); # presolve must be turned off
-    set_silent(sub)
-    MOI.set(sub, MOI.NumberOfThreads(), 1)
-
+    MOI.set(sub, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut
+    set_silent(sub) # display is turned off
+    # MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Display"),5)
+    MOI.set(sub, MOI.NumberOfThreads(), 1) # of threads
     @variables(sub, begin
         α1[1:J]
         α2[1:K]
@@ -73,10 +89,9 @@ function DualSubP1(w)
     @constraint(sub, [k=1:K,l=1:L,m=1:Mkl[k,l]], -α2[k]+α5[l]+α11[k,l,m]-α14[k,l,m] <= w[1]*tcc[k][l][m]+w[2]*cec[k][l][m]);
     @constraint(sub, [j=1:J,t=1:2], α3[j]-α7[j,t] <= w[1]*vcp[j,t]+w[2]*vep[j,t]);
     @constraint(sub, [k=1:K,t=1:2], α4[k]-α8[k,t] <= w[1]*vcd[k,t]+w[2]*ved[k,t]);
-    return DualSubP1(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
+    return DualSubP(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
 end
-
-function solve_dsp1(dsp::DualSubP1,yb,ubij,ubjk,ubkl)
+function solve_subp(dsp::DualSubP,yb,ubij,ubjk,ubkl)
     @objective(dsp.m, Max, dot(demand,dsp.α5)-dot(cas,dsp.α6)-
         sum(cap[j]*dsp.α7[j,t]*yb[j,t] for j=1:J for t=1:2) -
         sum(cad[k]*dsp.α8[k,t]*yb[J+k,t] for k=1:K for t=1:2) +
@@ -95,36 +110,148 @@ function solve_dsp1(dsp::DualSubP1,yb,ubij,ubjk,ubkl)
     elseif st == MOI.DUAL_INFEASIBLE
       # println( value.(dsp.α5),  value.(dsp.α6), value.(dsp.α7), value.(dsp.α8),  value.(dsp.α9),  value.(dsp.α10), value.(dsp.α11), value.(dsp.α12),value.(dsp.α13),value.(dsp.α14) )
       return ( res = :FeasibilityCut, α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10), α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
-
     else
       error("DualSubProblem error: status $st")
     end
 end
-
-function benders_decomposition1(w, mas::build_master1) #, y::Matrix{VariableRef},uij::JuMP.Containers.SparseAxisArray{VariableRef},ujk::JuMP.Containers.SparseAxisArray{VariableRef},ukl::JuMP.Containers.SparseAxisArray{VariableRef})
-
-    @variable(mas.m, θ>= -1000);
-    @objective(mas.m, Min, w[1]*(sum(fc[j][t]*mas.y[j,t] for j=1:J+K for t=1:2)+
-        sum(gij[i][j][m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
-        sum(gjk[j][k][m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
-        sum(gkl[k][l][m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θ);
-    optimize!(mas.m); st = termination_status(mas.m)
-    nopt_cons, nfeasi_cons = (0, 0)
-    feasicuts = [];
-    dsp = DualSubP1(w)
-
-    while (st == MOI.INFEASIBLE) || (st == MOI.OPTIMAL)
-        optimize!(mas.m);
-        st = termination_status(mas.m)
-        θ1 = value(θ); yb = value.(mas.y); ubij = value.(mas.uij); ubjk = value.(mas.ujk); ubkl = value.(mas.ukl)
-        subp = solve_dsp1(dsp,yb,ubij,ubjk,ubkl)
+function lazy_callback(cb_data)
+    # dsp = DualSubP(w)
+    yb = callback_value.(cb_data, mas.y);    ubij = callback_value.(cb_data, mas.uij);    ubjk = callback_value.(cb_data, mas.ujk)
+    ubkl = callback_value.(cb_data, mas.ukl);    θb = callback_value(cb_data, mas.θ)
+    # global cbint+=1
+    subp = solve_subp(dsp,yb,ubij,ubjk,ubkl);    #global subtime = subtime + subt
+    if subp.res == :OptimalityCut
+        # @info "Optimality cut found"
+        if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+            return
+            # (mas.m, mas.y, mas.uij, mas.ujk, mas.ukl, mas.nopt_cons, mas.nfeasi_cons, mas.feasicuts)
+        else
+            # global lopt +=1
+            # ub = w[1]*(sum(fc[j][t]*yb[j,t] for j=1:J+K for t=1:2)+
+            #     sum(gij[i][j][m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+            #     sum(gjk[j][k][m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+            #     sum(gkl[k][l][m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + subp.obj
+            # lb = w[1]*(sum(fc[j][t]*yb[j,t] for j=1:J+K for t=1:2)+
+            #     sum(gij[i][j][m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+            #     sum(gjk[j][k][m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+            #     sum(gkl[k][l][m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θb
+            # push!(bounds, (ub,lb) )
+            cut = @build_constraint( mas.θ ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+                sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
+                sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
+                sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+                sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+                sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
+                sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+                sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+                sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
+                )
+            MOI.submit(mas.m, MOI.LazyConstraint(cb_data), cut)
+        end
+    else
+        # @info "Feasibility cut found"
+        # global lfeasi += 1
+        cut = @build_constraint( 0 ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+            sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
+            sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
+            sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+            sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+            sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
+            sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+            sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+            sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
+            )
+        MOI.submit(mas.m, MOI.LazyConstraint(cb_data), cut)
+        # push!(mas.feasicuts, cut)
+        push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+    end
+    return
+    # (mas.m, mas.y, mas.uij, mas.ujk, mas.ukl, mas.nopt_cons, mas.nfeasi_cons, mas.feasicuts)
+        # @info "Adding the cut $(cut)"
+    # end
+end
+function everyfrac_callback(cb_data)
+    # dsp = DualSubP(w)
+    yb = callback_value.(cb_data, mas.y);    ubij = callback_value.(cb_data, mas.uij);    ubjk = callback_value.(cb_data, mas.ujk)
+    ubkl = callback_value.(cb_data, mas.ukl);    θb = callback_value(cb_data, mas.θ)
+    # global cbfrac+=1
+    subp = solve_subp(dsp,yb,ubij,ubjk,ubkl);    #global subtime = subtime + subt
+    if subp.res == :OptimalityCut
+        # @info "Optimality cut found"
+        if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+            return
+            # (mas.m, mas.y, mas.uij, mas.ujk, mas.ukl, mas.nopt_cons, mas.nfeasi_cons, mas.feasicuts)
+        else
+            # global uopt +=1
+            # ub = w[1]*(sum(fc[j][t]*yb[j,t] for j=1:J+K for t=1:2)+
+            #     sum(gij[i][j][m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+            #     sum(gjk[j][k][m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+            #     sum(gkl[k][l][m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + subp.obj
+            # lb = w[1]*(sum(fc[j][t]*yb[j,t] for j=1:J+K for t=1:2)+
+            #     sum(gij[i][j][m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+            #     sum(gjk[j][k][m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+            #     sum(gkl[k][l][m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θb
+            # push!(bounds, (ub,lb) )
+            cut = @build_constraint( mas.θ ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+                sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
+                sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
+                sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+                sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+                sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
+                sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+                sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+                sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
+                )
+            MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
+        end
+    else
+        # @info "Feasibility cut found"
+        # global ufeasi += 1
+        cut = @build_constraint( 0 ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+            sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
+            sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
+            sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+            sum(Lcapapd[j][k][m]*subp.α10[j,k,m]*mas.ujk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+            sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
+            sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
+            sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
+            sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
+            )
+        MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
+        # push!(mas.feasicuts, cut)
+        push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+    end
+    return
+    # (mas.m, mas.y, mas.uij, mas.ujk, mas.ukl, mas.nopt_cons, mas.nfeasi_cons, mas.feasicuts)
+        # @info "Adding the cut $(cut)"
+    # end
+end
+function rootfrac_callback(cb_data)
+    # dsp = DualSubP(w)
+    ndepth = Ref{CPXLONG}()
+    CPXcallbackgetinfolong(cb_data, CPXCALLBACKINFO_NODEDEPTH, ndepth)
+    if ndepth[] == 0
+        yb = callback_value.(cb_data, mas.y);    ubij = callback_value.(cb_data, mas.uij);    ubjk = callback_value.(cb_data, mas.ujk)
+        ubkl = callback_value.(cb_data, mas.ukl);    θb = callback_value(cb_data, mas.θ)
+        # global cbfrac+=1
+        subp = solve_subp(dsp,yb,ubij,ubjk,ubkl);    #global subtime = subtime + subt
         if subp.res == :OptimalityCut
             # @info "Optimality cut found"
-            if round(θ1; digits=4) ≥ round(subp.obj; digits=4)
-                break
+            if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+                return
+                # (mas.m, mas.y, mas.uij, mas.ujk, mas.ukl, mas.nopt_cons, mas.nfeasi_cons, mas.feasicuts)
             else
-                nopt_cons+=1
-                cut = @constraint( mas.m, θ ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+                # global uopt +=1
+                # ub = w[1]*(sum(fc[j][t]*yb[j,t] for j=1:J+K for t=1:2)+
+                #     sum(gij[i][j][m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+                #     sum(gjk[j][k][m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+                #     sum(gkl[k][l][m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + subp.obj
+                # lb = w[1]*(sum(fc[j][t]*yb[j,t] for j=1:J+K for t=1:2)+
+                #     sum(gij[i][j][m]*ubij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+                #     sum(gjk[j][k][m]*ubjk[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k])+
+                #     sum(gkl[k][l][m]*ubkl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) + θb
+                # push!(bounds, (ub,lb) )
+                cut = @build_constraint( mas.θ ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
                     sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
                     sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
                     sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
@@ -134,13 +261,12 @@ function benders_decomposition1(w, mas::build_master1) #, y::Matrix{VariableRef}
                     sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
                     sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
                     )
-                    # build_constraint
-                    # MOI.submit(mas, MOI.LazyConstraint(), cut)
+                MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
             end
         else
             # @info "Feasibility cut found"
-            nfeasi_cons += 1
-            cut = @constraint( mas.m, 0 ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
+            # global ufeasi += 1
+            cut = @build_constraint( 0 ≥ dot(demand,subp.α5)-dot(cas,subp.α6)-
                 sum(cap[j]*subp.α7[j,t]*mas.y[j,t] for j=1:J for t=1:2) -
                 sum(cad[k]*subp.α8[k,t]*mas.y[k+J,t] for k=1:K for t=1:2) +
                 sum(Lcapasp[i][j][m]*subp.α9[i,j,m]*mas.uij[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
@@ -148,30 +274,30 @@ function benders_decomposition1(w, mas::build_master1) #, y::Matrix{VariableRef}
                 sum(Lcapadc[k][l][m]*subp.α11[k,l,m]*mas.ukl[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])-
                 sum(bigM*mas.uij[i,j,m]*subp.α12[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) -
                 sum(bigM*mas.ujk[j,k,m]*subp.α13[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) -
-                sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]))
-            # push!(feasicuts, cut)
+                sum(bigM*mas.ukl[k,l,m]*subp.α14[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])
+                )
+            MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
+            # push!(mas.feasicuts, cut)
             push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
         end
-        # @info "Adding the cut $(cut)"
+        return
     end
-    return (mas, nopt_cons, nfeasi_cons, feasicuts) # y, uij, ujk, ukl,
+    # (mas.m, mas.y, mas.uij, mas.ujk, mas.ukl, mas.nopt_cons, mas.nfeasi_cons, mas.feasicuts)
+        # @info "Adding the cut $(cut)"
+    # end
 end
+w = [0.5,0.5]
+#lopt=0; lfeasi=0; uopt=0; ufeasi=0; cbint = 0; cbfrac = 0;# subtime = 0; bounds = [];
+feasicuts = [];
+mas = lazy_master(w);
+# optimize!(mas.m)
+dsp = DualSubP(w);
+MOI.set(mas.m, MOI.LazyConstraintCallback(), lazy_callback)
+# MOI.set(mas.m, MOI.UserCutCallback(), everyfrac_callback)
+MOI.set(mas.m, MOI.UserCutCallback(), rootfrac_callback)
+optimize!(mas.m)
 
-
-w1buildTime = @CPUelapsed mas1 = build_master1();
-w1algoTime = @CPUelapsed fmas,fnoptcut,fnfeasicut,firstcuts = benders_decomposition1(w,mas1) #,mas.y,mas.uij,mas.ujk,mas.ukl);
-w1algoTime
-node_count(mas1.m)
-(fnoptcut+fnfeasicut)
-value.(fujk)
-
-
-w=[0,1];
-
-w2buildTime = @CPUelapsed mas = build_master();
-w2algoTime = @CPUelapsed  smodel,sy,suij,sujk,sukl,snoptcut,snfeasicut,secondcuts = benders_decomposition(w,mas.m,mas.y,mas.uij,mas.ujk,mas.ukl);
-(snoptcut+snfeasicut)
-
+##############################################################
 
 function build_master2(m::Model,firstcuts,secondcuts)
     mp = build_master()
