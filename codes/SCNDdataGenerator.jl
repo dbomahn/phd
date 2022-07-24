@@ -19,8 +19,8 @@ mutable struct Data1
     # rij::Array{}; rjk::Array{}; rkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{};
     function Data1(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -94,8 +94,8 @@ mutable struct Data1
         new(filepath,N ,d,m,c,e,gij,gjk,gkl,Mij,Mjk,Mkl,Vij,Vjk,Vkl,b,q,upl,udc); #cap,Mij,Mjk,Mkl,
     end
 end
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file = "F:/scnd/Test6S3"
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "F:/scnd/Test6S3"
 dt = Data1(file);
 rgs = rand(4:5,1)[1]
 xcoordi = sample(1:5, 2); ycoordi = sample(1:5, 2);
@@ -113,10 +113,13 @@ Mij = dt.Mij[1:I,1:J]; Mjk = dt.Mjk[1:J,1:K]; Mkl = dt.Mkl[1:K,1:L];
 
 
 demand = sample(100:300,L);
-cas = round.(Int,rand(Uniform(1.1,3), I).*(sum(demand)/Kmax));
-cap = round.(Int,rand(Uniform(1.1,2), J)*(sum(demand)/Kmax) );
-cad = round.(Int,rand(Uniform(1.1,1.5), K)*(sum(demand)/Kmax) );
-capd = [cap;cad];
+cas1 = round.(Int,rand(Uniform(1.1,3), I).*(sum(demand)/Kmax));
+cas2 = round.(Int,rand(Uniform(1.1,3), I).*(sum(demand)/Kmax));
+cap1 = round.(Int,rand(Uniform(1.1,2), J)*(sum(demand)/Kmax) );
+cap2 = round.(Int,rand(Uniform(1.1,2), J)*(sum(demand)/Kmax) );
+cad1 = round.(Int,rand(Uniform(1.1,1.5), K)*(sum(demand)/Kmax) );
+cad2 = round.(Int,rand(Uniform(1.1,1.5), K)*(sum(demand)/Kmax) );
+capd1 = [cap1;cad1]; capd2 = [cap2;cad2];
 function nodecoordi(cluijkl,cluij,clukl,I,J,K,L)
     interval = 40; Ipt,Jpt,Kpt,Lpt = [],[],[],[]
     for i=1:I
@@ -194,7 +197,7 @@ function fac_fixedcost(cluijkl,cap,cad,J,K)
     end
     return fc
 end
-fc = fac_fixedcost(cluijkl,cap,cad,J,K);
+fc = fac_fixedcost(cluijkl,cap1,cad1,J,K);
 
 function trans_cost(cluijkl,Ipt,Jpt,Kpt,Lpt,Mij,Mjk,Mkl)
     tcp,tcd,tcc = [],[],[]
@@ -385,7 +388,8 @@ end
 
 gij,gjk,gkl = mode_fixed_cost(I,J,K,L,Mij,Mjk,Mkl);
 ######################### Build mathematical model #############################
-w = [0.5,0.5]; bigM = sum(demand);
+w = [1,0];
+bigM = sum(demand);
 function build_scndmodel(w,bigM)
     scnd = direct_model(CPLEX.Optimizer());
     MOI.set(scnd, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut
@@ -409,27 +413,39 @@ function build_scndmodel(w,bigM)
 
 
     #1st obj
-    # @constraint(scnd, obj1,
-    #     sum(fc[j][t]*y1[j,t] for j=1:J+K for t=1:2) + exg +
-    #     exa + exv + sum(vc[j,t]*h1[j,t] for j=1:J+K for t=1:2) <=0);
-    #2nd obj
-    # @constraint(scnd, obj2, exb+sum(ve[j,t]*h1[j,t] for j=1:J+K for t=1:2) +exr <=0);
-    # @objective(scnd,Min,exb+sum(q[j][(p-1)*2+t]*h1[j,t] for j=1:J+K  for t=1:2) +exr );
-
-    @objective(scnd,Min, w[1]*(sum(fc[j][t]*y1[j,t] for j=1:J+K for t=1:2) +
+    @constraint(scnd, obj1,
+        sum(fc[j][t]*y1[j,t] for j=1:J+K for t=1:2) +
         sum(gij[i][j][m]*uij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
         sum(gjk[j][k][m]*ujk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
-        sum(gkl[k][l][m]*ukl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l])) +
-        w[2]*(sum([vcp;vcd][j,t]*h1[j,t] for j=1:J+K for t=1:2) +
+        sum(gkl[k][l][m]*ukl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]) +
         sum(vcs[i]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
-        sum(tcp[i][j][m]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j] )+
-        sum(tcd[j][k][m]*xjk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k] )+
-        sum(tcc[k][l][m]*xkl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l] )+
-        sum(ves[i]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j] ) +
+        sum(tcp[i][j][m]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+        sum(tcd[j][k][m]*xjk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+        sum(tcc[k][l][m]*xkl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]) +
+        sum([vcp;vcd][j,t]*h1[j,t] for j=1:J+K for t=1:2)  <=0 );
+    # 2nd obj
+    @constraint(scnd, obj2, sum(ves[i]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
         sum([vep;ved][j,t]*h1[j,t] for j=1:J+K for t=1:2) +
         sum(cep[i][j][m]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j] )+
         sum(ced[j][k][m]*xjk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k] )+
-        sum(cec[k][l][m]*xkl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l] )) );
+        sum(cec[k][l][m]*xkl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l] ) <=0);
+    # @objective(scnd,Min,exb+sum(q[j][(p-1)*2+t]*h1[j,t] for j=1:J+K  for t=1:2) +exr );
+
+    # @objective(scnd,Min, w[1]*(sum(fc[j][t]*y1[j,t] for j=1:J+K for t=1:2) +
+    #     sum(gij[i][j][m]*uij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j])+
+    #     sum(gjk[j][k][m]*ujk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+    #     sum(gkl[k][l][m]*ukl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]) +
+    #     sum(vcs[i]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+    #     sum([vep;ved][j,t]*h1[j,t] for j=1:J+K for t=1:2) +
+    #     sum(tcp[i][j][m]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+    #     sum(tcd[j][k][m]*xjk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k]) +
+    #     sum(tcc[k][l][m]*xkl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l]) )
+    #     +
+    #     w[2]*(sum(ves[i]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j]) +
+    #     sum([vcp;vcd][j,t]*h1[j,t] for j=1:J+K for t=1:2) +
+    #     sum(cep[i][j][m]*xij1[i,j,m] for i=1:I for j=1:J for m=1:Mij[i,j] )+
+    #     sum(ced[j][k][m]*xjk1[j,k,m] for j=1:J for k=1:K for m=1:Mjk[j,k] )+
+    #     sum(cec[k][l][m]*xkl1[k,l,m] for k=1:K for l=1:L for m=1:Mkl[k,l] )) );
     ########## constraint 3 #############
     @constraints(scnd, begin
         [j=1:J], sum(xij1[i,j,m] for i=1:I for m=1:Mij[i,j]) == sum(xjk1[j,k,m] for k=1:K for m=1:Mjk[j,k]);
@@ -442,8 +458,8 @@ function build_scndmodel(w,bigM)
         [l=1:L], sum(xkl1[k,l,m] for k=1:K for m=1:Mkl[k,l]) >= demand[l];
     end );
     ########### constraint 7-9 #############
-    @constraint(scnd,[i=1:I], -sum(xij1[i,j,m] for j=1:J for m=1:Mij[i,j] ) >= -cas[i]);
-    @constraint(scnd,[j=1:J+K, t=1:2], -sum(h1[j,t]) >= -capd[j]*y1[j,t]);
+    @constraint(scnd,[i=1:I], sum(xij1[i,j,m] for j=1:J for m=1:Mij[i,j] ) <= cas1[i]);
+    @constraint(scnd,[j=1:J+K, t=1:2], sum(h1[j,t]) <= capd1[j]*y1[j,t]);
     @constraint(scnd,[j=1:J+K], sum(y1[j,:]) <= 1)
     ########### constraint 10 #############
     @constraint(scnd,[i=1:I,j=1:J], sum(uij1[i,j,m] for m=1:Mij[i,j]) <= 1);

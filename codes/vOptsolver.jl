@@ -1,190 +1,3 @@
-using vOptGeneric,DelimitedFiles,JuMP,JLD2,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface
-const MPB = MathProgBase;
-
-mutable struct CallModel
-    lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
-    function CallModel(lpfile::String)
-        lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
-        # lpmodel = CPLEX.CplexMathProgModel();
-        MPB.loadproblem!(lpmodel,lpfile)
-        Bmtx = MPB.getconstrmatrix(lpmodel);
-        B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
-        m,n=size(B)
-        vub = MPB.getvarUB(lpmodel)
-        lb = MPB.getconstrLB(lpmodel)[3:end]
-        ub = MPB.getconstrUB(lpmodel)[3:end]
-        RHS = Dict()
-        for i=1:m
-            if ub[i]==Inf
-                RHS[i] = lb[i]
-            else
-                RHS[i] = ub[i]
-            end
-        end
-        signs = []
-        for i=1:m
-            if ub[i] == Inf
-                push!(signs,"l")
-            elseif lb[i] == -Inf
-                push!(signs,"u")
-            else
-                push!(signs, "s")
-            end
-        end
-        new(lpfile,m,n,C,B,RHS,signs,vub)
-    end
-end
-struct Valu
-    x::String
-    y::String
-    dvar::Array{}
-    LB::Array{}
-    LBmtx::Array{}
-    function Valu(x, y)
-        JLD2.@load x dv
-        dv0 = Array(dv)
-        # dv0 = readdlm(x)
-        dv1 = round.(dv0; digits = 4)
-        objs = round.(readdlm(y); digits = 4)
-        ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
-        dv2 = dv1[setdiff(1:end, ind), :]
-        LBmtx = objs[setdiff(1:end, ind), 2:end]
-        dvar = [Vector(dv2[i, :]) for i = 1:size(LBmtx)[1]]
-        LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
-        new(x, y, dvar, LB, LBmtx)
-    end
-end
-file = ARGS[1];
-
-mt = CallModel("/home/ak121396/Desktop/relise/newlp.lp");
-# pr = Valu(
-#     "/home/ak121396/Desktop/relise/test01S2_X.jld2",
-#     "/home/ak121396/Desktop/relise/test01S2_img_p.sol",
-# );
-#
-
-function compute(file)
-
-    mt = CallModel(file)
-
-    bvar = findall(i->i==1,mt.vub);
-    model = vModel( CPLEX.Optimizer );
-    MOI.set(mip, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
-    @variable(model, x[1:mt.n] >=0)
-
-    @addobjective( model, Min, dot(x, mt.C[1,:]) )
-    @addobjective( model, Min, dot(x, mt.C[2,:]) )
-
-    for k=1:mt.m
-        if mt.signs[k] == "l"
-            @constraint(model, dot(mt.B[k,:],x) >= mt.RHS[k])
-        elseif mt.signs[k] == "u"
-            @constraint(model, dot(mt.B[k,:],x) <= mt.RHS[k])
-        else
-            @constraint(model, dot(mt.B[k,:],x) == mt.RHS[k])
-        end
-    end
-    start = time()
-    vSolve(model, method=:dicho, verbose=false)
-    # vSolve(model, method=:lex, verbose=false)
-
-
-    Y_N = getY_N(model)
-    elapsedTime = time() - start
-    return Y_N, elapsedTime
-end
-
-
-function saveSol(fname::String, Y_N, elapsedTime::Float64)
-    way = fname*"Y_N"
-    open(way, "w") do f
-        write(f, "$elapsedTime \n")
-        write(f, "$(length(Y_N)) \n")
-        for i in 1:length(Y_N)
-            write(f, "$(Y_N[i][1]) $(Y_N[i][2]) \n")
-        end
-    end
-end
-
-# Y_N, elapsedTime = compute(file)
-# path = "/home/k2g00/k2g3475/model/vopt/"*file[36:end]
-saveSol(file, Y_N, elapsedTime)
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-# mt = CallModel(file)
-# pr = Valu(
-#     "/home/k2g00/k2g3475/model/vopt/X/test01S2_X.jld2",
-#     "/home/k2g00/k2g3475/model/vopt/Y/test01S2_img_p.sol",
-# );
-#
-# collector = []
-# for j=1:length(pr.dvar)
-#     @show j
-#     mip = vModel(CPLEX.Optimizer);
-#     MOI.set(mip, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
-#     bvar = findall(i -> i == 1, mt.vub);
-#     @variable(mip, x[1:mt.n] >= 0);
-#     for i = 1:mt.n
-#         if i in bvar
-#             set_binary(x[i])
-#         else
-#             JuMP.fix(x[i], pr.dvar[j][i]; force = true)
-#         end
-#     end
-#     for k = 1:mt.m
-#         if mt.signs[k] == "l"
-#             @constraint(mip, dot(mt.B[k, :], x) >= mt.RHS[k])
-#         elseif mt.signs[k] == "u"
-#             @constraint(mip, dot(mt.B[k, :], x) <= mt.RHS[k])
-#         else
-#             @constraint(mip, dot(mt.B[k, :], x) == mt.RHS[k])
-#         end
-#     end
-#     @addobjective( mip, Min, dot(x, mt.C[1,:]) );
-#     @addobjective( mip, Min, dot(x, mt.C[2,:]) );
-#
-#     cput = @CPUelapsed vSolve(mip, method=:dicho, verbose=false)
-#     if termination_status(mip) == MOI.OPTIMAL
-#         println("solution found!")
-#         Y_N = getY_N(mip)
-#         push!(collector,Y_N)
-#     end
-# end
-# println(collector)
-
-############FPBH
-# using JuMP, FPBH, GLPKMathProgInterface, CPLEX, MathProgBase,CPUTime ,Modof
-# const MPB = MathProgBase;
-# bvar = find(i->i==1,mt.vub); rvar = find(i->i!=1,mt.vub);
-
-# fpbh_model = ModoModel()
-# @variable(fpbh_model, yu[i in bvar], Bin);
-# @variable(fpbh_model, xh[i in rvar] >=0 );
-# @variable(fpbh_model, x[1:mt.n] );
-# objective!(fpbh_model, 1, :Min, dot(mt.C[1,:],x));
-# objective!(fpbh_model, 2, :Min, dot(mt.C[2,:],x));
-#
-# for i=1:mt.n
-#     if i in bvar
-#         @constraint(fpbh_model, x[i]==yu[i]  )
-#     else
-#         @constraint(fpbh_model, x[i]==xh[i] )
-#     end
-# end
-# for k=1:mt.m
-#     if mt.signs[k] == "l"
-#         @constraint(fpbh_model, dot(mt.B[k,:],x) >= mt.RHS[k])
-#     elseif mt.signs[k] == "u"
-#         @constraint(fpbh_model, dot(mt.B[k,:],x) <= mt.RHS[k])
-#     else
-#         @constraint(fpbh_model, dot(mt.B[k,:],x) == mt.RHS[k])
-#     end
-# end
-#
-# runtime = @CPUelapsed sol = fpbh(fpbh_model, solution_polishing=false, timelimit=60.0)
-#
-
-#################### Mathematical Model of SCND ###############
-
 using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,vOptGeneric
 # using CPUTime
 mutable struct Data2
@@ -193,8 +6,8 @@ mutable struct Data2
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -413,6 +226,7 @@ mutable struct Data2
     end
 end
 file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # file = "F:/model/Test1S2"
 dt = Data2(file);
 function buildmodel()
@@ -478,8 +292,7 @@ function buildmodel()
 end
 model = buildmodel()
 vSolve(model, method=:lex)
-# method=:epsilon, step=1000000000.0, verbose=true);
-solve_time(model)
+# vSolve(model, method=:epsilon, step=1000000000.0, verbose=true);
 ndpoints = getY_N(model)
 ndpoints
 
@@ -489,3 +302,191 @@ for n = 1:length(Y_N)
     print(findall(elt -> elt ≈ 1, X))
     println("| z = ",Y_N[n])
 end
+
+#################################################################################################
+using vOptGeneric,DelimitedFiles,JuMP,JLD2,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface
+const MPB = MathProgBase;
+
+mutable struct CallModel
+    lpfile::String; m::Int; n::Int; C::Array{}; B::Array{}; RHS::Dict{}; signs::Array{}; vub::Array{}
+    function CallModel(lpfile::String)
+        lpmodel=buildlp([-1,0],[2 1],'<',1.5, CplexSolver(CPX_PARAM_SCRIND=0))
+        # lpmodel = CPLEX.CplexMathProgModel();
+        MPB.loadproblem!(lpmodel,lpfile)
+        Bmtx = MPB.getconstrmatrix(lpmodel);
+        B = Bmtx[3:end,:]; C = Bmtx[1:2,:]
+        m,n=size(B)
+        vub = MPB.getvarUB(lpmodel)
+        lb = MPB.getconstrLB(lpmodel)[3:end]
+        ub = MPB.getconstrUB(lpmodel)[3:end]
+        RHS = Dict()
+        for i=1:m
+            if ub[i]==Inf
+                RHS[i] = lb[i]
+            else
+                RHS[i] = ub[i]
+            end
+        end
+        signs = []
+        for i=1:m
+            if ub[i] == Inf
+                push!(signs,"l")
+            elseif lb[i] == -Inf
+                push!(signs,"u")
+            else
+                push!(signs, "s")
+            end
+        end
+        new(lpfile,m,n,C,B,RHS,signs,vub)
+    end
+end
+struct Valu
+    x::String
+    y::String
+    dvar::Array{}
+    LB::Array{}
+    LBmtx::Array{}
+    function Valu(x, y)
+        JLD2.@load x dv
+        dv0 = Array(dv)
+        # dv0 = readdlm(x)
+        dv1 = round.(dv0; digits = 4)
+        objs = round.(readdlm(y); digits = 4)
+        ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
+        dv2 = dv1[setdiff(1:end, ind), :]
+        LBmtx = objs[setdiff(1:end, ind), 2:end]
+        dvar = [Vector(dv2[i, :]) for i = 1:size(LBmtx)[1]]
+        LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
+        new(x, y, dvar, LB, LBmtx)
+    end
+end
+file = ARGS[1];
+
+mt = CallModel("/home/ak121396/Desktop/relise/newlp.lp");
+# pr = Valu(
+#     "/home/ak121396/Desktop/relise/test01S2_X.jld2",
+#     "/home/ak121396/Desktop/relise/test01S2_img_p.sol",
+# );
+#
+
+function compute(file)
+
+    mt = CallModel(file)
+
+    bvar = findall(i->i==1,mt.vub);
+    model = vModel( CPLEX.Optimizer );
+    MOI.set(mip, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
+    @variable(model, x[1:mt.n] >=0)
+
+    @addobjective( model, Min, dot(x, mt.C[1,:]) )
+    @addobjective( model, Min, dot(x, mt.C[2,:]) )
+
+    for k=1:mt.m
+        if mt.signs[k] == "l"
+            @constraint(model, dot(mt.B[k,:],x) >= mt.RHS[k])
+        elseif mt.signs[k] == "u"
+            @constraint(model, dot(mt.B[k,:],x) <= mt.RHS[k])
+        else
+            @constraint(model, dot(mt.B[k,:],x) == mt.RHS[k])
+        end
+    end
+    start = time()
+    vSolve(model, method=:dicho, verbose=false)
+    # vSolve(model, method=:lex, verbose=false)
+
+
+    Y_N = getY_N(model)
+    elapsedTime = time() - start
+    return Y_N, elapsedTime
+end
+
+
+function saveSol(fname::String, Y_N, elapsedTime::Float64)
+    way = fname*"Y_N"
+    open(way, "w") do f
+        write(f, "$elapsedTime \n")
+        write(f, "$(length(Y_N)) \n")
+        for i in 1:length(Y_N)
+            write(f, "$(Y_N[i][1]) $(Y_N[i][2]) \n")
+        end
+    end
+end
+
+# Y_N, elapsedTime = compute(file)
+# path = "/home/k2g00/k2g3475/model/vopt/"*file[36:end]
+saveSol(file, Y_N, elapsedTime)
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# mt = CallModel(file)
+# pr = Valu(
+#     "/home/k2g00/k2g3475/model/vopt/X/test01S2_X.jld2",
+#     "/home/k2g00/k2g3475/model/vopt/Y/test01S2_img_p.sol",
+# );
+#
+# collector = []
+# for j=1:length(pr.dvar)
+#     @show j
+#     mip = vModel(CPLEX.Optimizer);
+#     MOI.set(mip, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
+#     bvar = findall(i -> i == 1, mt.vub);
+#     @variable(mip, x[1:mt.n] >= 0);
+#     for i = 1:mt.n
+#         if i in bvar
+#             set_binary(x[i])
+#         else
+#             JuMP.fix(x[i], pr.dvar[j][i]; force = true)
+#         end
+#     end
+#     for k = 1:mt.m
+#         if mt.signs[k] == "l"
+#             @constraint(mip, dot(mt.B[k, :], x) >= mt.RHS[k])
+#         elseif mt.signs[k] == "u"
+#             @constraint(mip, dot(mt.B[k, :], x) <= mt.RHS[k])
+#         else
+#             @constraint(mip, dot(mt.B[k, :], x) == mt.RHS[k])
+#         end
+#     end
+#     @addobjective( mip, Min, dot(x, mt.C[1,:]) );
+#     @addobjective( mip, Min, dot(x, mt.C[2,:]) );
+#
+#     cput = @CPUelapsed vSolve(mip, method=:dicho, verbose=false)
+#     if termination_status(mip) == MOI.OPTIMAL
+#         println("solution found!")
+#         Y_N = getY_N(mip)
+#         push!(collector,Y_N)
+#     end
+# end
+# println(collector)
+
+############FPBH
+# using JuMP, FPBH, GLPKMathProgInterface, CPLEX, MathProgBase,CPUTime ,Modof
+# const MPB = MathProgBase;
+# bvar = find(i->i==1,mt.vub); rvar = find(i->i!=1,mt.vub);
+
+# fpbh_model = ModoModel()
+# @variable(fpbh_model, yu[i in bvar], Bin);
+# @variable(fpbh_model, xh[i in rvar] >=0 );
+# @variable(fpbh_model, x[1:mt.n] );
+# objective!(fpbh_model, 1, :Min, dot(mt.C[1,:],x));
+# objective!(fpbh_model, 2, :Min, dot(mt.C[2,:],x));
+#
+# for i=1:mt.n
+#     if i in bvar
+#         @constraint(fpbh_model, x[i]==yu[i]  )
+#     else
+#         @constraint(fpbh_model, x[i]==xh[i] )
+#     end
+# end
+# for k=1:mt.m
+#     if mt.signs[k] == "l"
+#         @constraint(fpbh_model, dot(mt.B[k,:],x) >= mt.RHS[k])
+#     elseif mt.signs[k] == "u"
+#         @constraint(fpbh_model, dot(mt.B[k,:],x) <= mt.RHS[k])
+#     else
+#         @constraint(fpbh_model, dot(mt.B[k,:],x) == mt.RHS[k])
+#     end
+# end
+#
+# runtime = @CPUelapsed sol = fpbh(fpbh_model, solution_polishing=false, timelimit=60.0)
+#
+
+#################### Mathematical Model of SCND ###############

@@ -1,19 +1,20 @@
-using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface,CPUTime
-const MPB = MathProgBase
+using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,CPUTime
+# using MathProgBase
+# const MPB = MathProgBase
 
-function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
-    model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
-    MPB.loadproblem!(model,filename) # load what we actually want
-    return model
-end
+# function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
+#     model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
+#     MPB.loadproblem!(model,filename) # load what we actually want
+#     return model
+# end
 mutable struct Data2
     filepath::String; N::Dict{}; d::Array{}; c::Array{};  Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     gij::Array{}; gjk::Array{}; gkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -233,8 +234,8 @@ mutable struct Data2
 end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file = "F:scnd/Test1S2"
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "F:scnd/Test1S2"
 dt = Data2(file);
 ##########################  Mathematical model  #########################
 # scnd = Model(CPLEX.Optimizer);
@@ -279,7 +280,7 @@ set_silent(scnd)
     sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
     sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
     sum(dt.N["vcp"][j][5*(t-1)+p]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
-    sum(dt.N["vcd"][k][5*(t-1)+p]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2))
+    sum(dt.N["vcd"][k][5*(t-1)+p]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
 
 #2nd obj
 # @constraint(scnd, obj2, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+

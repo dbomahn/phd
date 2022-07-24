@@ -3,7 +3,7 @@ cd("C:/Users/AK121396/Desktop/ProjectBenders")
 using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime
 # import Printf SparseArrays,MathProgBase,
 "If we use weighted sum for BD, obj values must be normalised."
-"Maybe we can use the weighted sum code by Gandibluex (Vopt)? and just solve sub problems with BD"
+# "Maybe we can use the weighted sum code by Gandibluex (Vopt)? and just solve sub problems with BD->no dichotomic search available for bi-obj mip"
 # https://github.com/matbesancon/SimpleBenders.jl/blob/master/test/runtests.jl
 # https://matbesancon.xyz/post/2019-05-08-simple-benders/ #matrix form
 # https://co-at-work.zib.de/slides/Donnerstag_24.9/Benders_decomposition-Fundamentals.pdf
@@ -15,8 +15,8 @@ mutable struct Data3
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data3(filepath)
         dt3 = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -234,12 +234,12 @@ mutable struct Data3
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file3 = "F:scnd/Test1S2"
+file3 = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file3 = "F:scnd/Test1S2"
 dt3 = Data3(file3);
 ##########################  Mathematical model  #########################
 #Master Problem
-struct MasterP
+struct build_master
     y::Matrix{VariableRef}
     uij::JuMP.Containers.SparseAxisArray{VariableRef}
     ujk::JuMP.Containers.SparseAxisArray{VariableRef}
@@ -271,7 +271,7 @@ function build_master(w)
         sum(dt3.gjk[j][k][m]*ujk[j,k,m] for j=1:dt3.N["plant"] for k=1:dt3.N["distribution"] for m=1:dt3.Mjk[j,k]) +
         sum(dt3.gkl[k][l][m]*ukl[k,l,m] for k=1:dt3.N["distribution"] for l=1:dt3.N["customer"] for m=1:dt3.Mkl[k,l])) + θ );
 
-    return MaterP(y,uij,ujk,ukl,θ,mas)
+    return build_master(y,uij,ujk,ukl,θ,mas)
 end
 
 struct DualSP
@@ -482,21 +482,20 @@ struct MasterLP
     uij::JuMP.Containers.SparseAxisArray{VariableRef}
     ujk::JuMP.Containers.SparseAxisArray{VariableRef}
     ukl::JuMP.Containers.SparseAxisArray{VariableRef}
-    θ::VariableRef
+    # θ::VariableRef
     m::Model
 end
 
 function MasterLP(w)
     mas = Model(CPLEX.Optimizer);
-    MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut. without dynamic search
-    MOI.set(mas, MOI.NumberOfThreads(), 1)
+    # MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut. without dynamic search
+    # MOI.set(mas, MOI.NumberOfThreads(), 1)
     set_silent(mas)
-    MOI.NodeCount()
     @variable(mas, 0<= y[1:dt3.N["plant"]+dt3.N["distribution"],1:2] <=1);
     @variable(mas, 0<= uij[i=1:dt3.N["supplier"],j=1:dt3.N["plant"],1:dt3.Mij[i,j]] <=1);
     @variable(mas, 0<= ujk[j=1:dt3.N["plant"],k=1:dt3.N["distribution"],1:dt3.Mjk[j,k]] <=1);
     @variable(mas, 0<= ukl[k=1:dt3.N["distribution"],l=1:dt3.N["customer"],1:dt3.Mkl[k,l]] <=1);
-    @variable(mas, θ>= -1000);
+    # @variable(mas, θ>= -1000);
 
     @constraint(mas,[j=1:dt3.N["plant"]+dt3.N["distribution"]], sum(y[j,:]) <= 1);
     @constraint(mas,[i=1:dt3.N["supplier"],j=1:dt3.N["plant"]], sum(uij[i,j,m] for m=1:dt3.Mij[i,j]) <= 1);
@@ -504,45 +503,119 @@ function MasterLP(w)
     @constraint(mas,[k=1:dt3.N["distribution"],l=1:dt3.N["customer"]], sum(ukl[k,l,m] for m=1:dt3.Mkl[k,l]) <= 1);
     @constraint(mas, sum(y[j,t] for j=1:dt3.N["plant"] for t=1:2) <= dt3.upl);
     @constraint(mas, sum(y[k+dt3.N["plant"],t] for k=1:dt3.N["distribution"] for t=1:2) <= dt3.udc);
-    @objective(mas, Min, w[1]*(sum(dt3.c[j][t]*y[j,t] for j=1:dt3.N["plant"]+dt3.N["distribution"] for t=1:2)+
-        sum(dt3.gij[i][j][m]*uij[i,j,m] for i=1:dt3.N["supplier"] for j=1:dt3.N["plant"] for m=1:dt3.Mij[i,j]) +
-        sum(dt3.gjk[j][k][m]*ujk[j,k,m] for j=1:dt3.N["plant"] for k=1:dt3.N["distribution"] for m=1:dt3.Mjk[j,k]) +
-        sum(dt3.gkl[k][l][m]*ukl[k,l,m] for k=1:dt3.N["distribution"] for l=1:dt3.N["customer"] for m=1:dt3.Mkl[k,l])) + θ );
+    # @objective(mas, Min, w[1]*(sum(dt3.c[j][t]*y[j,t] for j=1:dt3.N["plant"]+dt3.N["distribution"] for t=1:2)+
+    #     sum(dt3.gij[i][j][m]*uij[i,j,m] for i=1:dt3.N["supplier"] for j=1:dt3.N["plant"] for m=1:dt3.Mij[i,j]) +
+    #     sum(dt3.gjk[j][k][m]*ujk[j,k,m] for j=1:dt3.N["plant"] for k=1:dt3.N["distribution"] for m=1:dt3.Mjk[j,k]) +
+    #     sum(dt3.gkl[k][l][m]*ukl[k,l,m] for k=1:dt3.N["distribution"] for l=1:dt3.N["customer"] for m=1:dt3.Mkl[k,l])) + θ );
 
-    return MaterLP(y,uij,ujk,ukl,θ,mas)
+    return MasterLP(y,uij,ujk,ukl,mas)
 end
-mp = MasterLP(w)
-function getobjval(x,C)
-    return [dot(x,C[1,:]),dot(x,C[2,:]),-dot(x,C[3,:])]
-end
-function FBcheck(yy,n)
-    for k=1:n
-        JuMP.fix(mp.y[k],yy[k]; force=true)
+masterlp = MasterLP(w)
+
+# function getobjval(x,C)
+#     obj = sum(dt3.c[j][t]*y[j,t] for j=1:dt3.N["plant"]+dt3.N["distribution"] for t=1:2)+
+#     sum(dt3.gij[i][j][m]*uij[i,j,m] for i=1:dt3.N["supplier"] for j=1:dt3.N["plant"] for m=1:dt3.Mij[i,j]) +
+#     sum(dt3.gjk[j][k][m]*ujk[j,k,m] for j=1:dt3.N["plant"] for k=1:dt3.N["distribution"] for m=1:dt3.Mjk[j,k]) +
+#     sum(dt3.gkl[k][l][m]*ukl[k,l,m] for k=1:dt3.N["distribution"] for l=1:dt3.N["customer"] for m=1:dt3.Mkl[k,l])) + θ
+#     return obj
+# end
+function flip(x_h,j,e)
+    if x_h[e[j]]==1
+        x_h[e[j]] = 0
+    else
+        x_h[e[j]] = 1
     end
+    return x_h
+end
+function flipoper(Tabu,x_t,x_r)
+    e = sortperm(abs.(x_t-x_r),rev=true)
+    xi = []
+    x_h = copy(x_r)
+    j = 1
+    M=length(x_t) #
+    while j<=M && xi==[]
+        x_h = flip(x_h,j,e)
+        if x_h ∉ Tabu
+            xi=x_h
+        else
+            j+=1
+        end
+    end
+    if xi==[]
+        while j<=M
+            x_h=copy(x_r)
+            Num = Int64(rand(ceil(length(x_r)/2):length(x_r)-1))
+            R = sample(1:M,Num, replace=false)
+            for i in R
+                x_h = flip(x_h,r)
+                if x_h ∉ Tabu
+                    xi = x_h
+                end
+            end
+            j+=1
+        end
+    end
+    return xi
+end
+function FBcheck(yr,u1r,u2r,u3r)
+    # for k=1:length(yr)
+    #     JuMP.fix(mp.y[k],yr[k]; force=true)
+    # end
+    # for k=1:length(u1r)
+    #     JuMP.fix(mp.uij[k],u1r[k]; force=true)
+    # end
+    # for k=1:length(u2r)
+    #     JuMP.fix(mp.ujk[k],u2r[k]; force=true)
+    # end
+    # for k=1:length(u3r)
+    #     JuMP.fix(mp.ukl[k],u3r[k]; force=true)
+    # end
+    mp.y = yr; mp.uij=u1r; mp.ujk=u2r; mp.ukl=u3r;
     optimize!(mp.m)
-    if termination_status(kp_m) == MOI.OPTIMAL
+    if termination_status(mp.m) == MOI.OPTIMAL
         return true
     else
         return false
     end
 end
-function FP(x_t,n,C,TL)
-	X = []; SearchDone = false;	Tabu = []; newsol=0; k=1; t0=time(); #Y = [];
+function fbsearch(yr,u1r,u2r,u3r) #solveLP
+    idy_0 = findall(k->k==0, yr)
+    idy_1 = findall(k->k==1, yr)
+    idu1_0 = findall(k->k==0, u1r)
+    idu1_1 = findall(k->k==1, u1r)
+    idu2_0 = findall(k->k==0, u2r)
+    idu2_1 = findall(k->k==1, u2r)
+    idu3_0 = findall(k->k==0, u3r)
+    idu3_1 = findall(k->k==1, u3r)
+    @objective( masterlp.m, Min, sum(masterlp.y[i] for i in idy_0) + sum(1-(masterlp.y[j]) for j in idy_1) +
+        sum(masterlp.uij[i] for i in idu1_0) + sum(1-(masterlp.uij[j]) for j in idu1_1)+
+        sum(masterlp.ujk[i] for i in idu2_0) + sum(1-(masterlp.ujk[j]) for j in idu2_1)+
+        sum(masterlp.ukl[i] for i in idu3_0) + sum(1-(masterlp.ukl[j]) for j in idu3_1)
+    )
+    optimize!(masterlp.m)
+    if termination_status(masterlp.m) == MOI.OPTIMAL
+        return JuMP.value.(masterlp.y),JuMP.value.(masterlp.uij),JuMP.value.(masterlp.ujk),JuMP.value.(masterlp.ukl)
+    else
+        return 0,0,0,0
+    end
+end
+function FP(yt,u1t,u2t,u3t,TL)
+	sol = []; SearchDone = false;	Tabu = []; newsol=0; k=1; t0=time(); iter=0; Max_iter = 50 #Y = [];
     # while candlist != [] &&  time()-t0 < TL && k < length(candX)+1
 
-	iter=0; Max_iter = 10
     while iter<Max_iter && SearchDone == false
-        x_r = round.(Int,x_t)
-        if ( (FBcheck(x_r,n) == true) &&  x_r∉[candX;X])
-			push!(X,x_r); newsol+=1; SearchDone = true            #push!(Y,getobjval(x_r,C))
+        yr = round.(Int,yt);u1r = round.(Int,u1t);u2r = round.(Int,u2t);u3r = round.(Int,u3t)
+        if ( (FBcheck(yr,u1r,u2r,u3r) == true) && [yr;u1r;u2r;u3r] ∉sol)
+			push!(sol,[yr,u1r,u2r,u3r]); newsol+=1;
+            @show SearchDone = true            #push!(Y,getobjval(x_r,C))
         else
-            if x_r ∈ Tabu
-                x_r = flipoper(Tabu,x_t,x_r)
-                if x_r==[]
-                    SearchDone = true
+            if [yr;u1r;u2r;u3r] ∈ Tabu
+                yr = flipoper(Tabu,yt,yr); u1r = flipoper(Tabu,u1t,u1r); u2r = flipoper(Tabu,u2t,u2r); u3r = flipoper(Tabu,u3t,u3r)
+                if any(i->i==[], [yr,u1r,u2r,u3r])
+                    @show SearchDone = true
                 else
-                    if ( (FBcheck(x_r,n) == true) &&  x_r∉[candX;X])
-						push!(X,x_r); newsol+=1; SearchDone = true#                        push!(Y,getobjval(x_r,C))
+                    if ( (FBcheck(yr,u1r,u2r,u3r) == true) && [yr;u1r;u2r;u3r] ∉sol)
+						push!(sol,[yr,u1r,u2r,u3r]); newsol+=1; SearchDone = true            #push!(Y,getobjval(x_r,C))
                     end
                 end
             end
@@ -550,23 +623,30 @@ function FP(x_t,n,C,TL)
                 break
             end
             if SearchDone == false
-                push!(Tabu,x_r)
-                x_t = fbsearch(x_r)
-                if x_t == 0 #when there's no new feasible lp sol
-                    SearchDone = true
+                push!(Tabu,[yr;u1r;u2r;u3r])
+                yt,u1t,u2t,u3t = fbsearch(yr,u1r,u2r,u3r)
+                if any(i->i==0, [yt,u1t,u2t,u3t])  #when there's no new feasible lp sol
+                    @show SearchDone = true
                 end
             end
         end
 		iter+=1
     end
-    k+=1
-    # end
-    return X,Y,candlist
+    return sol
 end
-function masterFP(mp::MasterP)
-    optimize!(mp)
-    value.(y)
+function masterFP(mp::build_master)
+    optimize!(mp.m)    # end
+    yt = value.(mp.y)
+    u1t = value.(mp.uij); u2t = value.(mp.ujk); u3t = value.(mp.ukl)
+    sol = FP(yt,u1t,u2t,u3t,60)
+    return sol
 end
+optimize!(mp.m)    # end
+yt = value.(mp.y)
+round.(Int,yt)
+
+sol = masterFP(mp)
+1
 # function benders_with_callback(cb_data)#benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Containers.SparseAxisArray{VariableRef},ujk::JuMP.Containers.SparseAxisArray{VariableRef},ukl::JuMP.Containers.SparseAxisArray{VariableRef})
 #     # ,uij::Array{VariableRef},ujk::Array{VariableRef},ukl::Array{VariableRef})
 #     yb = callback_value.(cb_data, mp.y);    ubij = callback_value.(cb_data, mp.uij);    ubjk = callback_value.(cb_data, mp.ujk)
