@@ -1,13 +1,14 @@
+cd("C:/Users/AK121396/Desktop/ProjectBenders")
 using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,SparseArrays#,CPUTime
 
 mutable struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Vkl::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
-    b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int
+    b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("E:/scnd1/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd1/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -42,20 +43,20 @@ mutable struct Data1
         Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
         b = reshape(N["ves"],5,N["supplier"])';  q = append!(N["vep"],N["ved"]);
         rij = N["cep"]; rjk = N["ced"]; rkl = N["cec"];
-        upl = N["upperpants"]; udc = N["upperdistribution"];
+        upl = N["upperpants"]; udc = N["upperdistribution"]; bigM = sum(N["demand"])
 
-        new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Vkl,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc);
+        new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Vkl,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
 
 # @show file = ARGS[1];
-# file = "E:/scnd1/Test1S2"
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-# file = "/home/k2g00/k2g3475/scnd1/instances/test01S1"
+file = "F:/scnd/Test1S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "/home/k2g00/k2g3475/scnd1/instances/test01S2"
 dt1 = Data1(file);
 ##########################  Mathematical model  #########################
 scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
-MOI.set(scnd1, MOI.NumberOfThreads(), 1);
+# MOI.set(scnd1, MOI.NumberOfThreads(), 1);
 # @variable(scnd1, 0<= y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1);
 # @variable(scnd1, 0<= uij1[1:sum(dt1.Mij)] <= 1);
 # @variable(scnd1, 0<= ujk1[1:sum(dt1.Mjk)] <= 1);
@@ -72,43 +73,41 @@ MOI.set(scnd1, MOI.NumberOfThreads(), 1);
 @variable( scnd1, 0<= h1[1:(dt1.N["plant"]+dt1.N["distribution"])*5*2] )
 
 
-@constraint(scnd1, obj1, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
-        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-        sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-        sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1) <= 0)
-# @objective(scnd1, Min, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
+# @constraint(scnd1, obj1, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
 #         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
 #         sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-#         sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1));
-@constraint(scnd1, obj2, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
-        sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-        sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1) <= 0)
-# @objective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
+#         sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1) <= 0)
+@objective(scnd1, Min, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
+        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+        sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
+        sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1));
+# @constraint(scnd1, obj2, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
 #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-#         sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1));
+#         sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1) <= 0)
+@objective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
+        sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+        sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1));
 
 ########## constraint 3 #############
-@constraints(scnd1, begin
-        [p=1:5], sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:]))
+# @constraints(scnd1, begin
+@constraint(scnd1, [p=1:5], sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) )
         # [j=1,p=1:5], sum(xij1[5*(j-1)+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*(j-1)+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:]))
-        [j=2:dt1.N["plant"],p=1:5], sum(xij1[5*(j-1)+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*(j-1)+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk1[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:]))
-        [p=1:5], sum(xjk1[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk1[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) == sum(xkl1[5*(m-1)+p] for m=1:sum(dt1.Mkl[1,:]))
-        [k=2:dt1.N["distribution"],p=1:5],sum(xjk1[5*(k-1)+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk1[5*(k-1)+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) == sum(xkl1[sum(dt1.Mkl[1:k-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mkl[k,:]))
-end)
+@constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(xij1[5*(j-1)+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*(j-1)+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk1[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) )
+@constraint(scnd1, [p=1:5], sum(xjk1[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk1[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) == sum(xkl1[5*(m-1)+p] for m=1:sum(dt1.Mkl[1,:])) )
+@constraint(scnd1, [k=2:dt1.N["distribution"],p=1:5],sum(xjk1[5*(k-1)+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk1[5*(k-1)+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) == sum(xkl1[sum(dt1.Mkl[1:k-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mkl[k,:])) )
+# end)
+
 ########### constraint 4-6 #############
-# @constraints(scnd1,
-# begin
-# end );
-@constraint(scnd1,    [p=1:5],sum(h1[5*(t-1)+p] for t=1:2) == sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) )
-@constraint(scnd1,    [j=2:dt1.N["plant"],p=1:5], sum(h1[5*2*(j-1)+5*(t-1)+p] for t=1:2) == sum(xij1[5*(j-1)+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*(j-1)+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) )
-@constraint(scnd1,    [p=1:5], sum(h1[5*2*dt1.N["plant"]+5*(t-1)+p] for t=1:2) == sum(xjk1[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk1[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) )
-@constraint(scnd1,    [k=2:dt1.N["distribution"],p=1:5], sum(h1[5*2*dt1.N["plant"]+5*2*(k-1)+5*(t-1)+p] for t=1:2) == sum(xjk1[5*(k-1)+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk1[5*(k-1)+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) )
+# @constraints(scnd1, begin
+@constraint(scnd1, [p=1:5],sum(h1[5*(t-1)+p] for t=1:2) == sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]))
+@constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(h1[5*2*(j-1)+5*(t-1)+p] for t=1:2) == sum(xij1[5*(j-1)+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*(j-1)+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]))
+@constraint(scnd1, [p=1:5], sum(h1[5*2*dt1.N["plant"]+5*(t-1)+p] for t=1:2) == sum(xjk1[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk1[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]));
+@constraint(scnd1, [k=2:dt1.N["distribution"],p=1:5], sum(h1[5*2*dt1.N["plant"]+5*2*(k-1)+5*(t-1)+p] for t=1:2) == sum(xjk1[5*(k-1)+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk1[5*(k-1)+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]))
 
-@constraint(scnd1,    [l=1:dt1.N["customer"],p=1:5],
-    sum(xkl1[5*(l-1)+5*(m-1)+p] for m=1:dt1.Mkl[1,l])+sum(xkl1[5*(l-1)+5*(m-1)+p+(5*sum(dt1.Mkl[1:k-1,:]))] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,l]) >= dt1.d[l,p] 
-)
 
-optimize!(scnd1); termination_status(scnd1)
+@constraint(scnd1, [p=1:5], sum(xkl1[5*(m-1)+p+ sum(dt1.Mkl[1,1:l-1])*5] for m=1:dt1.Mkl[1,1]) +sum(xkl1[5*(m-1)+p+(5*sum(dt1.Mkl[1:k-1,:]))] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,1]) >= dt1.d[1,p])
+@constraint(scnd1, [l=2:dt1.N["customer"], p=1:5], sum(xkl1[sum(dt1.Mkl[1,1:l-1])*5 + 5*(m-1)+p] for m=1:dt1.Mkl[1,l])+ sum(xkl1[5*sum(dt1.Mkl[1:k-1,:])+5*sum(dt1.Mkl[k,1:l-1])+5*(m-1)+p] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,l]) >= dt1.d[l,p])
+
 ########### constraint 7 #############
 @constraints(scnd1, begin
         sum(xij1[1:5*sum(dt1.Mij[1,:])]) <= dt1.N["cas"][1]
@@ -130,17 +129,21 @@ end);
         [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
         [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
 end);
+########### constraint 11 #############
+@constraints(scnd1, begin
+    [i=1:sum(dt1.Mij)], sum(xij1[5*(i-1)+1:5*i]) <= dt1.bigM*uij1[i]
+    [i=1:sum(dt1.Mjk)], sum(xjk1[5*(i-1)+1:5*i]) <= dt1.bigM*ujk1[i]
+    [i=1:sum(dt1.Mkl)], sum(xkl1[5*(i-1)+1:5*i]) <= dt1.bigM*ukl1[i]
+end)
 ########### constraint 12 #############
 @constraints(scnd1, begin
-        [i=1:sum(dt1.Mij)], sum(xij1[5*(i-1)+1:5*i]) >= sum(dt1.Vij[i]*uij1[i] for i in findnz(dt1.Vij)[1])
-        [i=1:sum(dt1.Mjk)], sum(xjk1[5*(i-1)+1:5*i]) >= sum(dt1.Vjk[i]*ujk1[i] for i in findnz(dt1.Vjk)[1])
-        [i=1:sum(dt1.Mkl)], sum(xkl1[5*(i-1)+1:5*i]) >= sum(dt1.Vkl[i]*ukl1[i] for i in findnz(dt1.Vkl)[1])
+        [i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i]
+        [i in findnz(dt1.Vjk)[1]], sum(xjk1[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk1[i]
+        [i in findnz(dt1.Vkl)[1]], sum(xkl1[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl1[i]
 end);
-
-
 ########### constraint 13-14 #############
 @constraint(scnd1, sum(y1[1:dt1.N["plant"]]) <= dt1.upl);
 @constraint(scnd1, sum(y1[dt1.N["plant"]+1:end]) <= dt1.udc);
-
+scnd1
 optimize!(scnd1)
 objective_value(scnd1)
