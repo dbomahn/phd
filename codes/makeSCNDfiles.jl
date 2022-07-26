@@ -232,11 +232,238 @@ mutable struct Data2
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
+mutable struct Data22
+    filepath::String; N::Dict{}; d::Array{}; c::Array{};  Mij::Array{}; Mjk::Array{}; Mkl::Array{};
+    gij::Array{}; gjk::Array{}; gkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
+    Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
+    function Data22(filepath)
+        dt = readdlm(filepath);
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        nota = notafile[1:end,1];  N= Dict();
+        for i=1:length(nota)-1
+            id1 = findall(x->x==nota[i], dt)[1][1];
+            id2 = findall(x->x==nota[i+1], dt)[1][1];
+            if id2-id1<3
+                tmp = filter(x->x!="",  dt[id1+(id2-id1-1),:])
+                if length(tmp)<2
+                    N[nota[i]] = tmp[1];
+                else
+                    N[nota[i]] = tmp;
+                end
+            else
+                W = []
+                for x=id1+1:id1+(id2-id1-1)
+                    tmp = filter(x->x!="", dt[x,:]);
+                    push!(W,tmp);
+                end
+                # tmp = [filter(x->x!="", dt[x,:]) for x in id1+1:id1+(id2-id1-1)]
+                N[nota[i]] = W;
+            end
+        end
+        d = N["demand"];  c = append!(N["fcp"],N["fcd"]);
+        # e = append!(N["vcp"],N["vcd"]);
+
+        Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])));
+        Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])));
+        Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
+
+        gij = [];
+        for i=1:N["supplier"]
+            idx = 1; push!(gij,[]);
+            for j=1:N["plant"]
+                th = []
+                for m=1:Mij[i,j]
+                    push!(th, N["fixedcostModesp"][i][idx]);
+                    idx+=1
+                end
+                push!(gij[i],th);
+            end
+        end
+        gjk = [];
+        for j=1:N["plant"]
+            idx = 1; push!(gjk,[]);
+            for k=1:N["distribution"]
+                th = []
+                for m=1:Mjk[j,k]
+                    push!(th, N["fixedcostModepd"][j][idx]);
+                    idx+=1
+                end
+                push!(gjk[j],th);
+            end
+        end
+        gkl = [];
+        for k=1:N["distribution"]
+            idx = 1; push!(gkl,[]);
+            for l=1:N["customer"]
+                th= []
+                for m=1:Mkl[k,l]
+                    push!(th, N["fixedcostModedc"][k][idx]);
+                    idx+=1
+                end
+                push!(gkl[k],th);
+            end
+        end
+        vij = [];
+        for i=1:N["supplier"]
+            tmp = [];
+            for j=1:N["plant"]
+                tmp2 = []
+                if j==1
+                    for m=1:Mij[i,1]
+                        push!(tmp2, N["tcp"][i][5*(m-1)+1:5*(m-1)+5])
+                    end
+                else
+                    for m=1:Mij[i,j]
+                        push!(tmp2, N["tcp"][i][5*sum(Mij[i,1:j-1])+5*(m-1)+1:5*sum(Mij[i,1:j-1])+5*(m-1)+5]);
+                    end
+                end
+                push!(tmp,tmp2);
+            end
+            push!(vij,tmp);
+        end
+        vjk = [];
+        for j=1:N["plant"]
+            tmp = [];
+            for k=1:N["distribution"]
+                tmp2 = []
+                if k==1
+                    for m=1:Mjk[j,1]
+                        push!(tmp2, N["tcd"][j][5*(m-1)+1:5*(m-1)+5])
+                    end
+                else
+                    for m=1:Mjk[j,k]
+                        push!(tmp2, N["tcd"][j][5*sum(Mjk[j,1:k-1])+5*(m-1)+1:5*sum(Mjk[j,1:k-1])+5*(m-1)+5]);
+                    end
+                end
+                push!(tmp,tmp2);
+            end
+            push!(vjk,tmp);
+        end
+        vkl = [];
+        for k=1:N["distribution"]
+            tmp = [];
+            for l=1:N["customer"]
+                tmp2 = []
+                if l==1
+                    for m=1:Mkl[k,1]
+                        push!(tmp2, N["tcc"][k][5*(m-1)+1:5*(m-1)+5])
+                    end
+                else
+                    for m=1:Mkl[k,l]
+                        push!(tmp2, N["tcc"][k][5*sum(Mkl[k,1:l-1])+5*(m-1)+1:5*sum(Mkl[k,1:l-1])+5*(m-1)+5]);
+                    end
+                end
+                push!(tmp,tmp2);
+            end
+            push!(vkl,tmp);
+        end
+
+
+        rij = [];
+        for i=1:N["supplier"]
+            tmp = [];
+            for j=1:N["plant"]
+                tmp2 = []
+                if j==1
+                    for m=1:Mij[i,1]
+                        push!(tmp2, N["cep"][i][5*(m-1)+1:5*(m-1)+5])
+                    end
+                else
+                    for m=1:Mij[i,j]
+                        push!(tmp2, N["cep"][i][5*sum(Mij[i,1:j-1])+5*(m-1)+1:5*sum(Mij[i,1:j-1])+5*(m-1)+5]);
+                    end
+                end
+                push!(tmp,tmp2);
+            end
+            push!(rij,tmp);
+        end
+        rjk = [];
+        for j=1:N["plant"]
+            tmp = [];
+            for k=1:N["distribution"]
+                tmp2 = []
+                if k==1
+                    for m=1:Mjk[j,1]
+                        push!(tmp2, N["ced"][j][5*(m-1)+1:5*(m-1)+5])
+                    end
+                else
+                    for m=1:Mjk[j,k]
+                        push!(tmp2, N["ced"][j][5*sum(Mjk[j,1:k-1])+5*(m-1)+1:5*sum(Mjk[j,1:k-1])+5*(m-1)+5]);
+                    end
+                end
+                push!(tmp,tmp2);
+            end
+            push!(rjk,tmp);
+        end
+        rkl = [];
+        for k=1:N["distribution"]
+            tmp = [];
+            for l=1:N["customer"]
+                tmp2 = []
+                if l==1
+                    for m=1:Mkl[k,1]
+                        push!(tmp2, N["cec"][k][5*(m-1)+1:5*(m-1)+5])
+                    end
+                else
+                    for m=1:Mkl[k,l]
+                        push!(tmp2, N["cec"][k][5*sum(Mkl[k,1:l-1])+5*(m-1)+1:5*sum(Mkl[k,1:l-1])+5*(m-1)+5]);
+                    end
+                end
+                push!(tmp,tmp2);
+            end
+            push!(rkl,tmp);
+        end
+
+        Vij = [];
+        for i=1:N["supplier"]
+            idx = 1; push!(Vij,[]);
+            for j=1:N["plant"]
+                th = []
+                for m=1:Mij[i,j]
+                    push!(th, N["LcapacityModesp"][i][idx]);
+                    idx+=1
+                end
+                push!(Vij[i],th);
+            end
+        end
+        Vjk = [];
+        for j=1:N["plant"]
+            idx = 1; push!(Vjk,[]);
+            for k=1:N["distribution"]
+                th = []
+                for m=1:Mjk[j,k]
+                    push!(th, N["LcapacityModepd"][j][idx]);
+                    idx+=1
+                end
+                push!(Vjk[j],th);
+            end
+        end
+        Vkl = [];
+        for k=1:N["distribution"]
+            idx = 1; push!(Vkl,[]);
+            for l=1:N["customer"]
+                th= []
+                for m=1:Mkl[k,l]
+                    push!(th, N["LcapacityModedc"][k][idx]);
+                    idx+=1
+                end
+                push!(Vkl[k],th);
+            end
+        end
+        b = reshape(N["ves"],5,N["supplier"])';
+        # q = append!(N["vep"],N["ved"]);
+        upl = N["upperpants"]; udc = N["upperdistribution"]
+        bigM = sum(sum(N["demand"]))
+        new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
+    end
+end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-# file = "F:scnd/Test1S2"
-dt = Data2(file);
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "F:scnd/Test1S2"
+dt = Data22(file);
 ##########################  Mathematical model  #########################
 # scnd = Model(CPLEX.Optimizer);
 # MOI.set(scnd, MOI.NumberOfThreads(), 1); set_silent(scnd)
@@ -334,17 +561,23 @@ set_silent(scnd)
 #     + sum(dt.rkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5))
 #     );
 ######### constraint 3 #############
-@constraints(scnd, begin
-    [j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
-    [k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
-end);
-
+# @constraints(scnd, begin
+#     [j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+#     [k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
+# end);
+@constraint(scnd,[j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]))
+@constraint(scnd,[k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]))
 ########### constraint 4-6 #############
-@constraints(scnd, begin
-    [j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j])
-    [k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k])
-    [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]
-end );
+# @constraints(scnd, begin
+#     [j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j])
+#     [k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k])
+#     [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]
+# end );
+@constraint(scnd,[j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]))
+@constraint(scnd,[k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]))
+@constraint(scnd, [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p])
+optimize!(scnd); objective_value(scnd)
+1
 ########### constraint 7-9 #############
 @constraint(scnd,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i]);
 # @constraint(scnd,[i=1:dt.N["supplier"]], -sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) >= -dt.N["cas"][i]);
