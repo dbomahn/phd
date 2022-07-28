@@ -14,8 +14,8 @@ mutable struct Data2
     function Data2(filepath)
         dt = readdlm(filepath);
         # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -497,7 +497,6 @@ set_silent(scnd)
 #     sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
 #     sum(dt.N["vcp"][j][5*(t-1)+p]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
 #     sum(dt.N["vcd"][k][5*(t-1)+p]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2) <=0);
-
 # @objective(scnd, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) +
 #     sum(dt.gij[i][j][m]*uij[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j])+
 #     sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
@@ -508,7 +507,6 @@ set_silent(scnd)
 #     sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
 #     sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
 #     sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
-
 #2nd obj
 # @constraint(scnd, obj2, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
 #     sum(dt.N["vep"][j][5*(t-1)+p]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+

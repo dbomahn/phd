@@ -1,6 +1,6 @@
 cd("C:/Users/AK121396/Desktop/ProjectBenders")
 # activate .
-using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime
+using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime,SparseArrays
 # import Printf SparseArrays,MathProgBase,
 "If we use weighted sum for BD, obj values must be normalised."
 # "Maybe we can use the weighted sum code by Gandibluex (Vopt)? and just solve sub problems with BD->no dichotomic search available for bi-obj mip"
@@ -9,7 +9,7 @@ using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime
 # https://co-at-work.zib.de/slides/Donnerstag_24.9/Benders_decomposition-Fundamentals.pdf
 
 ##############  Benders decomposition using Mathematical models  ###############
-mutable struct Data3
+struct Data3
     filepath::String; N::Dict{}; d::Array{}; c::Array{};  Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     gij::Array{}; gjk::Array{}; gkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
@@ -235,8 +235,8 @@ mutable struct Data3
     end
 end
 # file3 = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file3 = "F:scnd/Test1S2"
-dt = Data3(file3); # for Benders
+file = "F:scnd/Test1S2"
+dt = Data3(file); # for Benders
 ##########################  Mathematical model  #########################
 #Master Problem
 struct build_master
