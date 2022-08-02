@@ -6,9 +6,9 @@ mutable struct Data2
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -225,7 +225,7 @@ mutable struct Data2
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # file = "F:/model/Test1S2"
 dt = Data2(file);
@@ -241,7 +241,7 @@ function buildmodel()
     @variable(model, 0<= xjk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k],1:5] );
     @variable(model, 0<= xkl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l],1:5] );
     @variable(model, 0<= h[1:dt.N["plant"]+dt.N["distribution"],1:5,1:2] );
-    @addobjective(model, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) +
+    @addobjective(model, Min,  sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) +
         sum(dt.gij[i][j][m]*uij[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j])+
         sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
         sum(dt.gkl[k][l][m]*ukl[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])+
@@ -249,28 +249,22 @@ function buildmodel()
         sum(dt.vij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
         sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
         sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
-        sum(dt.N["vcp"][j][5*(t-1)+p]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
-        sum(dt.N["vcd"][k][5*(t-1)+p]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
+        sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+        sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
     @addobjective(model, Min, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
-    #     sum(dt.N["vep"][j][5*(t-1)+p]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
-        sum(dt.N["ved"][k][5*(t-1)+p]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
+        sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+        sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
         sum(dt.rij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+sum(dt.rjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
         sum(dt.rkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5));
-
-
-    @constraints(model, begin
-        [j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
-        [k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
-    end);
+    @constraint(model,[j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]))
+    @constraint(model,[k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]))
     ########### constraint 4-6 #############
-    @constraints(model, begin
-        [j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j])
-        [k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k])
-        [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]
-    end );
+    @constraint(model,[j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]))
+    @constraint(model,[k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]))
+    @constraint(model, [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p])
     ########### constraint 7-9 #############
-    @constraint(model,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i]);
-    @constraint(model,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,1:5,t]) <=[dt.N["cap"];dt.N["cad"]][j]*y[j,t]);
+    @constraint(model,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i])
+    @constraint(model,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,:,t]) <=[dt.N["cap"];dt.N["cad"]][j]*y[j,t])
     @constraint(model,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
     ########### constraint 10 #############
     @constraint(model,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= 1);
@@ -291,17 +285,29 @@ function buildmodel()
     return model
 end
 model = buildmodel()
-vSolve(model, method=:lex)
+vSolve(model, method=:dicho)
 # vSolve(model, method=:epsilon, step=1000000000.0, verbose=true);
 ndpoints = getY_N(model)
-ndpoints
+function saveSol(fname::String, Y_N)#, elapsedTime::Float64)
+    way = fname*"Y_N"
+    open(way, "w") do f
+        write(f, "$elapsedTime \n")
+        write(f, "$(length(Y_N)) \n")
+        for i in 1:length(Y_N)
+            write(f, "$(Y_N[i][1]) $(Y_N[i][2]) \n")
+        end
+    end
+end
+path = "/home/k2g00/k2g3475/model/vopt/"*file[36:end]*"Y_N"
+saveSol(path, ndpoints)#, elapsedTime)
+
 
 # ---- Displaying the results (X_E and Y_N)
-for n = 1:length(Y_N)
-    X = value.(x, n)
-    print(findall(elt -> elt ≈ 1, X))
-    println("| z = ",Y_N[n])
-end
+# for n = 1:length(Y_N)
+#     X = value.(x, n)
+#     print(findall(elt -> elt ≈ 1, X))
+#     println("| z = ",Y_N[n])
+# end
 
 #################################################################################################
 using vOptGeneric,DelimitedFiles,JuMP,JLD2,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface
@@ -401,20 +407,7 @@ function compute(file)
 end
 
 
-function saveSol(fname::String, Y_N, elapsedTime::Float64)
-    way = fname*"Y_N"
-    open(way, "w") do f
-        write(f, "$elapsedTime \n")
-        write(f, "$(length(Y_N)) \n")
-        for i in 1:length(Y_N)
-            write(f, "$(Y_N[i][1]) $(Y_N[i][2]) \n")
-        end
-    end
-end
-
 # Y_N, elapsedTime = compute(file)
-# path = "/home/k2g00/k2g3475/model/vopt/"*file[36:end]
-saveSol(file, Y_N, elapsedTime)
 file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 # mt = CallModel(file)
 # pr = Valu(

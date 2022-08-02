@@ -1,3 +1,4 @@
+cd("C:/Users/AK121396/Desktop/ProjectBenders")
 using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime,SparseArrays
 
  struct Data1
@@ -5,8 +6,8 @@ using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime,SparseArrays
     Vij::SparseVector{}; Vjk::SparseVector{}; Vkl::SparseVector{}; b::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd1/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -44,8 +45,8 @@ struct Data2
     filepath::String; N::Dict{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -184,8 +185,8 @@ struct Data2
         new(filepath,N,Mij,Mjk,Mkl,vij,vjk,vkl,rij,rjk,rkl); #cap,Mij,Mjk,Mkl,
     end
 end
-# file = "F:scnd/Test1S2";
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "F:scnd/Test1S2";
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 dt = Data1(file); dt2 = Data2(file);
 struct MasterP
     y::Vector{VariableRef}
@@ -195,6 +196,149 @@ struct MasterP
     θ::VariableRef
     m::Model
 end
+struct DualSP
+    # data::SubProblemData
+    α1::Vector{VariableRef}
+    α2::Vector{VariableRef}
+    α3::Vector{VariableRef}
+    α4::Vector{VariableRef}
+    α5::Vector{VariableRef}
+    α6::Vector{VariableRef}
+    α7::Vector{VariableRef}
+    α8::Vector{VariableRef}
+    α9::Vector{VariableRef}
+    α10::Vector{VariableRef}
+    α11::Vector{VariableRef}
+    α12::Vector{VariableRef}
+    α13::Vector{VariableRef}
+    α14::Vector{VariableRef}
+    m::Model
+end
+
+function f1Master()
+    mas = Model(CPLEX.Optimizer); set_silent(mas)
+    # MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut. without dynamic search
+    MOI.set(mas, MOI.NumberOfThreads(), 1)
+    # MOI.NodeCount()
+    @variable(mas, y[1:(dt.N["plant"]+dt.N["distribution"])*2], Bin);
+    @variable(mas, uij[1:sum(dt2.Mij)], Bin);
+    @variable(mas, ujk[1:sum(dt2.Mjk)], Bin);
+    @variable(mas, ukl[1:sum(dt2.Mkl)], Bin);
+    @variable(mas, θ>=-1000);
+    @constraint(mas,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
+    @constraints(mas, begin
+            sum(uij[1:dt2.Mij[1,1]]) <= 1
+            [j=2:dt.N["plant"]], sum(uij[sum(dt2.Mij[1,1:j-1])+1:sum(dt2.Mij[1,1:j-1])+dt2.Mij[1,j]]) <= 1
+            [i=2:dt.N["supplier"],j=2:dt.N["plant"]],  sum(uij[sum(dt2.Mij[1:i-1,:])+sum(dt2.Mij[i,1:j-1])+1:sum(dt2.Mij[1:i-1,:])+sum(dt2.Mij[i,1:j-1])+dt2.Mij[i,j]])<= 1
+            sum(ujk[1:dt2.Mjk[1,1]]) <= 1
+            [k=2:dt.N["distribution"]], sum(ujk[sum(dt2.Mjk[1,1:k-1])+1:sum(dt2.Mjk[1,1:k-1])+dt2.Mjk[1,k]]) <= 1
+            [j=2:dt.N["plant"],k=2:dt.N["distribution"]],  sum(ujk[sum(dt2.Mjk[1:j-1,:])+sum(dt2.Mjk[j,1:j-1])+1:sum(dt2.Mjk[1:j-1,:])+sum(dt2.Mjk[j,1:j-1])+dt2.Mjk[j,k]]) <= 1
+            sum(ukl[1:dt2.Mkl[1,1]]) <= 1
+            [l=2:dt.N["customer"]], sum(ukl[sum(dt2.Mkl[1,1:l-1])+1:sum(dt2.Mkl[1,1:l-1])+dt2.Mkl[1,l]]) <= 1
+            [k=2:dt.N["distribution"],l=2:dt.N["customer"]],  sum(ukl[sum(dt2.Mkl[1:k-1,:])+sum(dt2.Mkl[k,1:l-1])+1:sum(dt2.Mkl[1:k-1,:])+sum(dt2.Mkl[k,1:l-1])+dt2.Mkl[k,l]])<= 1
+    end);
+    @constraint(mas, sum(y[1:dt.N["plant"]*2]) <= dt.upl);
+    @constraint(mas, sum(y[dt.N["plant"]*2+1:end]) <= dt.udc);
+    @objective(mas, Min, sum(dt.c.*y) + sum(dt.gij[i]*uij[i] for i in findnz(dt.gij)[1]) + sum(dt.gjk[i]*ujk[i] for i in findnz(dt.gjk)[1]) + sum(dt.gkl[i].*ukl[i] for i in findnz(dt.gkl)[1])+ θ );
+    return MasterP(y,uij,ujk,ukl,θ,mas);
+end
+f1mp = f1Master();
+
+function f1DualSP()
+    sub = direct_model(CPLEX.Optimizer());
+    set_optimizer_attribute(sub, "CPX_PARAM_REDUCE", 0); # presolve must be turned off
+    MOI.set(sub, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut
+    set_silent(sub) # display is turned off
+    MOI.set(sub, MOI.NumberOfThreads(), 1) # of threads
+
+    @variables(sub, begin
+        α1[1:dt.N["plant"]*5]
+        α2[1:dt.N["distribution"]*5]
+        α3[1:dt.N["plant"]*5]
+        α4[1:dt.N["distribution"]*5]
+    end)
+    @variable(sub, α5[1:dt.N["customer"]*5] >= 0);
+    @variable(sub, α6[1:dt.N["supplier"]] >= 0);
+    @variable(sub, α7[1:dt.N["plant"]*2] >= 0);
+    @variable(sub, α8[1:dt.N["distribution"]*2] >= 0);
+    @variable(sub, α9[1:sum(dt2.Mij)] >= 0);
+    @variable(sub, α10[1:sum(dt2.Mjk)] >= 0);
+    @variable(sub, α11[1:sum(dt2.Mkl)] >= 0);
+    @variable(sub, α12[1:sum(dt2.Mij)] >= 0);
+    @variable(sub, α13[1:sum(dt2.Mjk)] >= 0);
+    @variable(sub, α14[1:sum(dt2.Mkl)] >= 0);
+
+    @constraint(sub, [i=1,j=1,m=1:dt2.Mij[i,j],p=1:5], α1[5*(j-1)+p]-α3[5*(j-1)+p]-α6[i]+α9[m]-α12[m] <= dt.a[i,p]+dt2.vij[i][j][m][p])
+    @constraint(sub, [i=2:dt.N["supplier"],j=1,m=1:dt2.Mij[i,j],p=1:5], α1[5*(j-1)+p]-α3[5*(j-1)+p]-α6[i]+α9[m+sum(dt2.Mij[1:i-1,:])]-α12[m+sum(dt2.Mij[1:i-1,:])] <= dt.a[i,p]+dt2.vij[i][j][m][p])
+    @constraint(sub, [i=1,j=2:dt.N["plant"],m=1:dt2.Mij[i,j],p=1:5], α1[5*(j-1)+p]-α3[5*(j-1)+p]-α6[i]+α9[sum(dt2.Mij[1,1:j-1])+ m]-α12[sum(dt2.Mij[1,1:j-1])+ m] <= dt.a[i,p]+dt2.vij[i][j][m][p])
+    @constraint(sub, [i=2:dt.N["supplier"],j=2:dt.N["plant"], m=1:dt2.Mij[i,j],p=1:5],  α1[5*(j-1)+p]-α3[5*(j-1)+p]-α6[i]+α9[sum(dt2.Mij[1:i-1,:])+sum(dt2.Mij[i,1:j-1])+m]-α12[sum(dt2.Mij[1:i-1,:])+sum(dt2.Mij[i,1:j-1])+m] <= dt.a[i,p]+dt2.vij[i][j][m][p])
+
+    @constraint(sub, [j=1,k=1,m=1:dt2.Mjk[j,k],p=1:5], -α1[5*(j-1)+p]+α2[5*(k-1)+p]-α4[5*(k-1)+p]+α10[m]-α13[m] <= dt2.vjk[j][k][m][p])
+    @constraint(sub, [j=2:dt.N["plant"],k=1,m=1:dt2.Mjk[j,k],p=1:5], -α1[5*(j-1)+p]+α2[5*(k-1)+p]-α4[5*(k-1)+p]+α10[sum(dt2.Mjk[1:j-1,:])]-α13[sum(dt2.Mjk[1:j-1,:])+m] <= dt2.vjk[j][k][m][p])
+    @constraint(sub, [j=1,k=2:dt.N["distribution"],m=1:dt2.Mjk[j,k],p=1:5], -α1[5*(j-1)+p]+α2[5*(k-1)+p]-α4[5*(k-1)+p]+α10[sum(dt2.Mjk[1,1:k-1])+ m]-α13[sum(dt2.Mjk[1,1:k-1])+ m] <= dt2.vjk[j][k][m][p])
+    @constraint(sub, [j=2:dt.N["plant"],k=2:dt.N["distribution"],m=1:dt2.Mjk[j,k],p=1:5], -α1[5*(j-1)+p]+α2[5*(k-1)+p]-α4[5*(k-1)+p]+α10[sum(dt2.Mjk[1:j-1,:])+sum(dt2.Mjk[j,1:k-1])+m]-α13[sum(dt2.Mjk[1:j-1,:])+sum(dt2.Mjk[j,1:k-1])+m] <= dt2.vjk[j][k][m][p])
+
+    @constraint(sub, [k=1,l=1,m=1:dt2.Mkl[k,l],p=1:5], -α2[5*(k-1)+p]+α5[5*(l-1)+p]+α11[m]-α14[m] <= dt2.vkl[k][l][m][p])
+    @constraint(sub, [k=1,l=2:dt.N["customer"],m=1:dt2.Mkl[k,l],p=1:5], -α2[5*(k-1)+p]+α5[5*(l-1)+p]+α11[sum(dt2.Mkl[1,1:l-1])+ m]-α14[sum(dt2.Mkl[1,1:l-1])+ m] <= dt2.vkl[k][l][m][p])
+    @constraint(sub, [k=2:dt.N["distribution"],l=1,m=1:dt2.Mkl[k,l],p=1:5], -α2[5*(k-1)+p]+α5[5*(l-1)+p]+α11[sum(dt2.Mkl[1:k-1,:])+m]-α14[sum(dt2.Mkl[1:k-1,:])+m] <= dt2.vkl[k][l][m][p])
+    @constraint(sub, [k=2:dt.N["distribution"],l=2:dt.N["customer"],m=1:dt2.Mkl[k,l],p=1:5], -α2[5*(k-1)+p]+α5[5*(l-1)+p]+α11[sum(dt2.Mkl[1:k-1,:])+sum(dt2.Mkl[k,1:l-1])+m]-α14[sum(dt2.Mkl[1:k-1,:])+sum(dt2.Mkl[k,1:l-1])+m] <= dt2.vkl[k][l][m][p])
+
+    @constraint(sub, [j=1:dt.N["plant"],t=1:2,p=1:5], α3[5*(j-1)+p]-α7[2*(j-1)+t] <= dt2.N["vcp"][j][2*(t-1)+p])
+    @constraint(sub, [k=1:dt.N["distribution"],t=1:2,p=1:5], α4[5*(k-1)+p]-α8[2*(k-1)+t] <= dt2.N["vcd"][k][2*(t-1)+p])
+    return DualSP(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
+end
+f1dsp = f1DualSP();
+
+function rootfrac_callback(cb_data)
+    ndepth = Ref{CPXLONG}()
+    CPXcallbackgetinfolong(cb_data, CPXCALLBACKINFO_NODEDEPTH, ndepth)
+    if ndepth[] == 0
+        yb = callback_value.(cb_data, f1mp.y);    ubij = callback_value.(cb_data, f1mp.uij);    ubjk = callback_value.(cb_data, f1mp.ujk)
+        ubkl = callback_value.(cb_data, f1mp.ukl);    θb = callback_value(cb_data, f1mp.θ)
+        subp = solve_dsp(f1dsp,yb,ubij,ubjk,ubkl)
+        if subp.res == :OptimalityCut
+            if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+                return
+            else
+                cut = @build_constraint( f1mp.θ ≥ sum(subp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
+                    sum(dt.N["cap"][j]*f1mp.y[2*(j-1)+t]*subp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*f1mp.y[2*(dt.N["plant"]+k-1)+t]*subp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+                    sum(dt.Vij[i]*f1mp.uij[i]*subp.α9[i] for i in findnz(dt.Vij)[1])+
+                    sum(dt.Vjk[i]*f1mp.uij[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
+                    sum(dt.Vkl[i]*f1mp.uij[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
+                    sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.uij.*subp.α13) - sum(dt.bigM.*f1mp.uij.*subp.α14)
+                    )
+                push!(optcuts, cut)
+                # push!(optcuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+                MOI.submit(f1mp.m, MOI.UserCut(cb_data), cut)
+            end
+        else
+            cut = @build_constraint( 0 ≥ sum(subp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
+                sum(dt.N["cap"][j]*f1mp.y[2*(j-1)+t]*subp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*f1mp.y[2*(dt.N["plant"]+k-1)+t]*subp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+                sum(dt.Vij[i]*f1mp.uij[i]*subp.α9[i] for i in findnz(dt.Vij)[1])+
+                sum(dt.Vjk[i]*f1mp.uij[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
+                sum(dt.Vkl[i]*f1mp.uij[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
+                sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.uij.*subp.α13) - sum(dt.bigM.*f1mp.uij.*subp.α14)
+                )
+            MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
+            push!(fcuts, cut)
+            push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+        end
+        return
+    end
+end
+
+optcuts = []; fcuts = []; feasicuts = [];
+
+
+
+
+
+
+
+
+
+
+
 
 function MasterP(w)
     mas = Model(CPLEX.Optimizer); set_silent(mas)
@@ -284,24 +428,6 @@ function MLP(w)
     @constraint(lp, sum(y[dt.N["plant"]*2+1:end]) <= dt.udc);
     @objective(lp, Min, w[1]*(sum(dt.c.*y) + sum(dt.gij[i]*uij[i] for i in findnz(dt.gij)[1]) + sum(dt.gjk[i]*ujk[i] for i in findnz(dt.gjk)[1]) + sum(dt.gkl[i].*ukl[i] for i in findnz(dt.gkl)[1]))+ θ );
     return MLP(y,uij,ujk,ukl,θ,lp);
-end
-struct DualSP
-    # data::SubProblemData
-    α1::Vector{VariableRef}
-    α2::Vector{VariableRef}
-    α3::Vector{VariableRef}
-    α4::Vector{VariableRef}
-    α5::Vector{VariableRef}
-    α6::Vector{VariableRef}
-    α7::Vector{VariableRef}
-    α8::Vector{VariableRef}
-    α9::Vector{VariableRef}
-    α10::Vector{VariableRef}
-    α11::Vector{VariableRef}
-    α12::Vector{VariableRef}
-    α13::Vector{VariableRef}
-    α14::Vector{VariableRef}
-    m::Model
 end
 function DualSP(w)
     sub = direct_model(CPLEX.Optimizer());
@@ -444,7 +570,9 @@ function fbsearch(yr,u1r,u2r,u3r) #solveLP
         return 0,0,0,0
     end
 end
-function FP(yt,u1t,u2t,u3t)
+function FP()
+    optimize!(lp.m);
+    yt = value.(lp.y); utij = value.(lp.uij); utjk = value.(lp.ujk); utkl = value.(lp.ukl);
 	sol = []; SearchDone = false;	Tabu = []; newsol=0; t0=time(); iter=0; Max_iter = 50 #Y = [];
     # while candlist != [] &&  time()-t0 < TL && k < length(candX)+1
 
@@ -488,8 +616,6 @@ function benders_decomposition(w,mp::MasterP,lp::MLP)
     while (st == MOI.INFEASIBLE) || (st == MOI.OPTIMAL)
 
         if it!=0
-            optimize!(lp.m);
-            yt = value.(lp.y); utij = value.(lp.uij); utjk = value.(lp.ujk); utkl = value.(lp.ukl);
             sol = FP(yt,utij,utjk,utkl); push!(Archiv, sol)
             if sol != [] &&  sol ∉ Archiv # feasible sol found by FP
                 yb = sol[1][1]; ubij  = sol[1][2]; ubjk = sol[1][3]; ubkl = sol[1][4]; θb = value(mp.θ);
@@ -538,7 +664,6 @@ function benders_decomposition(w,mp::MasterP,lp::MLP)
                             sum(dt.Vkl[i]*ubkl[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
                             sum(dt.bigM.*ubij.*subp.α12) - sum(dt.bigM.*ubjk.*subp.α13) - sum(dt.bigM.*ubkl.*subp.α14)
                             )
-
                 end
             else
                 @info "Feasibility cut found"
@@ -582,22 +707,3 @@ function benders_decomposition(w,mp::MasterP,lp::MLP)
     end
     return (mp.m, mp.y, mp.uij, mp.ujk, mp.ukl) #, nopt_cons, nfeasi_cons, feasicuts,thetas)
 end
-
-# w=[0.5,0.5]
-mp = MasterP(w);
-# MOI.set(mp.m, MOI.LazyConstraintCallback(), benders_decomposition)
-lp = MLP(w);
-di = distance();
-mm,yy,ui,uj,uk = benders_decomposition(w,mp,lp)
-
-function masterFP(mp::build_master)
-    optimize!(mp.m)    # end
-    yt = value.(mp.y)
-    u1t = value.(mp.uij); u2t = value.(mp.ujk); u3t = value.(mp.ukl)
-    sol = FP(yt,u1t,u2t,u3t,60)
-    return sol
-end
-
-optimize!(mp.m)    # end
-yt = value.(mp.y); u1t = value.(mp.uij);u2t = value.(mp.ujk);u3t = value.(mp.ukl)
-sol = FP(yt,u1t,u2t,u3t,100)
