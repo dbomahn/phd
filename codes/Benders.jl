@@ -15,8 +15,8 @@ struct Data3
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data3(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -234,8 +234,8 @@ struct Data3
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
-# file3 = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file = "F:scnd/Test1S2"
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "F:scnd/Test1S2"
 dt = Data3(file); # for Benders
 ##########################  Mathematical model  #########################
 #Master Problem
@@ -270,7 +270,6 @@ function build_master(w)
         sum(dt.gij[i][j][m]*uij[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
         sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
         sum(dt.gkl[k][l][m]*ukl[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])) + θ );
-
     return build_master(y,uij,ujk,ukl,θ,mas)
 end
 
@@ -340,13 +339,6 @@ function solve_dsp(dsp::DualSP,yb,ubij,ubjk,ubkl)
     if st == MOI.OPTIMAL
       return (res = :OptimalityCut, obj = objective_value(dsp.m), α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10),α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
     elseif st == MOI.DUAL_INFEASIBLE
-        # lens = [length(dsp.α5),length(dsp.α6),length(dsp.α7),length(dsp.α8),length(dsp.α9),length(dsp.α10),length(dsp.α11),length(dsp.α1),length(dsp.α2),length(dsp.α3),length(dsp.α4)]
-        # rays = Vector{Float64}(undef,sum(dsp.lens))
-        # CPXgetray(backend(dsp.m).env, backend(dsp.m).lp, rays) # vr = value.(rays)
-        # pvci = [sum(lens[1:l]) for l=1:length(lens)]
-        # insert!(pvci,1,0)
-        # slices = [rays[pvci[l]+1:pvci[l+1]] for l=1:length(pvci)-1]
-        # return ( res = :FeasibilityCut, α5=slices[8], α6=slices[1], α7=slices[10], α8=slices[11], α9=slices[2], α10=slices[5], α11=slices[9] )
         return ( res = :FeasibilityCut, α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10), α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
     else
       error("DualSubProblem error: status $st")
@@ -423,6 +415,7 @@ function everyfrac_callback(cb_data)
     end
     return
 end
+
 function rootfrac_callback(cb_data)
     ndepth = Ref{CPXLONG}()
     CPXcallbackgetinfolong(cb_data, CPXCALLBACKINFO_NODEDEPTH, ndepth)
@@ -432,6 +425,7 @@ function rootfrac_callback(cb_data)
         subp = solve_dsp(dsp,yb,ubij,ubjk,ubkl)
         if subp.res == :OptimalityCut
             if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+                println("finish")
                 return
             else
                 cut = @build_constraint( mp.θ ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
@@ -444,6 +438,8 @@ function rootfrac_callback(cb_data)
                     sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
                     );
                 MOI.submit(mp.m, MOI.UserCut(cb_data), cut)
+                push!(optcuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+
             end
         else
             cut = @build_constraint( 0 ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
@@ -455,16 +451,16 @@ function rootfrac_callback(cb_data)
                 sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                 sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
                 );
-            MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
+            MOI.submit(mp.m, MOI.UserCut(cb_data), cut)
             # push!(mas.feasicuts, cut)
-            # push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+            push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
         end
         return
     end
 end
 
 
-w = [0.5,0.5]; feasicuts = []; nopt_cons=0; nfeasi_cons=0; cint = 0; cfrac = 0;
+w = [0.5,0.5]; feasicuts = []; optcuts = []; nopt_cons=0; nfeasi_cons=0; cint = 0; cfrac = 0;
 mp = build_master(w);
 dsp = DualSP(w);
 MOI.set(mp.m, MOI.LazyConstraintCallback(), lazy_callback)
@@ -474,8 +470,7 @@ optimize!(mp.m)
 # termination_status(mp.m)
 node_count(mp.m),solve_time(mp.m)
 # nopt,nfeasi
-
-
+value.(mp.y)
 1
 # function benders_with_callback(cb_data)#benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Containers.SparseAxisArray{VariableRef},ujk::JuMP.Containers.SparseAxisArray{VariableRef},ukl::JuMP.Containers.SparseAxisArray{VariableRef})
 #     # ,uij::Array{VariableRef},ujk::Array{VariableRef},ukl::Array{VariableRef})

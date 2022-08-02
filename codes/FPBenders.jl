@@ -6,8 +6,8 @@ using JuMP,CPLEX,LinearAlgebra,DelimitedFiles,CPUTime,SparseArrays
     Vij::SparseVector{}; Vjk::SparseVector{}; Vkl::SparseVector{}; b::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd1/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -45,8 +45,8 @@ struct Data2
     filepath::String; N::Dict{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
@@ -185,8 +185,8 @@ struct Data2
         new(filepath,N,Mij,Mjk,Mkl,vij,vjk,vkl,rij,rjk,rkl); #cap,Mij,Mjk,Mkl,
     end
 end
-file = "F:scnd/Test1S2";
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "F:scnd/Test1S2";
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 dt = Data1(file); dt2 = Data2(file);
 struct MasterP
     y::Vector{VariableRef}
@@ -196,25 +196,6 @@ struct MasterP
     θ::VariableRef
     m::Model
 end
-struct DualSP
-    # data::SubProblemData
-    α1::Vector{VariableRef}
-    α2::Vector{VariableRef}
-    α3::Vector{VariableRef}
-    α4::Vector{VariableRef}
-    α5::Vector{VariableRef}
-    α6::Vector{VariableRef}
-    α7::Vector{VariableRef}
-    α8::Vector{VariableRef}
-    α9::Vector{VariableRef}
-    α10::Vector{VariableRef}
-    α11::Vector{VariableRef}
-    α12::Vector{VariableRef}
-    α13::Vector{VariableRef}
-    α14::Vector{VariableRef}
-    m::Model
-end
-
 function f1Master()
     mas = Model(CPLEX.Optimizer); set_silent(mas)
     # MOI.set(mas, MOI.RawOptimizerAttribute("CPXPARAM_MIP_Strategy_Search"), 1) # conventional branch-and-cut. without dynamic search
@@ -242,7 +223,42 @@ function f1Master()
     @objective(mas, Min, sum(dt.c.*y) + sum(dt.gij[i]*uij[i] for i in findnz(dt.gij)[1]) + sum(dt.gjk[i]*ujk[i] for i in findnz(dt.gjk)[1]) + sum(dt.gkl[i].*ukl[i] for i in findnz(dt.gkl)[1])+ θ );
     return MasterP(y,uij,ujk,ukl,θ,mas);
 end
-f1mp = f1Master();
+struct DualSP
+    # data::SubProblemData
+    α1::Vector{VariableRef}
+    α2::Vector{VariableRef}
+    α3::Vector{VariableRef}
+    α4::Vector{VariableRef}
+    α5::Vector{VariableRef}
+    α6::Vector{VariableRef}
+    α7::Vector{VariableRef}
+    α8::Vector{VariableRef}
+    α9::Vector{VariableRef}
+    α10::Vector{VariableRef}
+    α11::Vector{VariableRef}
+    α12::Vector{VariableRef}
+    α13::Vector{VariableRef}
+    α14::Vector{VariableRef}
+    m::Model
+end
+function solve_dsp(dsp::DualSP,yb,ubij,ubjk,ubkl)
+    @objective(dsp.m, Max, sum(dsp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*dsp.α6[i] for i=1:dt.N["supplier"])-
+        sum(dt.N["cap"][j]*yb[2*(j-1)+t]*dsp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*yb[2*(dt.N["plant"]+k-1)+t]*dsp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+        sum(dt.Vij[i]*ubij[i]*dsp.α9[i] for i in findnz(dt.Vij)[1])+
+        sum(dt.Vjk[i]*ubjk[i]*dsp.α10[i] for i in findnz(dt.Vjk)[1])+
+        sum(dt.Vkl[i]*ubkl[i]*dsp.α11[i] for i in findnz(dt.Vkl)[1])+
+        sum(dt.bigM.*ubij.*dsp.α12) - sum(dt.bigM.*ubjk.*dsp.α13) - sum(dt.bigM.*ubkl.*dsp.α14)
+        )
+    optimize!(dsp.m)
+    st = termination_status(dsp.m)
+    if st == MOI.OPTIMAL
+      return (res = :OptimalityCut, obj = objective_value(dsp.m), α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10),α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
+    elseif st == MOI.DUAL_INFEASIBLE
+        return ( res = :FeasibilityCut, α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10), α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
+    else
+      error("DualSubProblem error: status $st")
+    end
+end
 
 function f1DualSP()
     sub = direct_model(CPLEX.Optimizer());
@@ -287,7 +303,6 @@ function f1DualSP()
     @constraint(sub, [k=1:dt.N["distribution"],t=1:2,p=1:5], α4[5*(k-1)+p]-α8[2*(k-1)+t] <= dt2.N["vcd"][k][2*(t-1)+p])
     return DualSP(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
 end
-f1dsp = f1DualSP();
 
 function rootfrac_callback(cb_data)
     ndepth = Ref{CPXLONG}()
@@ -303,9 +318,9 @@ function rootfrac_callback(cb_data)
                 cut = @build_constraint( f1mp.θ ≥ sum(subp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                     sum(dt.N["cap"][j]*f1mp.y[2*(j-1)+t]*subp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*f1mp.y[2*(dt.N["plant"]+k-1)+t]*subp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
                     sum(dt.Vij[i]*f1mp.uij[i]*subp.α9[i] for i in findnz(dt.Vij)[1])+
-                    sum(dt.Vjk[i]*f1mp.uij[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
-                    sum(dt.Vkl[i]*f1mp.uij[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
-                    sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.uij.*subp.α13) - sum(dt.bigM.*f1mp.uij.*subp.α14)
+                    sum(dt.Vjk[i]*f1mp.ujk[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
+                    sum(dt.Vkl[i]*f1mp.ukl[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
+                    sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.ujk.*subp.α13) - sum(dt.bigM.*f1mp.ukl.*subp.α14)
                     )
                 push!(optcuts, cut)
                 # push!(optcuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
@@ -315,28 +330,63 @@ function rootfrac_callback(cb_data)
             cut = @build_constraint( 0 ≥ sum(subp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                 sum(dt.N["cap"][j]*f1mp.y[2*(j-1)+t]*subp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*f1mp.y[2*(dt.N["plant"]+k-1)+t]*subp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
                 sum(dt.Vij[i]*f1mp.uij[i]*subp.α9[i] for i in findnz(dt.Vij)[1])+
-                sum(dt.Vjk[i]*f1mp.uij[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
-                sum(dt.Vkl[i]*f1mp.uij[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
-                sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.uij.*subp.α13) - sum(dt.bigM.*f1mp.uij.*subp.α14)
-                )
-            MOI.submit(mas.m, MOI.UserCut(cb_data), cut)
+                sum(dt.Vjk[i]*f1mp.ujk[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
+                sum(dt.Vkl[i]*f1mp.ukl[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
+                sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.ujk.*subp.α13) - sum(dt.bigM.*f1mp.ukl.*subp.α14)
+            )
+            MOI.submit(f1mp.m, MOI.UserCut(cb_data), cut)
             push!(fcuts, cut)
             push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
         end
         return
     end
 end
-
+function lazy_callback(cb_data)
+    yb = callback_value.(cb_data, f1mp.y);    ubij = callback_value.(cb_data, f1mp.uij);    ubjk = callback_value.(cb_data, f1mp.ujk)
+    ubkl = callback_value.(cb_data, f1mp.ukl);    θb = callback_value(cb_data, f1mp.θ)
+    subp = solve_dsp(f1dsp,yb,ubij,ubjk,ubkl)
+    if subp.res == :OptimalityCut
+        if round(θb; digits=4) ≥ round(subp.obj; digits=4)
+            return
+        else
+            cut = @build_constraint( f1mp.θ ≥ sum(subp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
+                sum(dt.N["cap"][j]*f1mp.y[2*(j-1)+t]*subp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*f1mp.y[2*(dt.N["plant"]+k-1)+t]*subp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+                sum(dt.Vij[i]*f1mp.uij[i]*subp.α9[i] for i in findnz(dt.Vij)[1])+
+                sum(dt.Vjk[i]*f1mp.ujk[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
+                sum(dt.Vkl[i]*f1mp.ukl[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
+                sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.ujk.*subp.α13) - sum(dt.bigM.*f1mp.ukl.*subp.α14)
+                )
+            push!(optcuts, cut)
+            MOI.submit(f1mp.m, MOI.LazyConstraint(cb_data), cut)
+        end
+    else
+        cut = @build_constraint( f1mp.θ ≥ sum(subp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
+            sum(dt.N["cap"][j]*f1mp.y[2*(j-1)+t]*subp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*f1mp.y[2*(dt.N["plant"]+k-1)+t]*subp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+            sum(dt.Vij[i]*f1mp.uij[i]*subp.α9[i] for i in findnz(dt.Vij)[1])+
+            sum(dt.Vjk[i]*f1mp.ujk[i]*subp.α10[i] for i in findnz(dt.Vjk)[1])+
+            sum(dt.Vkl[i]*f1mp.ukl[i]*subp.α11[i] for i in findnz(dt.Vkl)[1])+
+            sum(dt.bigM.*f1mp.uij.*subp.α12) - sum(dt.bigM.*f1mp.ujk.*subp.α13) - sum(dt.bigM.*f1mp.ukl.*subp.α14)
+            )
+        MOI.submit(f1mp.m, MOI.LazyConstraint(cb_data), cut)
+        push!(fcuts, cut)
+        push!(feasicuts, (α5=subp.α5,α6=subp.α6,α7=subp.α7,α8=subp.α8,α9=subp.α9,α10=subp.α10,α11=subp.α11,α12=subp.α12,α13=subp.α13,α14=subp.α14))
+    end
+    return
+end
+f1mp = f1Master();
+f1dsp = f1DualSP();
 optcuts = []; fcuts = []; feasicuts = [];
+MOI.set(f1mp.m, MOI.LazyConstraintCallback(), lazy_callback)
+MOI.set(f1mp.m, MOI.UserCutCallback(), rootfrac_callback)
 
+optimize!(f1mp.m)
+optcuts
+feasicuts[2]
+typeof(fcuts[1])
+fcuts[110]
+set_normalized_coefficient(con, fcuts[2], 0)
 
-
-
-
-
-
-
-
+1
 
 
 
@@ -472,24 +522,7 @@ function DualSP(w)
     @constraint(sub, [k=1:dt.N["distribution"],t=1:2,p=1:5], α4[5*(k-1)+p]-α8[2*(k-1)+t] <= w[1]*(dt2.N["vcd"][k][2*(t-1)+p])+w[2]*(dt2.N["ved"][k][2*(t-1)+p]))
     return DualSP(α1,α2,α3,α4,α5,α6,α7,α8,α9,α10,α11,α12,α13,α14,sub)
 end
-function solve_dsp(dsp::DualSP,yb,ubij,ubjk,ubkl)
-    @objective(dsp.m, Max, sum(dsp.α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*dsp.α6[i] for i=1:dt.N["supplier"])-
-        sum(dt.N["cap"][j]*yb[2*(j-1)+t]*dsp.α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*yb[2*(dt.N["plant"]+k-1)+t]*dsp.α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
-        sum(dt.Vij[i]*ubij[i]*dsp.α9[i] for i in findnz(dt.Vij)[1])+
-        sum(dt.Vjk[i]*ubjk[i]*dsp.α10[i] for i in findnz(dt.Vjk)[1])+
-        sum(dt.Vkl[i]*ubkl[i]*dsp.α11[i] for i in findnz(dt.Vkl)[1])+
-        sum(dt.bigM.*ubij.*dsp.α12) - sum(dt.bigM.*ubjk.*dsp.α13) - sum(dt.bigM.*ubkl.*dsp.α14)
-        )
-    optimize!(dsp.m)
-    st = termination_status(dsp.m)
-    if st == MOI.OPTIMAL
-      return (res = :OptimalityCut, obj = objective_value(dsp.m), α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10),α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
-    elseif st == MOI.DUAL_INFEASIBLE
-        return ( res = :FeasibilityCut, α5 = value.(dsp.α5), α6 = value.(dsp.α6), α7 = value.(dsp.α7), α8= value.(dsp.α8), α9= value.(dsp.α9), α10= value.(dsp.α10), α11= value.(dsp.α11), α12= value.(dsp.α12),α13= value.(dsp.α13),α14= value.(dsp.α14) )
-    else
-      error("DualSubProblem error: status $st")
-    end
-end
+
 
 ###################    Benders with Feasibility Pump    ########################
 function flip(x_h,j,e)
