@@ -1,14 +1,14 @@
 cd("C:/Users/AK121396/Desktop/ProjectBenders")
 using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,SparseArrays#,CPUTime
 
-mutable struct Data1
+struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Vkl::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd1/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -50,10 +50,10 @@ mutable struct Data1
 end
 
 # @show file = ARGS[1];
-# file = "F:/scnd/Test1S2"
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+f = "F:/scnd/Test1S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 # file = "/home/k2g00/k2g3475/scnd1/instances/test01S2"
-dt1 = Data1(file);
+dt1 = Data1(f);
 ##########################  Mathematical model  #########################
 scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
 # MOI.set(scnd1, MOI.NumberOfThreads(), 1);

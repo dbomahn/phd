@@ -15,9 +15,9 @@ struct Data3
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data3(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -328,7 +328,7 @@ function solve_dsp(dsp::DualSP,yb,ubij,ubjk,ubkl)
         sum(dt.N["cap"][j]*yb[j,t]*dsp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*yb[dt.N["plant"]+k,t]*dsp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
         sum(dt.Vij[i][j][m]*ubij[i,j,m]*dsp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
         sum(dt.Vjk[j][k][m]*ubjk[j,k,m]*dsp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-        sum(dt.Vkl[k][l][m]*ubkl[k,l,m]*dsp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+        # sum(dt.Vkl[k][l][m]*ubkl[k,l,m]*dsp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
         sum(dt.bigM*ubij[i,j,m]*dsp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
         sum(dt.bigM*ubjk[j,k,m]*dsp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
         sum(dt.bigM*ubkl[k,l,m]*dsp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
@@ -355,9 +355,9 @@ function lazy_callback(cb_data)
             cut = @build_constraint( mp.θ ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                 sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                 sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-                sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
-                sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+                # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
+                - sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                 sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                 sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
                 );
@@ -367,9 +367,9 @@ function lazy_callback(cb_data)
         cut = @build_constraint( 0 ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
             sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
             sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-            sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-            sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
-            sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+            sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+            # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+            - sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
             sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
             sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
             );
@@ -390,9 +390,9 @@ function everyfrac_callback(cb_data)
             cut = @build_constraint( mp.θ ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                 sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                 sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-                sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
-                sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) 
+                # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
+                -sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                 sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                 sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
                 );
@@ -402,9 +402,9 @@ function everyfrac_callback(cb_data)
         cut = @build_constraint( 0 ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
             sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
             sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-            sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-            sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
-            sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+            sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+            # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+            - sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
             sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
             sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
             );
@@ -431,9 +431,9 @@ function rootfrac_callback(cb_data)
                 cut = @build_constraint( mp.θ ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                     sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                     sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-                    sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-                    sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
-                    sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+                    sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+                    # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
+                    -sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                     sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                     sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
                     );
@@ -445,9 +445,9 @@ function rootfrac_callback(cb_data)
             cut = @build_constraint( 0 ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                 sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                 sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-                sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
-                sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
+                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+                # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+                - sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                 sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                 sum(dt.bigM*mp.ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
                 );
@@ -546,7 +546,7 @@ function benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Co
                     sum(dt.N["cap"][j]*y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                     sum(dt.Vij[i][j][m]*uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
                     sum(dt.Vjk[j][k][m]*ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-                    sum(dt.Vkl[k][l][m]*ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
+                    # sum(dt.Vkl[k][l][m]*ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
                     sum(dt.bigM*uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                     sum(dt.bigM*ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                     sum(dt.bigM*ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
@@ -560,7 +560,7 @@ function benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Co
                 sum(dt.N["cap"][j]*y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                 sum(dt.Vij[i][j][m]*uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
                 sum(dt.Vjk[j][k][m]*ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
-                sum(dt.Vkl[k][l][m]*ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
+                # sum(dt.Vkl[k][l][m]*ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])-
                 sum(dt.bigM*uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                 sum(dt.bigM*ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
                 sum(dt.bigM*ukl[k,l,m]*subp.α14[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
@@ -598,7 +598,7 @@ con7 = @constraint(sub,[j=1:dt.N["plant"], t=1:2], sum(h[j,1:5,t]) <=dt.N["cap"]
 con8 = @constraint(sub,[k=1:J+dt.N["distribution"], t=1:2], sum(h[k,1:5,t]) >= dt.N["cad"][k]*yb[J+k,t]);
 con9 = @constraint(sub,[i=1:dt.N["supplier"], j=1:dt.N["plant"], m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) >= dt.Vij[i][j][m]*ubij[i,j,m] );
 con10 = @constraint(sub,[j=1:dt.N["plant"], k=1:dt.N["distribution"], m=1:dt.Mjk[j,k]], sum(xjk[j,k,m,p] for p=1:5) >= dt.Vjk[j][k][m]*ubjk[j,k,m]);
-con11 = @constraint(sub,[k=1:dt.N["distribution"], l=1:dt.N["customer"], m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) >= dt.Vkl[k][l][m]*ubkl[k,l,m]);
+# con11 = @constraint(sub,[k=1:dt.N["distribution"], l=1:dt.N["customer"], m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) >= dt.Vkl[k][l][m]*ubkl[k,l,m]);
 @objective( sub, Min, w[1]*( exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2)) +
     exv + w[2]*( exb + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr) );
 
