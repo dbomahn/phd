@@ -4,7 +4,7 @@ cd("C:/Users/AK121396/Desktop/ProjectBenders")
 f1mp = f1Master(); f1dsp = f1DualSP(); optcuts = []; feasicuts = [];
 MOI.set(f1mp.m, MOI.LazyConstraintCallback(), lazy_callback);
 # MOI.set(f1mp.m, MOI.UserCutCallback(), rootfrac_callback)
-set_time_limit_sec(f1mp.m, 400)
+set_time_limit_sec(f1mp.m, 300)
 optimize!(f1mp.m)
 # solve_time(f1mp.m)
 length(optcuts)
@@ -110,8 +110,8 @@ mp2,dsp2,sol,ocuts,fcuts,archiv = benders_decomposition()
 length(unique(Archiv))
 length(ocuts),length(unique(fcuts))
 
-feasisol[1]
-
+optimize!(molp.m)
+yt = value.(molp.y); utij = value.(molp.uij); utjk = value.(molp.ujk); utkl = value.(molp.ukl);
 
 mp = MasterP(w);
 AddCuts(mp,ocuts,unique(fcuts))

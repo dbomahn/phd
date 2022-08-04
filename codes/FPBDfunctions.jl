@@ -5,9 +5,9 @@ struct Data1
     Vij::SparseVector{}; Vjk::SparseVector{};  b::Array{}; upl::Int; udc::Int; bigM::Int #Vkl::SparseVector{};
     function Data1(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd1/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -45,9 +45,9 @@ struct Data2
     filepath::String; N::Dict{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -186,7 +186,8 @@ struct Data2
     end
 end
 # file = "F:scnd/Test1S2";
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 dt = Data1(file); dt2 = Data2(file);
 
 struct MasterP
@@ -448,6 +449,29 @@ function AddCuts(model,ocuts,fcuts)
             sum(dt.bigM.*model.uij.*fcuts[c].α12) - sum(dt.bigM.*model.ujk.*fcuts[c].α13) - sum(dt.bigM.*model.ukl.*fcuts[c].α14))
     end
 end
+
+# function AddCuts(molp,optcuts,feasicuts)
+#     for c=1:length(optcuts)
+#         @constraint(molp, molp[:θ] >= sum(optcuts[c].α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-
+#             sum(dt.N["cas"][i]*optcuts[c].α6[i] for i=1:dt.N["supplier"])-
+#             sum(dt.N["cap"][j]*molp[:y][2*(j-1)+t]*optcuts[c].α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-
+#             sum(dt.N["cad"][k]*molp[:y][2*(dt.N["plant"]+k-1)+t]*optcuts[c].α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+#             sum(dt.Vij[i]*molp[:uij][i]*optcuts[c].α9[i] for i in findnz(dt.Vij)[1])+
+#             sum(dt.Vjk[i]*molp[:ujk][i]*optcuts[c].α10[i] for i in findnz(dt.Vjk)[1])
+#             # sum(dt.Vkl[i]*molp[:ukl][i]*optcuts[c].α11[i] for i in findnz(dt.Vkl)[1])+
+#             -sum(dt.bigM.*molp[:uij].*optcuts[c].α12) - sum(dt.bigM.*molp[:ujk].*optcuts[c].α13) - sum(dt.bigM.*molp[:ukl].*optcuts[c].α14))
+#     end
+#     for c=1:length(feasicuts)
+#         @constraint(molp, 0 >= sum(feasicuts[c].α5[5*(l-1)+p]*dt.d[l,p] for l=1:dt.N["customer"] for p=1:5)-
+#             sum(dt.N["cas"][i]*feasicuts[c].α6[i] for i=1:dt.N["supplier"])-
+#             sum(dt.N["cap"][j]*molp[:y][2*(j-1)+t]*feasicuts[c].α7[2*(j-1)+t] for j=1:dt.N["plant"] for t=1:2)-
+#             sum(dt.N["cad"][k]*molp[:y][2*(dt.N["plant"]+k-1)+t]*feasicuts[c].α8[2*(k-1)+t] for k=1:dt.N["distribution"] for t=1:2)+
+#             sum(dt.Vij[i]*molp[:uij][i]*feasicuts[c].α9[i] for i in findnz(dt.Vij)[1])+
+#             sum(dt.Vjk[i]*molp[:ujk][i]*feasicuts[c].α10[i] for i in findnz(dt.Vjk)[1])
+#             # sum(dt.Vkl[i]*molp[:ukl][i]*feasicuts[c].α11[i] for i in findnz(dt.Vkl)[1])+
+#             -sum(dt.bigM.*molp[:uij].*feasicuts[c].α12) - sum(dt.bigM.*molp[:ujk].*feasicuts[c].α13) - sum(dt.bigM.*molp[:ukl].*feasicuts[c].α14))
+#     end
+# end
 
 struct buildMP
     y::Vector{VariableRef}
