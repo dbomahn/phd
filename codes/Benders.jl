@@ -390,7 +390,7 @@ function everyfrac_callback(cb_data)
             cut = @build_constraint( mp.θ ≥ sum(subp.α5[l,p]*dt.d[l][p] for l=1:dt.N["customer"] for p=1:5)-sum(dt.N["cas"][i]*subp.α6[i] for i=1:dt.N["supplier"])-
                 sum(dt.N["cap"][j]*mp.y[j,t]*subp.α7[j,t] for j=1:dt.N["plant"] for t=1:2)-sum(dt.N["cad"][k]*mp.y[dt.N["plant"]+k,t]*subp.α8[k,t] for k=1:dt.N["distribution"] for t=1:2)+
                 sum(dt.Vij[i][j][m]*mp.uij[i,j,m]*subp.α9[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) +
-                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) 
+                sum(dt.Vjk[j][k][m]*mp.ujk[j,k,m]*subp.α10[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
                 # sum(dt.Vkl[k][l][m]*mp.ukl[k,l,m]*subp.α11[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]) -
                 -sum(dt.bigM*mp.uij[i,j,m]*subp.α12[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j]) -
                 sum(dt.bigM*mp.ujk[j,k,m]*subp.α13[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) -
@@ -537,7 +537,6 @@ function benders_decomposition(w,mas::Model, y::Matrix{VariableRef},uij::JuMP.Co
         push!(thetas,θ1)
         if subp.res == :OptimalityCut
             @info "Optimality cut found"
-            println(θ1,"  and  ",round(subp.obj; digits=4))
             if round(θ1; digits=4) ≥ round(subp.obj; digits=4)
                 break
             else
