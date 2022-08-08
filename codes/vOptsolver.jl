@@ -6,9 +6,9 @@ mutable struct Data2
     Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -225,8 +225,8 @@ mutable struct Data2
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # file = "F:/model/Test1S2"
 dt = Data2(file);
 function buildmodel()
@@ -285,13 +285,18 @@ function buildmodel()
     return model
 end
 model = buildmodel()
-vSolve(model, method=:dicho)
+TimeLimit = 50
+vSolve(model, TimeLimit, method=:dicho)
 # vSolve(model, method=:epsilon, step=1000000000.0, verbose=true);
-ndpoints = getY_N(model)
+# ndpoints = getY_N(model)
+vd = getvOptData(model)
+vd.Y_N
+vd.X_E[1]
+
 function saveSol(fname::String, Y_N)#, elapsedTime::Float64)
     way = fname*"Y_N"
     open(way, "w") do f
-        write(f, "$elapsedTime \n")
+        # write(f, "$elapsedTime \n")
         write(f, "$(length(Y_N)) \n")
         for i in 1:length(Y_N)
             write(f, "$(Y_N[i][1]) $(Y_N[i][2]) \n")

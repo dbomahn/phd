@@ -95,7 +95,7 @@ function flipoper(Tabu, x_t, x_r)
             Num = Int64(rand(ceil(length(x_r) / 2):length(x_r)-1))
             R = sample(1:M, Num, replace = false)
             for r in R
-                x_h = flip(x_h, r)
+                x_h = flip(x_h,r,e)
                 if x_h ∉ Tabu
                     xi = x_h
                 end
@@ -223,7 +223,7 @@ function Postpro(candX, candY, newsol)
 
     return finalsol, finalobj
 end
-mt = CallModel("/home/ak121396/Desktop/relise/newlp.lp");
+mt = CallModel("/home/ak121396/Desktop/relise/noobj.lp");
 pr = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Desktop/relise/test01S2_img_p.sol");
 
 # dt = CallModel(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
@@ -232,8 +232,8 @@ pr = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Deskto
 scnd1 = Model(CPLEX.Optimizer);
 MOI.set(scnd1, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
 # MOI.set(scnd1, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-bvar = findall(i -> i == 1, mt.vub);
-rvar = findall(i -> i != 1, mt.vub);
+bvar = findall(i -> i == 1, mt.vub)
+rvar = findall(i -> i != 1, mt.vub)
 @variable(scnd1, x[1:mt.n] >= 0);
 for i = 1:mt.n
     if i in bvar
@@ -254,6 +254,7 @@ for k = 1:mt.m
 end
 @objective(scnd1, Min, dot(mt.C[1,:],x) + dot(mt.C[2,:],x));
 optimize!(scnd1);
+
 # stpoint = length(rvar)
 # @variable(scnd1, yu[i in bvar], Bin);
 # @variable(scnd1, xh[i in rvar] >=0 );
