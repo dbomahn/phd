@@ -1,5 +1,13 @@
-cd("C:/Users/AK121396/Desktop/ProjectBenders")
-using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,SparseArrays#,CPUTime
+# cd("C:/Users/AK121396/Desktop/ProjectBenders")
+using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,SparseArrays,MathProgBase
+using
+const MPB = MathProgBase
+
+function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
+    model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
+    MPB.loadproblem!(model,filename) # load what we actually want
+    return model
+end
 
 struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -8,8 +16,8 @@ struct Data1
     function Data1(file)
         dt1 = readdlm(file);
         # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd1/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -50,10 +58,10 @@ struct Data1
 end
 
 # @show file = ARGS[1];
-f = "F:/scnd/Test1S2"
+# file = "F:/scnd/Test1S2"
 # file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-# file = "/home/k2g00/k2g3475/scnd1/instances/test01S2"
-dt1 = Data1(f);
+file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+dt1 = Data1(file);
 ##########################  Mathematical model  #########################
 scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
 # MOI.set(scnd1, MOI.NumberOfThreads(), 1);
@@ -85,7 +93,7 @@ scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
 # @objective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
 #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
 #         sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1));
-w=[0.9,0.1]
+w=[1,0]
 @objective(scnd1, Min, w[1]*(sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
         sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
@@ -142,9 +150,88 @@ end);
 @constraints(scnd1, begin
         [i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i]
         [i in findnz(dt1.Vjk)[1]], sum(xjk1[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk1[i]
-        [i in findnz(dt1.Vkl)[1]], sum(xkl1[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl1[i]
+        # [i in findnz(dt1.Vkl)[1]], sum(xkl1[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl1[i]
 end);
 ########### constraint 13-14 #############
 @constraint(scnd1, sum(y1[1:dt1.N["plant"]*2]) <= dt1.upl);
 @constraint(scnd1, sum(y1[dt1.N["plant"]*2+1:end]) <= dt1.udc);
 optimize!(scnd1); objective_value(scnd1)
+
+
+###########################    Make vlp file   #########################
+write_to_file(scnd1, file*".lp")
+lpmodel = loadlp(file*".lp")
+Bmtx = MPB.getconstrmatrix(lpmodel);
+# cut = findall(i-> varub[i]==1 && varub[i+1]!=1, 1:length(varub))[end]
+# B = Bmtx[3:end,1:cut];P = Bmtx[1:2,1:cut]; vub = varub[1:cut]
+B = Bmtx[3:end,:];P = Bmtx[1:2,:]; vub = MPB.getvarUB(lpmodel)
+m,n=size(B)
+lb = MPB.getconstrLB(lpmodel)[3:end]
+ub = MPB.getconstrUB(lpmodel)[3:end]
+RHS = []
+for i=1:m
+    if ub[i]==Inf
+        push!(RHS,lb[i])
+    else
+        push!(RHS,ub[i])
+    end
+end
+signs = []
+for i=1:m
+    if ub[i] == Inf
+        push!(signs,"l")
+    elseif lb[i] == -Inf
+        push!(signs,"u")
+    else
+        push!(signs, "s")
+    end
+end
+########################## Make vlp file for Bensolve #######################
+nz = count(i->(i!=0),B)
+objnz = count(i->(i!=0),P)
+obj=size(P)[1]
+wholearray=[];
+arr=["p vlp min",m,n,nz,obj,objnz]
+push!(wholearray,arr)
+
+for i=1:m
+   for j=1:n
+       if (B[i,j]!=0)
+           if (B[i,j]%1) == 0 #if B[i,j] is Int
+               push!(wholearray,("a",i,j,Int128(B[i,j])))
+           else# B[i,j] is Float
+               push!(wholearray,("a",i,j,Float64(B[i,j])))
+           end
+       end
+   end
+end
+for i=1:obj
+   for j=1:n
+       if P[i,j]!=0
+           push!(wholearray,("o",i,j,P[i,j]))
+       end
+   end
+end
+for i=1:m
+   push!(wholearray,("i",i,signs[i],RHS[i]))
+end
+# for j=1:n
+#     if j in bvar
+#         push!(wholearray,("j",j,"s",fpx[1][j])) #assign FP int var values
+#     else
+#         push!(wholearray,("j", j,'l',0))
+#     end
+# end
+for j=1:n
+    if vub[j]==1
+        push!(wholearray,("j",j,"d",0,1))
+    else
+        push!(wholearray,("j", j,'l',0))
+    end
+end
+push!(wholearray,"e")
+
+ins = open("/home/k2g00/k2g3475/scnd/vlp/"*file[36:end]*".vlp","w")
+# ins = open(file*".vlp","w")
+writedlm(ins,wholearray)
+close(ins)

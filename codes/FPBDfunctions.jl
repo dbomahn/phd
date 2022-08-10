@@ -656,7 +656,7 @@ function fbsearch(yr,u1r,u2r,u3r) #solveLP
     else
         return 0,0,0,0
     end
-end
+end 
 function FP(yt,u1t,u2t,u3t)
     # yt = value.(lp.y); utij = value.(lp.uij); utjk = value.(lp.ujk); utkl = value.(lp.ukl);
 	sol = nothing; SearchDone = false; newsol=0; t0=time(); iter=0; Max_iter = 50 #Y = [];
