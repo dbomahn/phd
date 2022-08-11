@@ -1,6 +1,5 @@
 # cd("C:/Users/AK121396/Desktop/ProjectBenders")
 using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,SparseArrays,MathProgBase
-using
 const MPB = MathProgBase
 
 function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
@@ -15,9 +14,9 @@ struct Data1
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -59,21 +58,21 @@ end
 
 # @show file = ARGS[1];
 # file = "F:/scnd/Test1S2"
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 dt1 = Data1(file);
 ##########################  Mathematical model  #########################
 scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
 # MOI.set(scnd1, MOI.NumberOfThreads(), 1);
-# @variable(scnd1, 0<= y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1);
-# @variable(scnd1, 0<= uij1[1:sum(dt1.Mij)] <= 1);
-# @variable(scnd1, 0<= ujk1[1:sum(dt1.Mjk)] <= 1);
-# @variable(scnd1, 0<= ukl1[1:sum(dt1.Mkl)] <= 1);
+@variable(scnd1, 0<= y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1);
+@variable(scnd1, 0<= uij1[1:sum(dt1.Mij)] <= 1);
+@variable(scnd1, 0<= ujk1[1:sum(dt1.Mjk)] <= 1);
+@variable(scnd1, 0<= ukl1[1:sum(dt1.Mkl)] <= 1);
 #########################  IP  ########################################
-@variable(scnd1, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
-@variable(scnd1, uij1[1:sum(dt1.Mij)], Bin);
-@variable(scnd1, ujk1[1:sum(dt1.Mjk)], Bin);
-@variable(scnd1, ukl1[1:sum(dt1.Mkl)], Bin);
+# @variable(scnd1, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
+# @variable(scnd1, uij1[1:sum(dt1.Mij)], Bin);
+# @variable(scnd1, ujk1[1:sum(dt1.Mjk)], Bin);
+# @variable(scnd1, ukl1[1:sum(dt1.Mkl)], Bin);
 
 @variable( scnd1, 0<= xij1[1:sum(dt1.Mij)*5] );
 @variable( scnd1, 0<= xjk1[1:sum(dt1.Mjk)*5] );
@@ -93,14 +92,15 @@ scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
 # @objective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
 #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
 #         sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1));
-w=[1,0]
+# w=[0.5,0.5]
+w=[1,1]
 @objective(scnd1, Min, w[1]*(sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
-        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-        sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-        sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1)) +
-        w[2]*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
-        sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-        sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
+    sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+    sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
+    sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1)) +
+    w[2]*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
+    sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+    sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
 );
 
 ########## constraint 3 #############
@@ -129,16 +129,15 @@ w=[1,0]
 ########### constraint 9 #############
 @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y1[2*(j-1)+1:2*(j-1)+2]) <= 1);
 ########### constraint 10 #############
-@constraints(scnd1,begin
-        sum(uij1[1:dt1.Mij[1,1]]) <= 1
-        [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
-        [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
-        sum(ujk1[1:dt1.Mjk[1,1]]) <= 1
-        [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
-        [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
-        sum(ukl1[1:dt1.Mkl[1,1]]) <= 1
-        [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
-        [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
+@constraints(scnd1,begin sum(uij1[1:dt1.Mij[1,1]]) <= 1
+    [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
+    [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
+    sum(ujk1[1:dt1.Mjk[1,1]]) <= 1
+    [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
+    [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
+    sum(ukl1[1:dt1.Mkl[1,1]]) <= 1
+    [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
+    [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
 end);
 ########### constraint 11 #############
 @constraints(scnd1, begin
@@ -148,9 +147,9 @@ end);
 end);
 ########### constraint 12 #############
 @constraints(scnd1, begin
-        [i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i]
-        [i in findnz(dt1.Vjk)[1]], sum(xjk1[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk1[i]
-        # [i in findnz(dt1.Vkl)[1]], sum(xkl1[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl1[i]
+    [i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i]
+    [i in findnz(dt1.Vjk)[1]], sum(xjk1[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk1[i]
+    # [i in findnz(dt1.Vkl)[1]], sum(xkl1[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl1[i]
 end);
 ########### constraint 13-14 #############
 @constraint(scnd1, sum(y1[1:dt1.N["plant"]*2]) <= dt1.upl);
@@ -158,9 +157,31 @@ end);
 optimize!(scnd1); objective_value(scnd1)
 
 
+py = pr.dvar[1][length(rvar)+1:length(rvar)+length(y1)]
+pui = pr.dvar[1][length(rvar)+1+length(y1):length(rvar)+length(y1)+length(uij1)]
+puj = pr.dvar[1][length(rvar)+1+length(y1)+length(uij1):length(rvar)+length(y1)+length(uij1)+length(ujk1)]
+puk = pr.dvar[1][length(rvar)+1+length(y1)+length(uij1)+length(ujk1):end]
+
+
+for k=1:length(y1)
+    JuMP.fix(y1[k], py[k]; force = true)
+end
+for k=1:length(uij1)
+    JuMP.fix(uij1[k], pui[k]; force = true)
+end
+for k=1:length(ujk1)
+    JuMP.fix(ujk1[k], puj[k]; force = true)
+end
+for k=1:length(ukl1)
+    JuMP.fix(ukl1[k], puk[k]; force = true)
+end
+
+optimize!(scnd1); objective_value(scnd1)
+termination_status(scnd1)
+
 ###########################    Make vlp file   #########################
-write_to_file(scnd1, file*".lp")
-lpmodel = loadlp(file*".lp")
+write_to_file(scnd1, file*"1dim.lp")
+lpmodel = loadlp(file*"1dim.lp")
 Bmtx = MPB.getconstrmatrix(lpmodel);
 # cut = findall(i-> varub[i]==1 && varub[i+1]!=1, 1:length(varub))[end]
 # B = Bmtx[3:end,1:cut];P = Bmtx[1:2,1:cut]; vub = varub[1:cut]
@@ -195,25 +216,25 @@ arr=["p vlp min",m,n,nz,obj,objnz]
 push!(wholearray,arr)
 
 for i=1:m
-   for j=1:n
-       if (B[i,j]!=0)
-           if (B[i,j]%1) == 0 #if B[i,j] is Int
-               push!(wholearray,("a",i,j,Int128(B[i,j])))
-           else# B[i,j] is Float
-               push!(wholearray,("a",i,j,Float64(B[i,j])))
-           end
-       end
-   end
+    for j=1:n
+        if (B[i,j]!=0)
+            if (B[i,j]%1) == 0 #if B[i,j] is Int
+                push!(wholearray,("a",i,j,Int128(B[i,j])))
+            else# B[i,j] is Float
+                push!(wholearray,("a",i,j,Float64(B[i,j])))
+            end
+        end
+    end
 end
 for i=1:obj
-   for j=1:n
-       if P[i,j]!=0
-           push!(wholearray,("o",i,j,P[i,j]))
-       end
-   end
+    for j=1:n
+        if P[i,j]!=0
+            push!(wholearray,("o",i,j,P[i,j]))
+        end
+    end
 end
 for i=1:m
-   push!(wholearray,("i",i,signs[i],RHS[i]))
+    push!(wholearray,("i",i,signs[i],RHS[i]))
 end
 # for j=1:n
 #     if j in bvar
@@ -231,7 +252,7 @@ for j=1:n
 end
 push!(wholearray,"e")
 
-ins = open("/home/k2g00/k2g3475/scnd/vlp/"*file[36:end]*".vlp","w")
+ins = open("/home/k2g00/k2g3475/scnd/vlp/"*file[36:end]*"1dim.vlp","w")
 # ins = open(file*".vlp","w")
 writedlm(ins,wholearray)
 close(ins)

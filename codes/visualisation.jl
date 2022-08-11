@@ -1,27 +1,19 @@
 using PlotlyJS,DataFrames,DelimitedFiles,JLD2,Colors
 # using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
-struct Valu
-    x::String
+struct NDpoints
     y::String
-    dvar::Array{}
     LB::Array{}
     LBmtx::Array{}
-    function Valu(x, y)
-        JLD2.@load x dv
-        dv0 = Array(dv)
-        # dv0 = readdlm(x)
-        dv1 = round.(dv0; digits = 4)
+    function NDpoints(y)
         objs = round.(readdlm(y); digits = 4)
         ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
-        dv2 = dv1[setdiff(1:end, ind), :]
         LBmtx = objs[setdiff(1:end, ind), 2:end]
-        dvar = [Vector(dv2[i, :]) for i = 1:size(LBmtx)[1]]
         LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
-        new(x, y, dvar, LB, LBmtx)
+        new(y, LB, LBmtx)
     end
 end
 #############################        2D plot      ###########################
-sol = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Desktop/relise/test01S2_img_p.sol");
+sol = NDpoints("/home/ak121396/Desktop/relise/test01S21dim_img_p.sol");
 exact = [8.52038e+007	2.2839e+006
     8.52122e+007	2.27922e+006
     8.55325e+007	2.19361e+006
