@@ -7,12 +7,11 @@ struct CallModel
     n::Int
     C::Array{}
     B::Array{}
-    RHS::Dict{}
+    RHS::Array{}
     signs::Array{}
     vub::Array{}
     function CallModel(lpfile::String)
-        lpmodel =
-            buildlp([-1, 0], [2 1], '<', 1.5, CplexSolver(CPX_PARAM_SCRIND = 0))
+        lpmodel = buildlp([-1, 0], [2 1], '<', 1.5, CplexSolver(CPX_PARAM_SCRIND = 0))
         MPB.loadproblem!(lpmodel, lpfile)
         Bmtx = MPB.getconstrmatrix(lpmodel)
         B = Bmtx[3:end, :]
@@ -23,12 +22,12 @@ struct CallModel
         vub = MPB.getvarUB(lpmodel)
         lb = MPB.getconstrLB(lpmodel)[3:end]
         ub = MPB.getconstrUB(lpmodel)[3:end]
-        RHS = Dict()
-        for i = 1:m
-            if ub[i] == Inf
-                RHS[i] = lb[i]
+        RHS = []
+        for i=1:m
+            if ub[i]==Inf
+                push!(RHS,lb[i])
             else
-                RHS[i] = ub[i]
+                push!(RHS,ub[i])
             end
         end
         signs = []
@@ -223,68 +222,11 @@ function Postpro(candX, candY, newsol)
 
     return finalsol, finalobj
 end
-mt = CallModel("/home/ak121396/Desktop/instances/SCND/test01S21dim.lp");
-pr = Valu("/home/ak121396/Desktop/relise/test01S21dim_X.jld2","/home/ak121396/Desktop/relise/test01S21dim_img_p.sol");
 # dt = CallModel(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
 # Bentime = readdlm(ARGS[4])[1];
-
-
-using JuMP,CPLEX,JLD2,DelimitedFiles
-struct Valu
-    x::String
-    y::String
-    dvar::Array{}
-    LB::Array{}
-    LBmtx::Array{}
-    function Valu(x, y)
-        JLD2.@load x dv
-        dv0 = Array(dv)
-        # dv0 = readdlm(x)
-        dv1 = round.(dv0; digits = 4)
-        objs = round.(readdlm(y); digits = 4)
-        ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
-        dv2 = dv1[setdiff(1:end, ind), :]
-        LBmtx = objs[setdiff(1:end, ind), 2:end]
-        dvar = [Vector(dv2[i, :]) for i = 1:size(LBmtx)[1]]
-        LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
-        new(x, y, dvar, LB, LBmtx)
-    end
-end
+mt = CallModel("F:scnd/Test1S21dim.lp");
+pr = Valu("F:scnd/test01S2_X.jld2","F:scnd/test01S2_img_p.sol");
 pr = Valu("/home/ak121396/Desktop/relise/test01S21dim_X.jld2","/home/ak121396/Desktop/relise/test01S21dim_img_p.sol");
-m0 = JuMP.read_from_file("/home/ak121396/Desktop/instances/SCND/test01S21dim.lp.lp")
-set_optimizer(m0, CPLEX.Optimizer)
-allvar = all_variables(m0)
-bvar = findall(i->i==1, is_binary.(allvar))
-
-
-
-for k in bvar
-    JuMP.fix(allvar[k], pr.dvar[1][k]; force = true)
-end
-optimize!(m0)
-termination_status(m0)
-
-
-function fbcheck(xx, n)
-    for k in bvar
-        JuMP.fix(allvar[k], xx[k]; force = true)
-    end
-    optimize!(scnd1)
-    if termination_status(scnd1) == MOI.OPTIMAL
-        return true
-    else
-        return false
-    end
-end
-
-
-# objective_function(dest)
-# MOI.get(m0, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
-list_of_constraint_types(m0)
-
-
-
-
 #################### scnd1 model #########################
 scnd1 = Model(CPLEX.Optimizer);
 MOI.set(scnd1, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
@@ -309,11 +251,9 @@ for k = 1:mt.m
         @constraint(scnd1, dot(mt.B[k, :], x) == mt.RHS[k])
     end
 end
-@objective(scnd1, Min, dot(mt.C[1,:],x) ) #+ dot(mt.C[2,:],x));
+@objective(scnd1, Min, dot(mt.C[1,:],x) + dot(mt.C[2,:],x));
 optimize!(scnd1);
 solve_time(scnd1)
-objective_value(scnd1)
-
 
 # stpoint = length(rvar)
 # @variable(scnd1, yu[i in bvar], Bin);
@@ -326,7 +266,6 @@ objective_value(scnd1)
 #     end
 # end
 
-# objective_value(scnd1)
 ##################### Feasibility Search model ######################
 dist = Model(CPLEX.Optimizer);
 MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
