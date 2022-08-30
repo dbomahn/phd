@@ -53,7 +53,7 @@ struct Valu
         JLD2.@load x dv
         dv0 = Array(dv)
         # dv0 = readdlm(x)
-        dv1 = round.(dv0; digits = 4)
+        dv1 = dv0 #round.(dv0; digits = 4)
         objs = round.(readdlm(y); digits = 4)
         ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
         dv2 = dv1[setdiff(1:end, ind), :]
@@ -106,20 +106,16 @@ function flipoper(Tabu, x_t, x_r)
 end
 
 function findsol(x_r, var)
-    for k in var
-        JuMP.fix(x[k], x_r[k]; force = true)
-    end
+    JuMP.fix.(scnd1[:x], x_r; force = true)
     optimize!(scnd1)
     if termination_status(scnd1) == MOI.OPTIMAL
-        return JuMP.value.(x)
+        return JuMP.value.(scnd1[:x])
     else
         return []
     end
 end
-function fbcheck(xx, n)
-    for k = 1:n
-        JuMP.fix(x[k], xx[k]; force = true)
-    end
+function FBcheck(yr,u1r,u2r,u3r)
+    JuMP.fix.(scnd1[:x][rvar[end]+1:end],[yr;u1r;u2r;u3r]; force=true)
     optimize!(scnd1)
     if termination_status(scnd1) == MOI.OPTIMAL
         return true
@@ -127,6 +123,17 @@ function fbcheck(xx, n)
         return false
     end
 end
+# function fbcheck(xx, n)
+#     for k = 1:n
+#         JuMP.fix(x[k], xx[k]; force = true)
+#     end
+#     optimize!(scnd1)
+#     if termination_status(scnd1) == MOI.OPTIMAL
+#         return true
+#     else
+#         return false
+#     end
+# end
 # function fbsearch(x,bvar,C,θ) #solveLP
 #     idx0 = findall(k->x[k]==0, bvar)
 #     idx1 = findall(k->x[k]==1, bvar)
@@ -139,15 +146,17 @@ end
 #         return false;
 #     end
 # end
-function fbsearch(x_r, bvar, C) #solveLP
-    idx0 = findall(k -> x[k] == 0, bvar)
-    idx1 = findall(k -> x[k] == 1, bvar)
+function fbsearch(x_r,len) #solveLP
+    idx0 = findall(k -> k == 0, x_r)
+    idx1 = findall(k -> k == 1, x_r)
     @objective( dist, Min, sum(dx[i] for i in idx0) + sum(1 - (dx[j]) for j in idx1) )
     optimize!(dist)
     if termination_status(dist) == MOI.OPTIMAL
-        return JuMP.value.(dx)
+        return JuMP.value.(dx[rvar[end]+1:rvar[end]+len[1]]),JuMP.value.(dx[rvar[end]+1+len[1]:rvar[end]+sum(len[i] for i=1:2)]),
+            JuMP.value.(dx[rvar[end]+1+sum(len[i] for i=1:2):rvar[end]+sum(len[i] for i=1:3)]),
+            JuMP.value.(dx[rvar[end]+1+sum(len[i] for i=1:3):rvar[end]+sum(len[i] for i=1:4)])
     else
-        return false
+        return 0,0,0,0
     end
 end
 function dominated(y, P)
@@ -224,16 +233,18 @@ function Postpro(candX, candY, newsol)
 end
 # dt = CallModel(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
 # Bentime = readdlm(ARGS[4])[1];
-mt = CallModel("F:scnd/Test1S21dim.lp");
-pr = Valu("F:scnd/test01S2_X.jld2","F:scnd/test01S2_img_p.sol");
+# mt = CallModel("F:scnd/Test1S21dim.lp");
+# pr = Valu("F:scnd/test01S2_X.jld2","F:scnd/test01S2_img_p.sol");
+mt = CallModel("/home/ak121396/Desktop/relise/test01S21dim.lp")
 pr = Valu("/home/ak121396/Desktop/relise/test01S21dim_X.jld2","/home/ak121396/Desktop/relise/test01S21dim_img_p.sol");
 #################### scnd1 model #########################
 scnd1 = Model(CPLEX.Optimizer);
 MOI.set(scnd1, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
-# MOI.set(scnd1, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
+MOI.set(scnd1, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
 bvar = findall(i -> i == 1, mt.vub)
 rvar = findall(i -> i != 1, mt.vub)
 @variable(scnd1, x[1:mt.n] >= 0);
+# @constraint(scnd1, x[bvar[1]:bvar[end]].<=1 )
 for i = 1:mt.n
     if i in bvar
         set_binary(x[i])
@@ -251,10 +262,10 @@ for k = 1:mt.m
         @constraint(scnd1, dot(mt.B[k, :], x) == mt.RHS[k])
     end
 end
-@objective(scnd1, Min, dot(mt.C[1,:],x) + dot(mt.C[2,:],x));
+# @objective(scnd1, Min, dot(mt.C[1,:],x))# + dot(mt.C[2,:],x));
 optimize!(scnd1);
-solve_time(scnd1)
-
+# objective_value(scnd1)
+# sum(value.(x[i] for i in bvar))
 # stpoint = length(rvar)
 # @variable(scnd1, yu[i in bvar], Bin);
 # @variable(scnd1, xh[i in rvar] >=0 );
@@ -269,13 +280,9 @@ solve_time(scnd1)
 ##################### Feasibility Search model ######################
 dist = Model(CPLEX.Optimizer);
 MOI.set(dist, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
-# MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
+MOI.set(dist, MOI.RawParameter("CPX_PARAM_THREADS"),1  );
 @variable(dist, dx[1:mt.n] >= 0);
-for i = 1:mt.n
-    if i in bvar
-        set_binary(dx[i])
-    end
-end
+@constraint(dist,[i in bvar] ,dx[i] <=1 )
 for k = 1:mt.m
     if mt.signs[k] == "l"
         @constraint(dist, dot(mt.B[k, :], dx) >= mt.RHS[k])
@@ -286,82 +293,144 @@ for k = 1:mt.m
     end
 end
 optimize!(dist);
-# 𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)];
-function FP(candX, n, C, TL, bvar)#,𝚯)
-    X = []; Y = []; Tabu = []; t0 = time(); newsol = 0; candlist = copy(candX)
-    # k=1
-    while candlist != [] #|| time() - t0 < TL
+
+
+function FPplus(candX,bvar,TL)
+    X = []; Tabu = []; t0 = time(); newsol = 0; candlist = copy(candX)
+    Y = []; U1 = []; U2= []; U3 = [];
+    while candlist != [] && time() - t0 < TL
         k = rand(1:length(candlist))
-        SearchDone = false
-        x_t = candlist[k]
-        iter = 0
-        Max_iter = length(findall(i-> 0<i<1,x_t)) #10
-        # for θ ∈ 𝚯
-        while iter < Max_iter && SearchDone == false #&& time() - t0 < TL
-            x_r = x_t
-            for i in bvar
-                x_r[i] = round(x_t[i])
-            end
-            x_n = findsol(x_r, bvar)
-            if x_n ∈ X
-                deleteat!(candlist, k)
-                break
-            end
-            if x_n != []
-                push!(X, x_n)
-                push!(Y, getobjval(x_n, C))
-                newsol += 1
-                deleteat!(candlist, k)
-                SearchDone = true
-                println("Rounding worked")
+        x_t = candlist[k][bvar[1]:bvar[end]]
+        yt = x_t[1:len[1]];
+        u1t = x_t[1+len[1]:len[1]+len[2]];
+        u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
+        u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
+        SearchDone = false; iter = 0; Max_iter = 10 #length(findall(i-> 0<i<1,x_t)) #10
+        while iter < Max_iter && SearchDone == false && time() - t0 < TL
+            yr = round.(Int, yt); u1r = round.(Int, u1t);
+            u2r = round.(Int, u2t); u3r = round.(Int, u3t);
+            if FBcheck(yr,u1r,u2r,u3r) == true
+                sol = value.(all_variables(scnd1))
+                if sol ∉ X  # dominated(ndp,PF)==false
+                    push!(X,sol); #push!(PF,ndf)
+                    push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                    newsol+=1; SearchDone = true
+                    deleteat!(candlist, k);
+                    println("rounding worked")
+                    break
+                end
             else
-                x1_r = [x_r[i] for i in bvar]
-                if x1_r ∈ Tabu
-                    x1_t = [x_t[i] for i in bvar]
-                    x1_r = flipoper(Tabu, x1_t, x1_r)
-                    if x1_r == []
-                        SearchDone = true
+                if [yr;u1r;u2r;u3r] ∈ Tabu
+                    yr = flipoper(Y,yt,yr); u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
+                    if any(i->i==[], [yr,u1r,u2r,u3r])
+                        SearchDone = true; println("flip failed")
                     else
-                        for i = 1:length(bvar)
-                            x_r[bvar[i]] = x1_r[i]
-                        end
-                        x_n = findsol(x_r, bvar)
-                        if x_n ∈ X
-                            deleteat!(candlist, k)
-                            break
-                        end
-                        if x_n != [] # && dominated(getobjval(x_n,C),Y)==false)
-                            push!(X, x_n)
-                            push!(Y, getobjval(x_n, C)) # candY = [candY; getobjval(x_r,C)'];
-                            newsol += 1
-                            deleteat!(candlist, k)
-                            SearchDone = true
-                            println("Flip worked")
+                        if FBcheck(yr,u1r,u2r,u3r) == true
+                            sol = value.(all_variables(scnd1)) #ndp = getobjval(sol)
+                            if sol ∉ X #dominated(ndp,PF)==false
+                                push!(X,sol); #push!(PF,ndf)
+                                push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                                newsol+=1; SearchDone = true;
+                                println("flip worked")
+                                deleteat!(candlist, k);
+                            end
                         end
                     end
+                end
+                if time()-t0 >= TL
+                    return X,candlist,newsol
                 end
                 if SearchDone == false
-                    push!(Tabu, x1_r)
-                    x_t = fbsearch(x_r, bvar, C)#,θ)
-                    if x_t == false #when there's no new feasible lp sol
-                        deleteat!(candlist, k)
+                    push!(Tabu,[yr;u1r;u2r;u3r])
+                    yt,u1t,u2t,u3t = fbsearch([yr;u1r;u2r;u3r],len)
+                    if any(i->i==0, [yt,u1t,u2t,u3t])  #when there's no new feasible lp sol
+                        println("no solution")
+                        deleteat!(candlist, k);
                         SearchDone = true
                     end
                 end
-            endcd
-            iter += 1
+            end
+            iter+=1
         end
-        # end
     end
-    return X, Y, candlist, newsol, Tabu
+    return X,candlist,newsol
 end
-function getobjval(x, C)
-    return [dot(x, C[1, :]), dot(x, C[2, :])]
+fptime = @CPUelapsed fx, candlist, fn = FPplus(pr.dvar, bvar,500)#,𝚯)# compiling
+1
+# 𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)];
+# function FP(candX, n, C, TL, bvar)#,𝚯)
+#     X = []; Y = []; Tabu = []; t0 = time(); newsol = 0; candlist = copy(candX)
+#     # k=1
+#     while candlist != [] || time() - t0 < TL
+#         k = rand(1:length(candlist))
+#         SearchDone = false
+#         x_t = candlist[k]
+#         iter = 0
+#         Max_iter = length(findall(i-> 0<i<1,x_t)) #10
+#         # for θ ∈ 𝚯
+#         while iter < Max_iter && SearchDone == false #&& time() - t0 < TL
+#             x_r = x_t
+#             for i in bvar
+#                 x_r[i] = round(x_t[i])
+#             end
+#             x_n = findsol(x_r, bvar)
+#             if x_n ∈ X
+#                 deleteat!(candlist, k)
+#                 break
+#             end
+#             if x_n != []
+#                 push!(X, x_n)
+#                 push!(Y, getobjval(x_n, C))
+#                 newsol += 1
+#                 deleteat!(candlist, k)
+#                 SearchDone = true
+#                 println("Rounding worked")
+#             else
+#                 x1_r = [x_r[i] for i in bvar]
+#                 if x1_r ∈ Tabu
+#                     x1_t = [x_t[i] for i in bvar]
+#                     x1_r = flipoper(Tabu, x1_t, x1_r)
+#                     if x1_r == []
+#                         SearchDone = true
+#                     else
+#                         for i = 1:length(bvar)
+#                             x_r[bvar[i]] = x1_r[i]
+#                         end
+#                         x_n = findsol(x_r, bvar)
+#                         if x_n ∈ X
+#                             deleteat!(candlist, k)
+#                             break
+#                         end
+#                         if x_n != [] # && dominated(getobjval(x_n,C),Y)==false)
+#                             push!(X, x_n); push!(Y, getobjval(x_n, C)) # candY = [candY; getobjval(x_r,C)'];
+#                             newsol += 1
+#                             deleteat!(candlist, k)
+#                             SearchDone = true
+#                             println("Flip worked")
+#                         end
+#                     end
+#                 end
+#                 if SearchDone == false
+#                     push!(Tabu, x1_r)
+#                     x_t = fbsearch(x_r, bvar, C)#,θ)
+#                     if x_t == false #when there's no new feasible lp sol
+#                         deleteat!(candlist, k)
+#                         SearchDone = true
+#                     end
+#                 end
+#             end
+#             iter += 1
+#         end
+#         # end
+#     end
+#     return X, Y, candlist, newsol, Tabu
+# end
+function getobjval(x)
+    return [dot(x, mt.C[1, :]), dot(x, mt.C[2, :])]
 end
 
-fptime = @CPUelapsed fx, fy, candlist, fn, tabu = FP(pr.dvar, mt.n, mt.C, 600, bvar)#,𝚯)# compiling
-[1.357159163621e8, 2.0362360187739998e6]
-[1.537091043895e8, 2.708700294894e6]
+fy = getobjval.(fx[i] for i=1:length(fx))
+bfx,bfy = domFilter(fx,fy)
 
 # FPTL = (TL-Bentime)
 # FPtime = @CPUelapsed

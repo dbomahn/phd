@@ -22,19 +22,24 @@ struct Valu
     end
 end
 m1 = read_from_file("F:scnd/Test1S21dim.lp")
+pr = Valu("F:scnd/test01S2_X.jld2","F:scnd/test01S2_img_p.sol");
+
+m1 = read_from_file("/home/ak121396/Desktop/relise/test01S21dim.lp")
 set_optimizer(m1, CPLEX.Optimizer)
 allvar = all_variables(m1)
 bvar = findall(i->i==1, is_binary.(allvar))
 relax_integrality(m1)
 print(m1)
-
-pr = Valu("F:scnd/test01S2_X.jld2","F:scnd/test01S2_img_p.sol");
-findall(i->0<i<1, pr.dvar[1])
+pr = Valu("/home/ak121396/Desktop/relise/test01S21dim_X.jld2","/home/ak121396/Desktop/relise/test01S21dim_img_p.sol")
+findall(i->i>1, pr.dvar[1][bvar[1]:bvar[end]])
 for k in bvar
-    println(pr.dvar[1][k])
-    # JuMP.fix(allvar[k], pr.dvar[1][k]; force = true)
+    JuMP.fix(allvar[k], pr.dvar[2][k]; force = true)
 end
+optimize!(m1); termination_status(m1)
+pr.dvar[1][end-30]
 
+findall(i->i=="ukl1_1087_",allvar)
+1
 # py = pr.dvar[1][length(rvar)+1:length(rvar)+length(y1)]
 # pui = pr.dvar[1][length(rvar)+1+length(y1):length(rvar)+length(y1)+length(uij1)]
 # puj = pr.dvar[1][length(rvar)+1+length(y1)+length(uij1):length(rvar)+length(y1)+length(uij1)+length(ujk1)]
@@ -52,7 +57,6 @@ end
 #     JuMP.fix(ukl1[k], puk[k]; force = true)
 # end
 #
-# optimize!(m1); termination_status(m1)
 
 
 

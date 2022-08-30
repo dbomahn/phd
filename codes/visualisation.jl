@@ -24,11 +24,13 @@ exact = [8.52038e+007	2.2839e+006
     9.68962e+007	1.76151e+006
     1.20186e+008	1.5156e+006]
 
-benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2])
-sort!(benobj, :x)
-trace1 = scatter(x=exact[:,1],y=exact[:,2],name="epsilon",mode="lines+markers")
-trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines")      # this sets its legend entry
+benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
+ws1 = [vd.Y_N[i][1] for i=1:length(vd.Y_N)]; ws2 = [vd.Y_N[i][2] for i=1:length(vd.Y_N)]
 
+trace1 = scatter(x=exact[:,1],y=exact[:,2],name="epsilon",mode="markers")
+trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines")      # this sets its legend entry
+trace3 = scatter(x=ws1, y=ws2,  name="Dicho", mode="markers")
+# trace2 = scatter(x=fy1, y=fy2,  name="BenFP", mode="markers")
 
 layout = Layout(
     title="Plot Title",
@@ -42,7 +44,7 @@ layout = Layout(
     )
 )
 
-plot([trace1, trace2], layout)
+plot([trace1, trace2,trace3], layout)
 ##########################     3D Visualisation       ###########################
 nms = ["FPBH vs FPGPR plot"]
 title = "FPBH vs FPGPR: " #this is the caption appearing in the figure

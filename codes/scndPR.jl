@@ -136,7 +136,7 @@ function domFilter(sol,obj)
     finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
     return finalsol,finalobj
 end
-function createNB(SI,C,dif,exploredSI,dvar)
+function createNB(SI,C,dif,exploredSI,bvar)
     neibour = []; neiobj = [];
     for i in dif
         cpSI = copy(SI)
@@ -146,11 +146,11 @@ function createNB(SI,C,dif,exploredSI,dvar)
             else
                 cpSI[i] = 1
             end
-            push!(neibour, cpSI); push!(neiobj, getobjval(cpSI,C,dvar))
+            push!(neibour, cpSI); push!(neiobj, binobj(cpSI,bvar))
         else #if vari is fractional
-            cpSI[i] = 1; push!(neibour, cpSI); push!( neiobj, getobjval(cpSI,C,dvar) )
+            cpSI[i] = 1; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
             cpSI = copy(SI)
-            cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, getobjval(cpSI,C,dvar) )
+            cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
         end
     end
     idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
@@ -159,8 +159,8 @@ function createNB(SI,C,dif,exploredSI,dvar)
 
     return neibour,neiobj
 end
-function nextSI(neibour,neiobj,C,SI,dvar)
-    SIobj = getobjval(SI,C,dvar)
+function nextSI(neibour,neiobj,C,SI,bvar)
+    SIobj = binobj(SI,bvar)#,C,bvar)
     # neiobj = [getobjval(neibour[i],C) for i=1:length(neibour)]
     for i=1:length(neiobj)
         if length(neiobj) == 1  #if there is one candiate sol
@@ -212,6 +212,7 @@ function Postpro(candX,candY,newsol)
     return finalsol,finalobj
 end
 
+
 mt = CallModel("/home/ak121396/Desktop/relise/newlp.lp");
 pr = Valu("/home/ak121396/Desktop/relise/test01S2_X.jld2","/home/ak121396/Desktop/relise/test01S2_img_p.sol");
 # mt = Data(ARGS[1]); pr = Valu(ARGS[2],ARGS[3])
@@ -240,10 +241,8 @@ for k=1:mt.m
 end
 optimize!(scnd2)
 
-function FBcheck(xx,n)
-    for k=1:n
-        JuMP.fix(x[k],xx[k]; force=true)
-    end
+function FBcheck(xx)
+    JuMP.fix.(scnd2[:x],xx; force=true)
     optimize!(scnd2)
     if termination_status(scnd2) == MOI.OPTIMAL
         return true
@@ -251,21 +250,23 @@ function FBcheck(xx,n)
         return false
     end
 end
-function getobjval(x,C,bvar)
-    return [ dot(x,[C[1,:][k] for k in bvar]), dot(x,[C[2,:][k] for k in bvar]) ]
+function getobjval(x)
+    return [ dot(x,mt.C[1,:]), dot(x,mt.C[2,:]) ]
 end
-function GPR(lpX,lpY,C,TL,bvar)
+function binobj(x,bvar)
+    return [ dot(x,[mt.C[1,:][k] for k in bvar]), dot(x,[mt.C[2,:][k] for k in bvar]) ]
+end
+function GPR(lpX,lpY,TL,bvar,C)
     candX = copy(lpX); candY = copy(lpY);
     IGPair=[]; exploredSI = []; t0=time();newsol=0;
     while time()-t0 < TL
-	    I,G = sample(1:length(candX), 2, replace=false)
-        SI = [candX[I][k] for k in bvar]; SG = [candX[G][k] for k in bvar]; iter=0;
+	    I,G = StatsBase.sample(1:length(candX), 2, replace=false)
+        SI = candX[I][bvar[1]:bvar[end]]; SG = candX[G][bvar[1]:bvar[end]]; iter=0;
         SI_r = round.(SI); SG_r = round.(SG)
         dif = findall(i-> SI_r[i]!=SG_r[i], 1:length(bvar))
         # println("dif is: ", length(dif))
-        Max_iter = 10 #length(findall(i-> 0<i<1,candX[I]))
-        print("maximum iteration",Max_iter)
-        while all.(SI_r != SG_r) && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
+        Max_iter = length(findall(i-> 0<i<1,candX[I]))
+        while length(dif)>0 && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
             neibour,neiobj = createNB(SI,C,dif,exploredSI,bvar)
             if (length(neiobj)==0) #(time()-t0 >= TL)
                 break
@@ -273,7 +274,7 @@ function GPR(lpX,lpY,C,TL,bvar)
                 for l=1:length(neibour)
                     xn = PRfindsol(round.(neibour[l]),bvar)
                     if ( xn!=[] && xn∉candX )
-                        push!(candX, xn); push!(candY, getobjval(xn,C));
+                        push!(candX, xn); push!(candY, getobjval(xn));
                         newsol+=1;println("new sol");
                     end
                 end
@@ -288,7 +289,7 @@ function GPR(lpX,lpY,C,TL,bvar)
     end
     return candX,candY,newsol
 end
-GPRtime = @CPUelapsed px,py,pn = GPR(pr.dvar,pr.LB,mt.C,600,bvar)
+GPRtime = @CPUelapsed px,py,pn = GPR(pr.dvar,pr.LB,60,bvar,mt.C)
 totaltime = FPtime+Bentime+GPRtime
 prx,pry = Postpro(px,py,pn)
 

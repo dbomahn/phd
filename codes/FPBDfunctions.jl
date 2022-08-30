@@ -5,9 +5,9 @@ struct Data1
     Vij::SparseVector{}; Vjk::SparseVector{};  b::Array{}; upl::Int; udc::Int; bigM::Int #Vkl::SparseVector{};
     function Data1(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -45,9 +45,9 @@ struct Data2
     filepath::String; N::Dict{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
     function Data2(filepath)
         dt = readdlm(filepath);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt)[1][1];
@@ -656,7 +656,7 @@ function fbsearch(yr,u1r,u2r,u3r) #solveLP
     else
         return 0,0,0,0
     end
-end 
+end
 function FP(yt,u1t,u2t,u3t)
     # yt = value.(lp.y); utij = value.(lp.uij); utjk = value.(lp.ujk); utkl = value.(lp.ukl);
 	sol = nothing; SearchDone = false; newsol=0; t0=time(); iter=0; Max_iter = 50 #Y = [];
@@ -704,7 +704,40 @@ function FP(yt,u1t,u2t,u3t)
 end
 
 
-
+###############   multi dimension
+# function fbsearch(yr,u1r,u2r,u3r) #solveLP
+#     idy_0 = findall(k->k==0, yr)
+#     idy_1 = findall(k->k==1, yr)
+#     idu1_0 = findall(k->k==0, u1r)
+#     idu1_1 = findall(k->k==1, u1r)
+#     idu2_0 = findall(k->k==0, u2r)
+#     idu2_1 = findall(k->k==1, u2r)
+#     idu3_0 = findall(k->k==0, u3r)
+#     idu3_1 = findall(k->k==1, u3r)
+#     @objective( dist, Min, sum(dist[:y][i] for i in idy_0) + sum(1-(dist[:y][j]) for j in idy_1) +
+#         sum(dist[:uij][i] for i in idu1_0) + sum(1-(dist[:uij][j]) for j in idu1_1)+
+#         sum(dist[:ujk][i] for i in idu2_0) + sum(1-(dist[:uij][j]) for j in idu2_1)+
+#         sum(dist[:ukl][i] for i in idu3_0) + sum(1-(dist[:ukl][j]) for j in idu3_1))
+#     optimize!(dist)
+#     if termination_status(dist) == MOI.OPTIMAL
+#         return JuMP.value.(dist[:y]),JuMP.value.(dist[:uij]),JuMP.value.(dist[:ujk]),JuMP.value.(dist[:ukl])
+#     else
+#         return 0,0,0,0
+#     end
+# end
+# function FBcheck(yr,u1r,u2r,u3r)
+#     JuMP.fix.(fbmodel[:y],yr; force=true)
+#     JuMP.fix.(fbmodel[:uij],u1r; force=true)
+#     JuMP.fix.(fbmodel[:ujk],u2r; force=true)
+#     JuMP.fix.(fbmodel[:ukl],u3r; force=true)
+#     optimize!(fbmodel)
+#
+#     if termination_status(fbmodel) == MOI.OPTIMAL
+#         return true
+#     else
+#         return false
+#     end
+# end
 
 # function MIPmodel(w)
 #     mip = Model(CPLEX.Optimizer); set_silent(mip)

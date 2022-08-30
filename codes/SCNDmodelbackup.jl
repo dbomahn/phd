@@ -367,7 +367,7 @@ for i=1:dt.N["supplier"]
     idx = 1;
     for j=1:dt.N["plant"]
         for m=1:dt.Mij[i,j]
-            add_to_expression!(exr,sum(dot.(dt.N["cep"][i][idx:idx+4],xij[i,j,m,p] for p=1:5)))#*sqrt((dt.N["pointsupplier"][1][i]-dt.N["pointplant"][1][j])^2+(dt.N["pointsupplier"][2][i]-dt.N["pointplant"][2][j])^2)) );
+            add_to_expression!(exr,sum(dot.(dt.N["cep"][i][idx:idx+4],xij[i,j,m,p] for p=1:5)))
             idx+=5
         end
     end
@@ -376,7 +376,7 @@ for j=1:dt.N["plant"]
     idx = 1;
     for k=1:dt.N["distribution"]
         for m=1:dt.Mjk[j,k]
-            add_to_expression!(exr,sum(dot.(dt.N["ced"][j][idx:idx+4],xjk[j,k,m,p] for p=1:5)))#*sqrt((dt.N["pointplant"][1][j]-dt.N["pointdistribution"][1][k])^2+(dt.N["pointplant"][2][j]-dt.N["pointdistribution"][2][k])^2)) );
+            add_to_expression!(exr,sum(dot.(dt.N["ced"][j][idx:idx+4],xjk[j,k,m,p] for p=1:5)))
             idx+=5
         end
     end
@@ -385,7 +385,7 @@ for k=1:dt.N["distribution"]
     idx = 1;
     for l=1:dt.N["customer"]
         for m=1:dt.Mkl[k,l]
-            add_to_expression!(exr,sum(dot.(dt.N["cec"][k][idx:idx+4],xkl[k,l,m,p] for p=1:5)))#*sqrt((dt.N["pointdistribution"][1][k]-dt.N["pointCustmoer"][1][l])^2+(dt.N["pointdistribution"][2][k]-dt.N["pointCustmoer"][2][l])^2)) );
+            add_to_expression!(exr,sum(dot.(dt.N["cec"][k][idx:idx+4],xkl[k,l,m,p] for p=1:5)))
             idx+=5
         end
     end
