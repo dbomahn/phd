@@ -26,27 +26,24 @@ exact = [8.52038e+007	2.2839e+006
 
 benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
 ws1 = [vd.Y_N[i][1] for i=1:length(vd.Y_N)]; ws2 = [vd.Y_N[i][2] for i=1:length(vd.Y_N)]
-test4ndp =  [2.390549130264501e8, 2.0111988930544734e6]
- [2.3913806529690987e8, 1.9111988930544732e6]
- [2.3933479473642033e8, 1.811198893054475e6]
- [2.3966201088495317e8, 1.711198893054479e6]
- [2.406991570708742e8, 1.611198893054485e6]
- [2.4250375278647888e8, 1.5111988930544897e6]
- [2.4568793000078773e8, 1.4111988930544937e6]
- [2.5259694223350793e8, 1.311198893054494e6]
- [2.9859161288087964e8, 1.2111988930544928e6]
-obj1 = [test4ndp[i][1] for i=1:length(test4ndp)]; obj2 = [test4ndp[i][2] for i=1:length(test4ndp)]
+test4ndp =  [2.390549130264501e8 2.0111988930544734e6
+     2.3913806529690987e8 1.9111988930544732e6
+     2.3933479473642033e8 1.811198893054475e6
+     2.3966201088495317e8 1.711198893054479e6
+     2.406991570708742e8 1.611198893054485e6
+     2.4250375278647888e8 1.5111988930544897e6
+     2.4568793000078773e8 1.4111988930544937e6
+     2.5259694223350793e8 1.311198893054494e6
+     2.9859161288087964e8 1.2111988930544928e6]
 
-
+plot(scatter(x=test4ndp[:,1], y=test4ndp[:,2], name="Dicho", mode="markers+text"))
 
 trace1 = scatter(x=exact[:,1],y=exact[:,2],name="epsilon",mode="markers")
 trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines")      # this sets its legend entry
 trace3 = scatter(x=ws1, y=ws2,  name="Dicho", mode="markers")
 # trace2 = scatter(x=fy1, y=fy2,  name="BenFP", mode="markers")
 
-Test4 = scatter()
 
-plot(scatter(x=obj1, y=obj2,name="Dicho", mode="markers",text=x, textposition="auto"))
 1
 layout = Layout(
     title="Plot Title",
