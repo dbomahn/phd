@@ -7,8 +7,8 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -50,8 +50,8 @@ struct Data1dim
 end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
-file = "F:scnd/Test1S2"
-# file = "/home/ak121396/Desktop/instances/SCND/test04S4"
+# file = "F:scnd/Test1S2"
+file = "/home/ak121396/Desktop/instances/SCND/test04S4"
 dt1 = Data1dim(file);
 
 function SCND1dim()
@@ -122,13 +122,13 @@ function SCND1dim()
     return scnd1
 end
 scnd = SCND1dim()
-TL = 600
-@CPUtime vSolve(scnd,TL, method=:dicho)
-vd = getvOptData(scnd);
-vd.Y_N
-vd.X_E
-# vSolve(scnd, method=:epsilon, step=10^6, verbose=true);
-# ndpoints = getY_N(scnd)
+TL = 60.0
+@CPUtime vSolve(scnd,TL, method=:dicho, verbose=false)
+# vd = getvOptData(scnd);
+# vd.Y_N
+# vd.X_E
+@CPUtime vSolve(scnd, 60.0, method=:epsilon, step=10^5.0, verbose=true);
+ndpoints = getY_N(scnd)
 
 
 #########################  Feasibility Pump+   ###########################
