@@ -159,6 +159,7 @@ function createNB(SI,C,dif,exploredSI,bvar)
 
     return neibour,neiobj
 end
+
 function nextSI(neibour,neiobj,C,SI,bvar)
     SIobj = binobj(SI,bvar)#,C,bvar)
     # neiobj = [getobjval(neibour[i],C) for i=1:length(neibour)]
