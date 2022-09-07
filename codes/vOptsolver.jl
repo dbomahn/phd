@@ -8,8 +8,8 @@ struct Data1dim
     function Data1dim(file)
         dt1 = readdlm(file);
         # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -48,15 +48,14 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-# file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
 # @show file = ARGS[1]
-file = "F:scnd/Test1S2"
+# file = "F:scnd/Test4S4"
 # file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 dt1 = Data1dim(file);
-
 function SCND1dim()
     scnd1 = vModel(CPLEX.Optimizer); set_silent(scnd1)
-    MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+    # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
     @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(scnd1, uij[1:sum(dt1.Mij)], Bin);
     @variable(scnd1, ujk[1:sum(dt1.Mjk)], Bin);
@@ -151,6 +150,12 @@ function SCNDmultidim()
             add_to_expression!(exg,10000*ukl[k,l,1]);
         end
     end
+    @addobjective(model,  Min, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+        sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+        sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
+        sum(dt.rij[i][j][m]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+        sum(dt.rjk[j][k][m]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+        sum(dt.rkl[k][l][m]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5));
 
     @addobjective(model, Min,  sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg+
         sum(dt.N["vcs"][i][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) +
@@ -159,12 +164,6 @@ function SCNDmultidim()
         sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
         sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
         sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
-    @addobjective(model,  Min, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
-        sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
-        sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
-        sum(dt.rij[i][j][m]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
-        sum(dt.rjk[j][k][m]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
-        sum(dt.rkl[k][l][m]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5));
     @constraint(model,[j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]))
     @constraint(model,[k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]))
     ########### constraint 4-6 #############
@@ -192,13 +191,14 @@ function SCNDmultidim()
     return model
 end
 scnd = SCNDmultidim()
-TL = 500
+TL = 800
 @CPUtime vSolve(scnd,TL, method=:dicho, verbose=false)
 vd = getvOptData(scnd);
 vd.Y_N
 vd.X_E
-@CPUtime vSolve(scnd, 60.0, method=:epsilon, step=10^5.0, verbose=true);
+@CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
 @CPUtime vSolve(scnd, 60.0, method=:lex, verbose=true);
+
 getY_N(scnd)
 ndpoints = getY_N(scnd)
 
@@ -415,6 +415,26 @@ end
 len = [length(scnd[:y]),length(scnd[:uij]),length(scnd[:ujk]),length(scnd[:ukl]),length(scnd[:xij]),length(scnd[:xjk]),length(scnd[:xkl]),length(scnd[:h])]
 # 𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)];
 
+function fbsearch(yr,u1r,u2r,u3r,θ) #solveLP
+    idy_0 = findall(k->k==0, yr)
+    idy_1 = findall(k->k==1, yr)
+    idu1_0 = findall(k->k==0, u1r)
+    idu1_1 = findall(k->k==1, u1r)
+    idu2_0 = findall(k->k==0, u2r)
+    idu2_1 = findall(k->k==1, u2r)
+    idu3_0 = findall(k->k==0, u3r)
+    idu3_1 = findall(k->k==1, u3r)
+    @objective( dist, Min, sum(dist[:y][i] for i in idy_0) + sum(1-(dist[:y][j]) for j in idy_1) +
+        sum(dist[:uij][i] for i in idu1_0) + sum(1-(dist[:uij][j]) for j in idu1_1)+
+        sum(dist[:ujk][i] for i in idu2_0) + sum(1-(dist[:ujk][j]) for j in idu2_1)+
+        sum(dist[:ukl][i] for i in idu3_0) + sum(1-(dist[:ukl][j]) for j in idu3_1))
+    optimize!(dist)
+    if termination_status(dist) == MOI.OPTIMAL
+        return JuMP.value.(dist[:y]),JuMP.value.(dist[:uij]),JuMP.value.(dist[:ujk]),JuMP.value.(dist[:ukl])
+    else
+        return 0,0,0,0
+    end
+end
 function dominated(x,P)
     st = false
     for k=1:length(P)
@@ -445,8 +465,6 @@ function getobjval(x)
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl)
     return [obj1,obj2]
 end
-
-
 function FPplus(dvar,len,TL,Y_N) #𝚯
     X = copy(dvar); IGPair=[]; Tabu = []; newsol=0; t0=time(); PF = copy(Y_N);
     Y = []; U1 = []; U2= []; U3 = [];
@@ -460,8 +478,8 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
         u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
         u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
         SearchDone = false; iter=0;
-        Max_iter = 10# length(findall(i-> 0<i<1,x_t)) #Max_iter = 20
-        while [I,G]∉IGPair && iter<Max_iter && SearchDone == false
+        Max_iter = 5 # length(findall(i-> 0<i<1,x_t))
+        while iter<Max_iter && SearchDone == false #[I,G]∉IGPair &&
             @show iter
             # x_r = round.(Int,x_t);
             yr = round.(Int, yt); u1r = round.(Int, u1t);
@@ -507,104 +525,14 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
 			iter+=1
         end
         push!(IGPair,[I,G])
+
     end
     return X,PF,newsol
 end
 optimize!(fbmodel); optimize!(dist);
-fx,fy,fn = FPplus(vd.X_E,len,100,vd.Y_N)
+fx,fy,fn = FPplus(vd.X_E,len,120,vd.Y_N)
 vd.Y_N
-fy
-1
-function createNB(SI,dif,exploredSI)
-    neibour = []; #neiobj = [];
-    for i in dif
-        cpSI = copy(SI)
-        # if cpSI[i] == round(cpSI[i]) #if vari is int value
-        if cpSI[i] == 1
-            cpSI[i] = 0
-        else
-            cpSI[i] = 1
-        end
-        push!(neibour, cpSI);# push!(neiobj, binobj(cpSI,bvar))
-        # else #if vari is fractional
-        #     cpSI[i] = 1; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
-        #     cpSI = copy(SI)
-        #     cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
-        # end
-    end
-    idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
-    neibour = setdiff(neibour,exploredSI)
-    # neiobj = neiobj[setdiff(1:end, idx),:]
 
-    return neibour#,neiobj
-end
-function nextSI(neibour,SI)
-    SIobj = getobjval(SI)
-    neiobj = [getobjval(neibour[i]) for i=1:length(neibour)]
-    for i=1:length(neiobj)
-        if length(neibour) == 1  #if there is one candiate sol
-            return neibour[1]#,neibour[1]
-        else length(neiobj) > 1 # if there are multiple candiates, check the improved ratio
-            ratiotb = zeros(length(neiobj),length(neiobj[1]))
-            for i=1:length(neiobj)
-                ratiotb[i,:] = neiobj[i]./SIobj
-            end
-            ranktb = zeros(length(neiobj),length(neiobj[1]))
-            for i=1:length(neiobj[1])
-                ranktb[:,i] = tiedrank(ratiotb[:,i])
-            end
-            ranksum = [sum(ranktb[i,:]) for i=1:length(neiobj)]
-            mostimp = findall(x-> x == maximum(ranksum), ranksum)
-            k = rand(mostimp)[1]
-            return neibour[k]#,neiobj[k]
-        end
-    end
-end
-
-function PR(X,Y,len,TL)
-    candX = copy(X); candY = copy(Y); bvar = sum(len[i] for i=1:4)
-    IGPair=[]; exploredSI = []; newsol=0; t0=time();
-    while time()-t0 < TL
-	    I,G = StatsBase.sample(1:length(candX), 2, replace=false)
-        SI = candX[I]; SG = candX[G]; iter=0;
-        # SI_r = round.(SI); SG_r = round.(SG)
-        dif = findall(i-> SI[1:bvar]!=SG[1:bvar], 1:bvar)
-        # println("dif is: ", length(dif))
-        Max_iter = 20
-        while length(dif)>0 && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
-            neibour = createNB(SI[1:bvar],dif,exploredSI)
-
-            if (length(neibour)==0) #(time()-t0 >= TL)
-                break
-            else
-                candSI =[]
-                for l=1:length(neibour)
-                    st = FBcheck( neibour[l][1:len[1]],neibour[l][1+len[1]:sum(len[i] for i=1:2)],
-                        neibour[l][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)],neibour[l][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)] )
-                    if st==true
-                        sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                        push!(candSI,sol)
-                        if sol ∉ candX
-                            push!(candX, sol); push!(candY, ndp);
-                            newsol+=1; println("new sol");
-                        end
-                    end
-                end
-            end
-            SI = nextSI(candSI,SI)
-            if SI∉candX
-                push!(exploredSI,SI);
-            end
-            @show iter+=1
-        end
-        push!(IGPair,[I,G])
-    end
-    return candX,candY,newsol
-end
-
-
-prx,pry,prn = PR(vd.X_E,vd.Y_N,len,) TL = 500
-1
 
 function Postpro(P,Pobj)
     copysol = Dict(); copyobj = Dict();
@@ -628,14 +556,7 @@ function Postpro(P,Pobj)
     return finalsol,finalobj
 end
 fpx,fpy = Postpro(fx,fy)
-
-pxx,pyy = Postpro(prx,pry)
-
-setdiff(pyy, fpy)
-setdiff(fpy,pyy)
-setdiff(pyy, vd.Y_N)
-setdiff(fpy, vd.Y_N)
-setdiff(vd.Y_N,fpy)
+vd.Y_N
 
 fy = getobjval.(fx[i] for i=1:length(fx))
 function Postpro(P)

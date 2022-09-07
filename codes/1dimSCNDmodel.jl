@@ -49,7 +49,7 @@ struct Data1
         Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])));
         Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])));
         Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
-        b = reshape(N["ves"],5,N["supplier"])';  q = append!(N["vep"],N["ved"]);
+        b = reshape(N["ves"],N["supplier"],5);  q = append!(N["vep"],N["ved"]);
         rij = N["cep"]; rjk = N["ced"]; rkl = N["cec"];
         upl = N["upperpants"]; udc = N["upperdistribution"]; bigM = sum(N["demand"])
 
@@ -80,13 +80,15 @@ function SCND1dim()
     #         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
     #         sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
     #         sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1) <= 0)
-    @objective(scnd1, Min, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
-            sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-            sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-            sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1));
-    @constraint(scnd1, obj2, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
-            sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-            sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1) <= 1.1826921599716e6)
+    @objective(scnd1, Min, sum(dt1.c.*y1) +
+        sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
+        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+        sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
+        sum(dt1.e.*h1) + sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1)
+    )
+    # @constraint(scnd1, obj2, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
+    #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+    #         sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1) <= 1.1826921599716e6)
     # @objective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
     #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
     #         sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1));
@@ -100,7 +102,6 @@ function SCND1dim()
     #     sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
     #     sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
     # );
-
     ########## constraint 3 #############
     @constraint(scnd1, [p=1:5], sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
     @constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(xij1[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk1[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) );
@@ -126,36 +127,36 @@ function SCND1dim()
     @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"], t=1:2], sum(h1[5*2*(j-1)+((p-1)*2)+t] for p=1:5) <= [dt1.N["cap"];dt1.N["cad"]][j]*y1[2*(j-1)+t]);
     ########### constraint 9 #############
     @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y1[2*(j-1)+1:2*(j-1)+2]) <= 1);
-    ########### constraint 10 #############
-    @constraints(scnd1,begin sum(uij1[1:dt1.Mij[1,1]]) <= 1
+    # # ########### constraint 10 #############
+    @constraint(scnd1, sum(uij1[1:dt1.Mij[1,1]]) <= 1)
+    @constraint(scnd1, sum(ujk1[1:dt1.Mjk[1,1]]) <= 1)
+    @constraint(scnd1, sum(ukl1[1:dt1.Mkl[1,1]]) <= 1)
+    @constraints(scnd1,begin
         [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
         [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
-        sum(ujk1[1:dt1.Mjk[1,1]]) <= 1
         [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
         [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
-        sum(ukl1[1:dt1.Mkl[1,1]]) <= 1
         [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
         [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
     end);
-    ########### constraint 11 #############
-    @constraints(scnd1, begin
-        [i=1:sum(dt1.Mij)], sum(xij1[5*(i-1)+1:5*i]) <= dt1.bigM*uij1[i]
-        [i=1:sum(dt1.Mjk)], sum(xjk1[5*(i-1)+1:5*i]) <= dt1.bigM*ujk1[i]
-        [i=1:sum(dt1.Mkl)], sum(xkl1[5*(i-1)+1:5*i]) <= dt1.bigM*ukl1[i]
-    end);
-    ########### constraint 12 #############
-    @constraints(scnd1, begin
+    ########### constraint 11 ############# This causes a different obj values
+    @constraint(scnd1, [i=1:sum(dt1.Mij)], sum(xij1[5*(i-1)+1:5*i]) <= dt1.bigM*uij1[i])
+    @constraint(scnd1, [j=1:sum(dt1.Mjk)], sum(xjk1[5*(j-1)+1:5*j]) <= dt1.bigM*ujk1[j])
+    @constraint(scnd1, [k=1:sum(dt1.Mkl)], sum(xkl1[5*(k-1)+1:5*k]) <= dt1.bigM*ukl1[k])
+    # ########### constraint 12 #############
+    # @constraints(scnd1, begin
         [i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i]
         [i in findnz(dt1.Vjk)[1]], sum(xjk1[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk1[i]
         # [i in findnz(dt1.Vkl)[1]], sum(xkl1[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl1[i]
     end);
-    ########### constraint 13-14 #############
+    # ########### constraint 13-14 #############
     @constraint(scnd1, sum(y1[1:dt1.N["plant"]*2]) <= dt1.upl);
     @constraint(scnd1, sum(y1[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return scnd1
 end
 scnd1 = SCND1dim()
 optimize!(scnd1); objective_value(scnd1)
+solve_time(scnd1)
 # termination_status(scnd1)
 
 ###########################    Make vlp file   #########################
