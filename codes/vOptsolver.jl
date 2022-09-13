@@ -1,5 +1,5 @@
 using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
-# using MathOptInterface,LazySets
+using LazySets
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -7,8 +7,8 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -48,14 +48,18 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
+file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
-# file = "F:scnd/Test4S4"
-file = "/home/ak121396/Desktop/instances/SCND/test04S4"
+file = "F:scnd/Test1S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test04S4"
 dt1 = Data1dim(file);
 function SCND1dim()
-    scnd1 = vModel(CPLEX.Optimizer); set_silent(scnd1)
-    MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+    scnd1 = vModel(optimizer_with_attributes(
+            CPLEX.Optimizer,
+            "CPX_PARAM_EPGAP" => 1e-8
+          ));
+    set_silent(scnd1)
+    # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
     @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(scnd1, uij[1:sum(dt1.Mij)], Bin);
     @variable(scnd1, ujk[1:sum(dt1.Mjk)], Bin);
@@ -127,7 +131,7 @@ TL = 1200
 vd = getvOptData(scnd);
 vd.Y_N
 vd.X_E
-@CPUtime vSolve(scnd, method=:epsilon, step=10^5.0, verbose=true);
+@CPUtime vSolve(scnd, method=:epsilon, step=5*(10^3.0), verbose=true);
 @CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
 @CPUtime vSolve(scnd, method=:lex, verbose=true);
 
@@ -600,14 +604,14 @@ setdiff(py,pry)
 1
 ######### check if the point on the convex combination (line) #########
 ontheLine = []
-for i=1:length(vd.Y_N)-2
+for i=1:length(fpy)-2
     j=i+1; k=i+2
-    Line = LineSegment(vd.Y_N[i],vd.Y_N[k])
-    if vd.Y_N[j] ∈ Line
+    Line = LineSegment(fpy[i],fpy[k])
+    if fpy[j] ∈ Line
         push!(ontheLine, j)
     end
 end
-# ontheLine
+ontheLine
 
 
 

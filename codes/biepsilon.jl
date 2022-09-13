@@ -100,7 +100,7 @@ end
 ey = epsilon() #ex
 
 ################# with built model
-using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase
+using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase#,MathOptInterface
 file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
 struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -151,7 +151,12 @@ struct Data1
 end
 dt1 = Data1(file)
 function epmodel1dim()
-    scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
+    scnd1 = Model(optimizer_with_attributes(
+            CPLEX.Optimizer,
+            "CPX_PARAM_EPGAP" => 1e-8
+          )); #CPLEX.Optimizer;
+    set_silent(scnd1)
+    # MOI.set(scnd1, MOI.RelativeGapTolerance(), 1e-8)
     # MOI.set(scnd1, MOI.NumberOfThreads(), 1);
     #########################  IP  ########################################
     @variable(scnd1, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
