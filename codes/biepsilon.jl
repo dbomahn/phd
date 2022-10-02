@@ -100,8 +100,8 @@ end
 ey = epsilon() #ex
 
 ################# with built model
-using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase#,MathOptInterface
-file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
+using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase
+file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
@@ -264,7 +264,7 @@ end
 function epsilon()
     # Test4S4
     # P = []; Y = []; ϵ = 3.628005271886097e8 ; δ =10^(7); lb = 22*10^(7); fval = [0,ϵ]
-    Y = []; ϵ = 2.0138321330370014e6 ; δ =10^(5); lb = 10*10^(5); fval = [0,ϵ]
+    Y = []; ϵ = 13*10^(5) ; δ =10^(3); lb = 7*10^(5); fval = [0,ϵ]
     while fval[2] >= lb
         fval = opt1dim(ϵ)
         println(fval)
