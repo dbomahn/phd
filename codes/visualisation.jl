@@ -65,6 +65,7 @@ pry = [ [2.420982243377e8, 1.548594376718e6],
 py1 = [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 
 # plot(scatter(x=test4ndp[:,1], y=test4ndp[:,2], name="Dicho", mode="markers+text"))
+# Test4S4
 alleps = [ [2.3905110383050025e8, 2.0102903667545e6]
     [2.3913068202261513e8, 1.913832132754729e6]
     [2.393302831270915e8, 1.813832132655616e6]
@@ -87,10 +88,22 @@ alleps = [ [2.3905110383050025e8, 2.0102903667545e6]
     [2.6280052718860963e8, 1.2597697259060177e6]
     [2.5280052718860966e8, 1.3080483489145786e6]
     [2.4280052718860963e8, 1.497750543523037e6] ]
+# Test1S2
+alleps = [ [9.914092450999992e7, 1.2665377400539995e6]
+ [9.938235581714864e7, 1.2165377400539962e6]
+ [9.978217094836552e7, 1.1665377400539967e6]
+ [1.002569188967012e8, 1.1165377400539967e6]
+ [1.0104423492467022e8, 1.0665377400539957e6]
+ [1.0285146193385167e8, 1.0165377400539952e6]
+ [1.0510797992783058e8, 966537.7400539947]
+ [1.0855839980508478e8, 916537.7400539935]
+ [1.2347893923481217e8, 866537.740053992]   ]
+ep1 = reshape(alleps,2,Int(length(alleps)/2))[1,:]
+ep2 = reshape(alleps,2,Int(length(alleps)/2))[2,:]
 
+tradeoffs = hcat(res.Y_N)
+tdy1= [tradeoffs[i][1] for i=1:length(tradeoffs)]; tdy2 = [tradeoffs[i][2] for i=1:length(tradeoffs)]
 
-ep1 = reshape(alleps,2,22)[1,:]
-ep2 = reshape(alleps,2,22)[2,:]
 layout = Layout(
     title="Plot Title",
     xaxis_title="Cost",
@@ -104,9 +117,11 @@ layout = Layout(
 
 trace1 = scatter(x=ep1,y=ep2,name="epsilon",mode="markers", marker=attr(color="ff2500"))
 # trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="#34314c"))      # this sets its legend entry
-trace3 = scatter(x=ws1, y=ws2,  name="Dicho", mode="markers", marker=attr(color = "#004ad4"))
+trace3 = scatter(x=tdy1, y=tdy2,  name="Dicho", mode="markers", marker=attr(color = "#004ad4"))
 trace4 = scatter(x=fy1, y=fy2,  name="DichoFFP", mode="markers", marker=attr(color="Turquios"))
 trace5 = scatter(x=py1, y=py2,  name="DichoFFP+PR", mode="markers", marker=attr(color="'#cd7eaf'"))
+plot([trace1,trace3], layout) #trace1
+
 plot([trace1,trace3,trace4,trace5], layout) #trace1
 
 

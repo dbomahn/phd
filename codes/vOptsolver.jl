@@ -127,16 +127,31 @@ function SCND1dim()
 end
 scnd = SCND1dim()
 TL = 1200
-@CPUtime vSolve(scnd,TL, method=:dicho, verbose=false)
+@CPUtime vSolve(scnd, Inf, method=:dicho, verbose=false)
+@CPUtime vSolve(scnd, TL, method=:epsilon, step=5*(10^4.0), verbose=true);
+@CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
+@CPUtime vSolve(scnd, method=:lex, verbose=true);
 vd = getvOptData(scnd);
 vd.Y_N
 vd.X_E
-@CPUtime vSolve(scnd, method=:epsilon, step=5*(10^3.0), verbose=true);
-@CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
-@CPUtime vSolve(scnd, method=:lex, verbose=true);
 
-getY_N(scnd)
-ndpoints = getY_N(scnd)
+################### Check binary variable values in common  ####################
+bva = (dt1.N["plant"]+dt1.N["distribution"])*2+sum(dt1.Mij)+sum(dt1.Mjk)+sum(dt1.Mkl)
+samele = [findall(in(vd.X_E[1][1:bva]),vd.X_E[i][1:bva]) for i=2:length(vd.X_E)]
+[length(samele[i]) for i=1:length(samele)]
+
+################### Fix the binary values and Solve Dicho  ####################
+len = [length(scnd[:y]),length(scnd[:uij]),length(scnd[:ujk]),length(scnd[:ukl]),length(scnd[:xij]),length(scnd[:xjk]),length(scnd[:xkl]),length(scnd[:h])]
+len[1]
+JuMP.fix.(scnd[:y], vd.X_E[1][1:len[1]]; force = true)
+JuMP.fix.(scnd[:uij], vd.X_E[1][1+len[1]:sum(len[i] for i=1:2)]; force = true)
+JuMP.fix.(scnd[:ujk], vd.X_E[1][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
+JuMP.fix.(scnd[:ukl], vd.X_E[1][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
+@CPUtime vSolve(scnd, Inf, method=:dicho, verbose=false)
+res = getvOptData(scnd);
+res.Y_N
+res.X_E
+
 
 #########################  Feasibility Pump+   ###########################
 function FeasibilityModel()

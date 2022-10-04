@@ -102,6 +102,7 @@ ey = epsilon() #ex
 ################# with built model
 using DataStructures,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase
 file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+# file = "F:/scnd/Test1S2"
 struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
@@ -150,6 +151,8 @@ struct Data1
     end
 end
 dt1 = Data1(file)
+
+#######################################
 function epmodel1dim()
     scnd1 = Model(optimizer_with_attributes(
             CPLEX.Optimizer,
@@ -262,9 +265,7 @@ function opt1dim(ϵ)
     end
 end
 function epsilon()
-    # Test4S4
-    # P = []; Y = []; ϵ = 3.628005271886097e8 ; δ =10^(7); lb = 22*10^(7); fval = [0,ϵ]
-    Y = []; ϵ = 13*10^(5) ; δ =10^(3); lb = 7*10^(5); fval = [0,ϵ]
+    Y = []; ϵ =  ; δ =10; lb = 10^(6); fval = [0,ϵ]
     while fval[2] >= lb
         fval = opt1dim(ϵ)
         println(fval)
@@ -282,7 +283,7 @@ function epsilon()
 end
 ey = epsilon()
 
-
+##############################
 
 function epmodel1dim()
     scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
@@ -381,7 +382,7 @@ function opt1dim(ϵ)
 end
 function epsilon()
     # Test4S4
-    P = []; Y = []; ϵ = 3.628005271886097e8 ; δ =10^(7); lb = 22*10^(7); fval = [0,ϵ]
+    Y = []; ϵ = 1.2347893923481262e8 ; δ =10; lb = 99*10^(6); fval = [0,ϵ]
     while fval[2] >= lb
         fval = opt1dim(ϵ)
         println([fval[2],fval[1]])
