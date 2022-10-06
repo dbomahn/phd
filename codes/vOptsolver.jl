@@ -126,7 +126,7 @@ function SCND1dim()
     return scnd1
 end
 scnd = SCND1dim()
-TL = 350
+TL = 500
 @CPUtime vSolve(scnd, TL, method=:dicho, verbose=false)
 @CPUtime vSolve(scnd, TL, method=:epsilon, step=5*(10^4.0), verbose=true);
 @CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
@@ -154,7 +154,7 @@ res.X_E
 
 
 #########################  Feasibility Pump+   ###########################
-function FP_FeasibilityModel()
+function FP_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
     MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
@@ -170,7 +170,7 @@ function FP_FeasibilityModel()
             sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
             sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
             sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl) +
-            100*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
+            weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl))
     );
@@ -222,7 +222,7 @@ function FP_FeasibilityModel()
     @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
-function LPrelaxation()
+function LP_Model(weight)
     lp = Model(CPLEX.Optimizer); set_silent(lp)
     MOI.set(lp, MOI.NumberOfThreads(), 1)
     # MOI.set(lp, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
@@ -238,7 +238,7 @@ function LPrelaxation()
             sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
             sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
             sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl) +
-            100*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
+            weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl))
     );
@@ -290,8 +290,8 @@ function LPrelaxation()
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
-fbmodel = FP_FeasibilityModel() #obj not attached yet
-dist = LPrelaxation()
+fbmodel = FP_Model(200) #obj not attached yet
+dist = LP_Model(200)
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -396,6 +396,7 @@ function getobjval(x)
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl)
     return [obj1,obj2]
 end
+
 function FPplus(dvar,len,TL,Y_N) #𝚯
     X = copy(dvar); IGPair=[]; Tabu = []; newsol=0; t0=time(); PF = copy(Y_N);
     Y = []; U1 = []; U2= []; U3 = [];
@@ -461,10 +462,9 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
     return X,PF,newsol,IGPair
 end
 # optimize!(fbmodel); optimize!(dist);
-FPtime = @CPUelapsed fx,fy,fn,usedPairs = FPplus(vd.X_E,len,50,vd.Y_N)
-
+FPtime = @CPUelapsed fx,fy,fn,usedPairs = FPplus(vd.X_E,len,200,vd.Y_N)
 ################################ Path Relinking  ###############################
-function PR_FeasibilityModel()
+function PR_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
     MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
@@ -480,7 +480,7 @@ function PR_FeasibilityModel()
             sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
             sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
             sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl) +
-            (sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
+            weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl))
     );
@@ -532,7 +532,7 @@ function PR_FeasibilityModel()
     # @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
-prmodel = PR_FeasibilityModel()
+prmodel = PR_Model(100)
 
 function createNB(SI,dif,exploredSI)
     neibour = []; #neiobj = [];
@@ -552,10 +552,10 @@ function createNB(SI,dif,exploredSI)
         # end
     end
     idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
-    neibour = setdiff(neibour,exploredSI)
+    neibour1 = setdiff(neibour,exploredSI)
+    neibour2 = StatsBase.sample(neibour1, round(Int,length(neibour1)*0.1) , replace=false)
     # neiobj = neiobj[setdiff(1:end, idx),:]
-
-    return neibour#,neiobj
+    return neibour2#,neiobj
 end
 function nextSI(neibour,SI)
     SIobj = getobjval(SI)
@@ -579,7 +579,14 @@ function nextSI(neibour,SI)
         end
     end
 end
-function PR_FBcheck(model,yr) #,u1r,u2r,u3r)
+function First_FBcheck(neibour)
+    neibour1 = filter(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
+    for j=1:dt1.N["plant"]+dt1.N["distribution"]
+        filter!(p-> sum(p[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour1)
+    end
+    return neibour1
+end
+function Second_FBcheck(model,yr)#,u1r,u2r,u3r)
     JuMP.fix.(model[:y],yr; force=true)
     # JuMP.fix.(model[:uij],u1r; force=true)
     # JuMP.fix.(model[:ujk],u2r; force=true)
@@ -591,59 +598,62 @@ function PR_FBcheck(model,yr) #,u1r,u2r,u3r)
         return false
     end
 end
-function CandFilter(neibour0)
-    neibour1 = filter(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour0)
-    for j=1:dt1.N["plant"]+dt1.N["distribution"]
-        filter!(p-> sum(p[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour1)
-    end
-    return neibour1
-end
 function PR(X,Y,len,TL)
     candX = copy(X); candY = copy(Y); bvar = sum(len[i] for i=1:4);
-    IGPair=[]; exploredSI = []; t0=time();
+    IGPair=[]; exploredSI = []; t0=time(); iter=0;
     while time()-t0 < TL && length(IGPair)<(length(candY)*(length(candY)-1))
         @label NewIter
-	    I,G = StatsBase.sample(1:length(candX), 2, replace=false)
+	    I,G = StatsBase.sample(1:length(candX), 2, replace=false);
         SI = candX[I]; SG = candX[G];
         # SI_r = round.(SI); SG_r = round.(SG)
-        dif = findall(i-> SI[1:bvar][i]!=SG[1:bvar][i], 1:bvar)
-        Max_iter = 2; iter=0;
-        while length(dif)>0 && [I,G]∉IGPair && iter<Max_iter && (time()-t0<TL)
-            neibour0 = createNB(SI[1:bvar],dif,exploredSI)
-            neibour = CandFilter(neibour0)
-            println("# of neighbours: ", length(neibour))
+        dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+         #Max_iter = 20;
+        while length(dif)>0 && [I,G]∉IGPair && (time()-t0<TL) #&& iter<Max_iter
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            # println("# of neighbours: ", length(neibour2))
             if (length(neibour)==0) #(time()-t0 >= TL)
                 @goto NewIter
             else
                 candSI =[]
-                l=1; newsol=0;
-                while (time()-t0<TL) && l<=length(neibour) && newsol <=1 #floor(dt1.N["supplier"]/3) &&
-                # for l=1:length(neibour)
-                    st = PR_FBcheck( prmodel, neibour[l][1:len[1]])#,neibour[l][1+len[1]:sum(len[i] for i=1:2)],
-                        # neibour[l][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)],neibour[l][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)] )
+                # l=1;
+                # newsol=0;
+                # while (time()-t0<TL) && l<=length(neibour) && newsol <=1 #floor(dt1.N["supplier"]/3) &&
+                neibour2 = First_FBcheck(neibour)
+                for l=1:length(neibour2)
+                    st = Second_FBcheck( prmodel, neibour2[l][1:len[1]])
+                    # , neibour2[l][1+len[1]:sum(len[i] for i=1:2)],
+                    #     neibour2[l][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)],neibour2[l][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)] )
+                    # @show st
                     if st==true
                         sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
                         push!(candSI,sol)
                         if sol ∉ candX && dominated(ndp,candY)==false
                             push!(candX, sol); push!(candY, ndp);
-                            newsol+=1;
+                            # newsol+=1;
                             println("new sol");
                         end
                     end
-                    l+=1;
+                #     l+=1;
                 end
             end
-            SI = nextSI(candSI,SI)
-            if SI∉candX
-                push!(exploredSI,SI);
+            if candSI == []
+                push!(IGPair,[I,G]);
+                # @show iter+=1
+                @goto NewIter
+            else
+                SI = nextSI(candSI,SI)
+                if SI∉candX
+                    push!(exploredSI,SI);
+                end
+                # @show iter+=1
             end
-            @show iter+=1
         end
-        push!(IGPair,[I,G])
+        push!(IGPair,[I,G]);
+        @show iter+=1
     end
     return candX,candY,IGPair
 end
-PRtime = @CPUelapsed prx,pry,pairs = PR(fx,fy,len,300)
+PRtime = @CPUelapsed prx,pry,pairs = PR(fx,fy,len,200)
 # px,py,pairs = PR(vd.X_E,vd.Y_N,len,1400)
 
 function Postpro(P,Pobj)
@@ -669,6 +679,7 @@ function Postpro(P,Pobj)
 end
 fpx,fpy = Postpro(fx,fy)
 px,py = Postpro(prx,pry)
+py
 setdiff(fpy)
 setdiff(fpy,vd.Y_N)
 setdiff(py,fy)
