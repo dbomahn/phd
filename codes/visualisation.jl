@@ -45,7 +45,7 @@ fy1 = reshape(fpy,2,Int(length(fpy)/2))[1,:]; fy2 = reshape(fpy,2,Int(length(fpy
 # [fpy[i][1] for i=1:length(fpy)]; fy2 = [fpy[i][2] for i=1:length(fpy)]
 pry = [  ]
 # py1 = reshape(pry,2,Int(length(pry)/2))[1,:]; py2 = reshape(py,2,Int(length(pry)/2))[2,:]
-py1 = [py[i][1] for i=1:length(py)]; py2 = [py[i][2] for i=1:length(py)]
+py1 = [py[i][1] for i=1:length(py)]; py2 = [py[i][2] for i=1:length(py)];
 
 # plot(scatter(x=test4ndp[:,1], y=test4ndp[:,2], name="Dicho", mode="markers+text"))
 # # Test4S4
@@ -83,16 +83,42 @@ alleps = [   [9.914092450999992e7, 1.2665377400539995e6]
  [1.4954355058380002e8, 848839.4273989999]
  [1.02460361942e8, 1.0250628328420001e6]
  ]
+ alleps = [  [1.2591495228529e8, 945160.666912]
+ [1.1983949556257999e8, 963931.60977]
+ [1.3168921637395e8, 902713.5291559999]
+ [1.072832455526e8, 1.0765143319950001e6]
+ [1.0515987399798e8, 1.287313813957e6]
+ [1.407473215276e8, 890364.056239]
+ [1.1748773610327e8, 990679.7999]
+ [1.3204293252511999e8, 897398.977778]
+ [1.4928360809751e8, 873890.432939]
+ [1.2728761523576e8, 939273.3219490001]
+ [1.1748882543067e8, 977888.538256]
+ [1.071027359056e8, 1.0932132678450001e6]
+ [1.2952303276246999e8, 910693.283724]
+ [1.1695062237939999e8, 1.00286239119e6]
+ [1.1136479192619999e8, 1.054723864322e6]
+ [1.3874889640719e8, 896493.9617359999]
+ [1.2160846695436001e8, 948805.9895050001]
+ [1.1669190651536e8, 1.005324672184e6]
+ [1.155829427549e8, 1.027273596656e6]
+ [1.1645801000276001e8, 1.0179083848959999e6]
+ [1.1778767733317001e8, 977043.30669]]
 ep1 = reshape(alleps,2,Int(length(alleps)/2))[1,:]
 ep2 = reshape(alleps,2,Int(length(alleps)/2))[2,:]
 
-tradeoffs = hcat(vd.Y_N)
-tdy1= [tradeoffs[i][1] for i=1:length(tradeoffs)]; tdy2 = [tradeoffs[i][2] for i=1:length(tradeoffs)]
-
+lsg = filter!(p->p!=[],collect(values(linesg)))
+lsg1 = []; lsg2 = []
+for i=1:length(lsg)
+    append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
+    append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
+end
+lsg1
+1
 fyy = hcat(fy)
 fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
 
-pyy = hcat(py)
+pyy = hcat(pry)
 py1= [pyy[i][1] for i=1:length(pyy)]; py2 = [pyy[i][2] for i=1:length(pyy)]
 
 
@@ -107,12 +133,12 @@ layout = Layout(
     )
 )
 
-trace1 = scatter(x=ep1,y=ep2,name="",mode="markers", marker=attr(color="ff2500"))
-# trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="#34314c"))      # this sets its legend entry
-trace3 = scatter(x=tdy1, y=tdy2,  name="Dicho", mode="markers", marker=attr(color = "#004ad4"))
-trace4 = scatter(x=fy1, y=fy2,  name="DichoFP+weight", mode="markers", marker=attr(color="Turquios"))
-trace5 = scatter(x=py1, y=py2,  name="DichoFP+PR", mode="markers", marker=attr(color="'#cd7eaf'"))
-plot([trace3,trace4,trace5], layout) #trace1
+trace1 = scatter(x=ep1,y=ep2,name="DichoLP", mode="markers", marker=attr(color="Crimson"))
+# trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="DarkVilolet"))      # this sets its legend entry
+trace3 = scatter(x=lsg1, y=lsg2,  name="fixBinDichoMIP", mode="markers", marker=attr(color = "DarkOrange"))
+trace4 = scatter(x=fy1, y=fy2,  name="DichoFP", mode="markers", marker=attr(color="Turquios"))
+trace5 = scatter(x=py1, y=py2,  name="DichoFP+PR", mode="markers", marker=attr(color="LimeGreen"))
+plot([trace1,trace3,trace5], layout) #trace1
 
 plot([trace1,trace3,trace4,trace5], layout) #trace1
 
