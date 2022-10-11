@@ -115,6 +115,10 @@ for i=1:length(lsg)
 end
 lsg1
 1
+
+
+lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
+
 fyy = hcat(fy)
 fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
 
@@ -133,14 +137,17 @@ layout = Layout(
     )
 )
 
-trace1 = scatter(x=ep1,y=ep2,name="DichoLP", mode="markers", marker=attr(color="Crimson"))
+trace1 = scatter(x=ep1,y=ep2,name="DichoLP+FP+PR", mode="markers", marker=attr(color="Crimson"))
 # trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="DarkVilolet"))      # this sets its legend entry
-trace3 = scatter(x=lsg1, y=lsg2,  name="fixBinDichoMIP", mode="markers", marker=attr(color = "DarkOrange"))
-trace4 = scatter(x=fy1, y=fy2,  name="DichoFP", mode="markers", marker=attr(color="Turquios"))
-trace5 = scatter(x=py1, y=py2,  name="DichoFP+PR", mode="markers", marker=attr(color="LimeGreen"))
-plot([trace1,trace3,trace5], layout) #trace1
+trace2 = scatter(x=lp1, y=lp2,  name="LB", mode="line", marker=attr(color = "DarkOrange"))
+for i=1:length(lp1)
+    trace
+trace3 = scatter(x=lsg1, y=lsg2,  name="fixBinDichoMIP", mode="line", marker=attr(color = "DarkOrange"))
+trace4 = scatter(x=fy1, y=fy2,  name="DichoFFP", mode="markers", marker=attr(color="Turquios"))
+trace5 = scatter(x=py1, y=py2,  name="DichoFFP+PR", mode="markers", marker=attr(color="LimeGreen"))
+plot([trace1,trace2,trace5], layout)
 
-plot([trace1,trace3,trace4,trace5], layout) #trace1
+plot([trace1,trace2,trace4,trace5], layout) #trace1
 
 
 ##########################     3D Visualisation       ###########################

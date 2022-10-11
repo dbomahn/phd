@@ -767,6 +767,11 @@ function SCND_LP()
     @constraint(scnd1, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return scnd1
 end
+scndlp = SCND_LP()
+@CPUtime vSolve(scndlp, 120, method=:dicho, verbose=false)
+lp = getvOptData(scndlp)
+lp.Y_N
+
 linesg = Dict()
 function FixedBinDicho(k)
     JuMP.fix.(scndlp[:y], prx[k][1:len[1]]; force = true)
