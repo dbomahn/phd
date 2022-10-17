@@ -1,4 +1,4 @@
-using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
+using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV
 # using LazySets
 #########################  1dim model  ############################
 struct Data1dim
@@ -7,8 +7,8 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -50,7 +50,7 @@ struct Data1dim
 end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
-# file = "F:scnd/Test1S2"
+file = "F:scnd/Test1S2"
 file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 dt1 = Data1dim(file);
 
@@ -150,11 +150,12 @@ scndlp = SCND_LP()
 @CPUtime vSolve(scndlp, TL-100, method=:dicho, verbose=false)
 lp = getvOptData(scndlp);
 lp.Y_N
+weight = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
 
-#########################  Feasibility Pump+   ###########################
+#########################  Feasibility Pump  ###########################
 function FP_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
-    MOI.set(model, MOI.NumberOfThreads(), 1)
+    # MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
@@ -222,7 +223,7 @@ function FP_Model(weight)
 end
 function LP_Model(weight)
     lp = Model(CPLEX.Optimizer); set_silent(lp)
-    MOI.set(lp, MOI.NumberOfThreads(), 1)
+    # MOI.set(lp, MOI.NumberOfThreads(), 1)
     # MOI.set(lp, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(lp, 0 <= y[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1)
     @variable(lp, 0 <= uij[1:sum(dt1.Mij)] <= 1);
@@ -288,8 +289,8 @@ function LP_Model(weight)
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
-fbmodel = FP_Model(100) #obj not attached yet
-dist = LP_Model(100)
+fbmodel = FP_Model(weight) #obj not attached yet
+dist = LP_Model(weight)
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -328,11 +329,11 @@ function flipoper(Tabu,x_t,x_r)
     end
     return xi
 end
-function FP_FBcheck(model,yr)#,u1r,u2r,u3r)
+function FP_FBcheck(model,yr,u1r,u2r,u3r)
     JuMP.fix.(model[:y],yr; force=true)
-    # JuMP.fix.(model[:uij],u1r; force=true)
-    # JuMP.fix.(model[:ujk],u2r; force=true)
-    # JuMP.fix.(model[:ukl],u3r; force=true)
+    JuMP.fix.(model[:uij],u1r; force=true)
+    JuMP.fix.(model[:ujk],u2r; force=true)
+    JuMP.fix.(model[:ukl],u3r; force=true)
     optimize!(model)
     if termination_status(model) == MOI.OPTIMAL
         return true
@@ -406,13 +407,13 @@ function FP(candX,len,TL)
         u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
         u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
         SearchDone = false; iter=0;
-        Max_iter = 5 # length(findall(i-> 0<i<1,x_t))
+        Max_iter =  length(findall(i-> 0<i<1,x_t))
         while iter < Max_iter && SearchDone == false && time() - t0 < TL
             # x_r = round.(Int,x_t);
             yr = round.(Int, yt); u1r = round.(Int, u1t);
             u2r = round.(Int, u2t); u3r = round.(Int, u3t);
 
-            if FP_FBcheck(fbmodel,yr) == true
+            if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true
                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                 if sol ∉ X  && dominated(ndp,PF)==false
                     push!(X,sol); push!(PF,ndp)
@@ -428,7 +429,7 @@ function FP(candX,len,TL)
                         SearchDone = true;
                         # println("flip failed")
                     else
-                        if FP_FBcheck(fbmodel,yr) == true
+                        if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true
                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                             if sol ∉ X && dominated(ndp,PF)==false
                                 push!(X,sol); push!(PF,ndp)
@@ -462,7 +463,7 @@ FPtime = @CPUelapsed fx,fy,fn,candlist = FP(lp.X_E,len,500)
 
 function PR_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
-    MOI.set(model, MOI.NumberOfThreads(), 1)
+    # MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
