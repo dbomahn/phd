@@ -298,8 +298,10 @@ function LP_Model(weight)
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
-fbmodel = FP_Model(100)
-dist = LP_Model(100)
+weight = round(Int,mean([vd.Y_N[i][1]/vd.Y_N[i][2] for i=1:length(vd.Y_N)]))
+
+fbmodel = FP_Model(weight)
+dist = LP_Model(weight)
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -425,7 +427,7 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
             yr = round.(Int, yt); u1r = round.(Int, u1t);
             u2r = round.(Int, u2t); u3r = round.(Int, u3t);
 
-            if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true
+            if FP_FBcheck(fbmodel,yr) == true
                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                 if sol ∉ X  && dominated(ndp,PF)==false
                     push!(X,sol); push!(PF,ndp)
@@ -440,7 +442,7 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
                         SearchDone = true;
                         # println("flip failed")
                     else
-                        if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true
+                        if FP_FBcheck(fbmodel,yr) == true
                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                             if sol ∉ X && dominated(ndp,PF)==false
                                 push!(X,sol); push!(PF,ndp)
@@ -564,7 +566,7 @@ function PR_Model(weight)
     # @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
-prmodel = PR_Model(100)
+prmodel = PR_Model(weight)
 
 function createNB(SI,dif,exploredSI)
     neibour = []; #neiobj = [];
@@ -767,29 +769,32 @@ function SCND_LP()
     @constraint(scnd1, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return scnd1
 end
-scndlp = SCND_LP()
-@CPUtime vSolve(scndlp, 120, method=:dicho, verbose=false)
-lp = getvOptData(scndlp)
-lp.Y_N
+function FixedBinDicho(pry)
+    linesg = Dict()
+    for k=1:length(pry)
+        model = SCND_LP()
+        JuMP.fix.(model[:y], prx[k][1:len[1]]; force = true)
+        JuMP.fix.(model[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
+        JuMP.fix.(model[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
+        JuMP.fix.(model[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
+        @CPUtime vSolve(model, 120, method=:dicho, verbose=false)
+        res = getvOptData(model);
+        if res!= []
+            linesg[k]=res.Y_N
+        end
+    end
+    return linesg
+end
 
-linesg = Dict()
-function FixedBinDicho(k)
-    JuMP.fix.(scndlp[:y], prx[k][1:len[1]]; force = true)
-    JuMP.fix.(scndlp[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
-    JuMP.fix.(scndlp[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
-    JuMP.fix.(scndlp[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-    @CPUtime vSolve(scndlp, 120, method=:dicho, verbose=false)
-    res = getvOptData(scndlp);
-    if res!= []
-        linesg[k]=res.Y_N
+linesg = FixedBinDicho(pry)
+########################## Saving the output file ###########################
+otable = zeros( length(vd.Y_N),2)
+for i=1:length(vd.Y_N)
+    for j=1:2
+        otable[i,j] = vd.Y_N[i][j]
     end
 end
-for k=1:length(pry)
-    scndlp = SCND_LP()
-    FixedBinDicho(k)
-end
-linesg
-1
+CSV.write("/home/k2g00/k2g3475/scnd/vopt/Test1_10hrY")
 
 # function Postpro(P)
 #     #Filter fractional solutions from LB
@@ -994,77 +999,77 @@ end
 file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
 dt = Data(file);
 
-function voptmodel()
-    ##########################  Mathematical model  #########################
-    scnd = vModel(CPLEX.Optimizer); set_silent(scnd);
-    # MOI.set(scnd, MOI.NumberOfThreads(), 1);
-    @variable(scnd, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin);
-    @variable(scnd, uij[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j]], Bin);
-    @variable(scnd, ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k]], Bin);
-    @variable(scnd, ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l]], Bin);
-    ############
-    @variable(scnd, 0<= xij[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j],1:5] );
-    @variable(scnd, 0<= xjk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k],1:5] );
-    @variable(scnd, 0<= xkl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l],1:5] );
-    @variable(scnd, 0<= h[1:dt.N["plant"]+dt.N["distribution"],1:5,1:2] );
-    exg = AffExpr(0);
-    for i=1:dt.N["supplier"]
-        for j=1:dt.N["plant"]
-            add_to_expression!(exg, 10000*uij[i,j,1]);
-        end
-    end
-    for j=1:dt.N["plant"]
-        for k=1:dt.N["distribution"]
-            add_to_expression!(exg, 10000*ujk[j,k,1]);
-        end
-    end
-    for k=1:dt.N["distribution"]
-        for l=1:dt.N["customer"]
-            add_to_expression!(exg,10000*ukl[k,l,1]);
-        end
-    end
-
-    @addobjective(scnd, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +
-        sum(dt.N["vcs"][i][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) +
-        sum(dt.vij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
-        sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
-        sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
-        sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
-        sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
-    #2nd obj
-    @addobjective(scnd, Min, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
-        sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
-        sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
-        sum(dt.rij[i][j][m]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
-        sum(dt.rjk[j][k][m]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
-        sum(dt.rkl[k][l][m]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5));
-    ######### constraint 3 #############
-    @constraint(scnd,[j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]));
-    @constraint(scnd,[k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]));
-    ########### constraint 4-6 #############
-    @constraint(scnd,[j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]));
-    @constraint(scnd,[k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]));
-    @constraint(scnd, [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]);
-    ########### constraint 7-9 #############
-    @constraint(scnd,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i]);
-    @constraint(scnd,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,:,t]) <=[dt.N["cap"];dt.N["cad"]][j]*y[j,t]);
-    @constraint(scnd,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
-    ########### constraint 10 #############
-    @constraint(scnd,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= 1);
-    @constraint(scnd,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= 1);
-    @constraint(scnd,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= 1);
-    ########### constraint 11 #############
-    @constraint(scnd,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) <= dt.bigM*uij[i,j,m]);
-    @constraint(scnd,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] ,sum(xjk[j,k,m,p] for p=1:5) <= dt.bigM*ujk[j,k,m]);
-    @constraint(scnd,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) <= dt.bigM*ukl[k,l,m]);
-    ########### constraint 12 #############
-    @constraint(scnd,[i=1:dt.N["supplier"], j=1:dt.N["plant"], m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) >= dt.Vij[m]*uij[i,j,m] );
-    @constraint(scnd,[j=1:dt.N["plant"], k=1:dt.N["distribution"], m=1:dt.Mjk[j,k]], sum(xjk[j,k,m,p] for p=1:5) >= dt.Vjk[m]*ujk[j,k,m]);
-    ########### constraint 13-14 #############
-    @constraint(scnd,sum(y[j,t] for j=1:dt.N["plant"] for t=1:2) <= dt.upl);
-    @constraint(scnd,sum(y[j,t] for j=dt.N["plant"]+1:dt.N["distribution"]+dt.N["plant"] for t=1:2) <= dt.udc);
-    return scnd
-end
+# function voptmodel()
+#     ##########################  Mathematical model  #########################
+#     scnd = vModel(CPLEX.Optimizer); set_silent(scnd);
+#     # MOI.set(scnd, MOI.NumberOfThreads(), 1);
+#     @variable(scnd, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin);
+#     @variable(scnd, uij[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j]], Bin);
+#     @variable(scnd, ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k]], Bin);
+#     @variable(scnd, ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l]], Bin);
+#     ############
+#     @variable(scnd, 0<= xij[i=1:dt.N["supplier"],j=1:dt.N["plant"],1:dt.Mij[i,j],1:5] );
+#     @variable(scnd, 0<= xjk[j=1:dt.N["plant"],k=1:dt.N["distribution"],1:dt.Mjk[j,k],1:5] );
+#     @variable(scnd, 0<= xkl[k=1:dt.N["distribution"],l=1:dt.N["customer"],1:dt.Mkl[k,l],1:5] );
+#     @variable(scnd, 0<= h[1:dt.N["plant"]+dt.N["distribution"],1:5,1:2] );
+#     exg = AffExpr(0);
+#     for i=1:dt.N["supplier"]
+#         for j=1:dt.N["plant"]
+#             add_to_expression!(exg, 10000*uij[i,j,1]);
+#         end
+#     end
+#     for j=1:dt.N["plant"]
+#         for k=1:dt.N["distribution"]
+#             add_to_expression!(exg, 10000*ujk[j,k,1]);
+#         end
+#     end
+#     for k=1:dt.N["distribution"]
+#         for l=1:dt.N["customer"]
+#             add_to_expression!(exg,10000*ukl[k,l,1]);
+#         end
+#     end
+#
+#     @addobjective(scnd, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +
+#         sum(dt.N["vcs"][i][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) +
+#         sum(dt.vij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+#         sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+#         sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
+#         sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+#         sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
+#     #2nd obj
+#     @addobjective(scnd, Min, sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+#         sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+#         sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
+#         sum(dt.rij[i][j][m]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+#         sum(dt.rjk[j][k][m]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+#         sum(dt.rkl[k][l][m]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5));
+#     ######### constraint 3 #############
+#     @constraint(scnd,[j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]));
+#     @constraint(scnd,[k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l]));
+#     ########### constraint 4-6 #############
+#     @constraint(scnd,[j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]));
+#     @constraint(scnd,[k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]));
+#     @constraint(scnd, [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]);
+#     ########### constraint 7-9 #############
+#     @constraint(scnd,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i]);
+#     @constraint(scnd,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,:,t]) <=[dt.N["cap"];dt.N["cad"]][j]*y[j,t]);
+#     @constraint(scnd,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
+#     ########### constraint 10 #############
+#     @constraint(scnd,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= 1);
+#     @constraint(scnd,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= 1);
+#     @constraint(scnd,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= 1);
+#     ########### constraint 11 #############
+#     @constraint(scnd,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) <= dt.bigM*uij[i,j,m]);
+#     @constraint(scnd,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] ,sum(xjk[j,k,m,p] for p=1:5) <= dt.bigM*ujk[j,k,m]);
+#     @constraint(scnd,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) <= dt.bigM*ukl[k,l,m]);
+#     ########### constraint 12 #############
+#     @constraint(scnd,[i=1:dt.N["supplier"], j=1:dt.N["plant"], m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) >= dt.Vij[m]*uij[i,j,m] );
+#     @constraint(scnd,[j=1:dt.N["plant"], k=1:dt.N["distribution"], m=1:dt.Mjk[j,k]], sum(xjk[j,k,m,p] for p=1:5) >= dt.Vjk[m]*ujk[j,k,m]);
+#     ########### constraint 13-14 #############
+#     @constraint(scnd,sum(y[j,t] for j=1:dt.N["plant"] for t=1:2) <= dt.upl);
+#     @constraint(scnd,sum(y[j,t] for j=dt.N["plant"]+1:dt.N["distribution"]+dt.N["plant"] for t=1:2) <= dt.udc);
+#     return scnd
+# end
 scndm = voptmodel()
 # using vOptGeneric
 @CPUtime vSolve(scndm, TL, method=:dicho, verbose=false)

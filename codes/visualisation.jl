@@ -113,9 +113,7 @@ for i=1:length(lsg)
     append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
     append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
 end
-lsg1
-1
-
+opt dominated out
 
 lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
 
@@ -138,16 +136,24 @@ layout = Layout(
 )
 
 trace1 = scatter(x=ep1,y=ep2,name="DichoLP+FP+PR", mode="markers", marker=attr(color="Crimson"))
-# trace2 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="DarkVilolet"))      # this sets its legend entry
+# trace22 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="blue"))      # this sets its legend entry
 trace2 = scatter(x=lp1, y=lp2,  name="LB", mode="line", marker=attr(color = "DarkOrange"))
-for i=1:length(lp1)
-    trace
-trace3 = scatter(x=lsg1, y=lsg2,  name="fixBinDichoMIP", mode="line", marker=attr(color = "DarkOrange"))
-trace4 = scatter(x=fy1, y=fy2,  name="DichoFFP", mode="markers", marker=attr(color="Turquios"))
-trace5 = scatter(x=py1, y=py2,  name="DichoFFP+PR", mode="markers", marker=attr(color="LimeGreen"))
+trace4 = scatter(x=fy1, y=fy2,  name="Dicho+FFP", mode="markers", marker=attr(color="Turquios"))
+trace5 = scatter(x=py1, y=py2,  name="Dicho+FFP+PR", mode="markers", marker=attr(color="LimeGreen"))
 plot([trace1,trace2,trace5], layout)
 
-plot([trace1,trace2,trace4,trace5], layout) #trace1
+cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+
+plot_array = GenericTrace[]
+push!(plot_array,trace5);
+for i=1:length(linesg)
+    if linesg[i]!=[]
+        tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
+        push!(plot_array,tradeoffs)
+    end
+end
+fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
+
 
 
 ##########################     3D Visualisation       ###########################
