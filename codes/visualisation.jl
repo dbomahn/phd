@@ -116,18 +116,17 @@ end
 opt dominated out
 
 lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
+dlp1 = [dd[i][1] for i=1:length(dd)]; dlp2 = [dd[i][2] for i=1:length(dd)]
 
-fyy = hcat(fy)
 fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
 
-pyy = hcat(pry)
-py1= [pyy[i][1] for i=1:length(pyy)]; py2 = [pyy[i][2] for i=1:length(pyy)]
+py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 
 
 layout = Layout(
     title="Plot Title",
     xaxis_title="Cost",
-    yaxis_title="CO2 emmision",
+    yaxis_title="CO2 emission",
     legend_title="Legend Title",
     font=attr(
         family="Courier New, monospace",
@@ -135,7 +134,7 @@ layout = Layout(
     )
 )
 
-trace1 = scatter(x=ep1,y=ep2,name="DichoLP+FP+PR", mode="markers", marker=attr(color="Crimson"))
+trace1 = scatter(x=dlp1,y=dlp2,name="DichoLP+FP+PR", mode="markers", marker=attr(color="Crimson"))
 # trace22 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="blue"))      # this sets its legend entry
 trace2 = scatter(x=lp1, y=lp2,  name="LB", mode="line", marker=attr(color = "DarkOrange"))
 trace4 = scatter(x=fy1, y=fy2,  name="Dicho+FFP", mode="markers", marker=attr(color="Turquios"))

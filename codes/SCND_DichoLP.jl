@@ -8,8 +8,8 @@ struct Data1dim
     function Data1dim(file)
         dt1 = readdlm(file);
         # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
-        notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -48,12 +48,12 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-# file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
-file = "F:scnd/Test1S2"
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
-dt1 = Data1dim(file);
+# file = "F:scnd/Test1S2"
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 
+dt1 = Data1dim(file);
 if dt1.N["supplier"] == 6
     TL = dt1.N["supplier"]*60*1
 elseif dt1.N["supplier"]>6 && dt1.N["supplier"] <= 9
@@ -151,7 +151,6 @@ scndlp = SCND_LP()
 lp = getvOptData(scndlp);
 lp.Y_N
 weight = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
-
 #########################  Feasibility Pump  ###########################
 function FP_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
@@ -289,8 +288,6 @@ function LP_Model(weight)
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
-fbmodel = FP_Model(weight) #obj not attached yet
-dist = LP_Model(weight)
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -331,9 +328,9 @@ function flipoper(Tabu,x_t,x_r)
 end
 function FP_FBcheck(model,yr,u1r,u2r,u3r)
     JuMP.fix.(model[:y],yr; force=true)
-    JuMP.fix.(model[:uij],u1r; force=true)
-    JuMP.fix.(model[:ujk],u2r; force=true)
-    JuMP.fix.(model[:ukl],u3r; force=true)
+    # JuMP.fix.(model[:uij],u1r; force=true)
+    # JuMP.fix.(model[:ujk],u2r; force=true)
+    # JuMP.fix.(model[:ukl],u3r; force=true)
     optimize!(model)
     if termination_status(model) == MOI.OPTIMAL
         return true
@@ -407,20 +404,22 @@ function FP(candX,len,TL)
         u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
         u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
         SearchDone = false; iter=0;
-        Max_iter =  length(findall(i-> 0<i<1,x_t))
+        Max_iter =  5#length(findall(i-> 0<i<1,yt))
         while iter < Max_iter && SearchDone == false && time() - t0 < TL
             # x_r = round.(Int,x_t);
             yr = round.(Int, yt); u1r = round.(Int, u1t);
             u2r = round.(Int, u2t); u3r = round.(Int, u3t);
 
-            if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true
+            if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true #,u1r,u2r,u3r)
                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                 if sol ∉ X  && dominated(ndp,PF)==false
                     push!(X,sol); push!(PF,ndp)
                     push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
                     newsol+=1; SearchDone = true
                     deleteat!(candlist, k);
-                    # println("rounding worked")
+                    println("rounding worked")
+                else
+                    # println("rounding failed")
                 end
             else
                 if [yr;u1r;u2r;u3r] ∈ Tabu
@@ -429,14 +428,14 @@ function FP(candX,len,TL)
                         SearchDone = true;
                         # println("flip failed")
                     else
-                        if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true
+                        if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true #,u1r,u2r,u3r)
                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                             if sol ∉ X && dominated(ndp,PF)==false
                                 push!(X,sol); push!(PF,ndp)
                                 push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
                                 newsol+=1; SearchDone = true;
                                 deleteat!(candlist, k);
-                                # println("flip worked")
+                                println("flip worked")
                             end
                         end
                     end
@@ -459,7 +458,11 @@ function FP(candX,len,TL)
     end
     return X,PF,newsol,candlist
 end
-FPtime = @CPUelapsed fx,fy,fn,candlist = FP(lp.X_E,len,500)
+fbmodel = FP_Model(weight) #obj not attached yet
+dist = LP_Model(weight)
+
+FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,300)
+1
 
 function PR_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
@@ -529,7 +532,7 @@ function PR_Model(weight)
     # @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
-prmodel = PR_Model(100)
+prmodel = PR_Model(weight)
 
 function createNB(SI,dif,exploredSI)
     neibour = []; #neiobj = [];
@@ -577,7 +580,7 @@ function nextSI(neibour,SI)
     end
 end
 function First_FBcheck(neibour)
-    neibour1 = filter(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
+    neibour1 = filter!(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
     for j=1:dt1.N["plant"]+dt1.N["distribution"]
         filter!(p-> sum(p[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour1)
     end
@@ -597,7 +600,7 @@ function Second_FBcheck(model,yr)#,u1r,u2r,u3r)
 end
 function PR(X,Y,len,TL)
     candX = copy(X); candY = copy(Y); bvar = sum(len[i] for i=1:4);
-    IGPair=[]; exploredSI = []; t0=time(); iter=0;
+    IGPair=[]; exploredSI = []; t0=time(); iter=0; newsol=0;
     while time()-t0 < TL && length(IGPair)<(length(candY)*(length(candY)-1))
         @label NewIter
 	    I,G = StatsBase.sample(1:length(candX), 2, replace=false);
@@ -613,7 +616,6 @@ function PR(X,Y,len,TL)
             else
                 candSI =[]
                 # l=1;
-                # newsol=0;
                 # while (time()-t0<TL) && l<=length(neibour) && newsol <=1 #floor(dt1.N["supplier"]/3) &&
                 neibour2 = First_FBcheck(neibour)
                 for l=1:length(neibour2)
@@ -626,7 +628,7 @@ function PR(X,Y,len,TL)
                         push!(candSI,sol)
                         if sol ∉ candX && dominated(ndp,candY)==false
                             push!(candX, sol); push!(candY, ndp);
-                            # newsol+=1;
+                            newsol+=1;
                             # println("new sol");
                         end
                     end
@@ -646,11 +648,11 @@ function PR(X,Y,len,TL)
             end
         end
         push!(IGPair,[I,G]);
-        @show iter+=1
+        iter+=1
     end
-    return candX,candY,IGPair
+    return candX,candY,newsol#,IGPair
 end
-PRtime = @CPUelapsed prx,pry,pairs = PR(fpx,fpy,len,200)
+PRtime = @CPUelapsed aa,bb,new = PR(lx,ly,len,200)
 # px,py,pairs = PR(vd.X_E,vd.Y_N,len,1400)
 
 function Postpro(P,Pobj)
@@ -674,8 +676,8 @@ function Postpro(P,Pobj)
 
     return finalsol,finalobj
 end
-fpx,fpy = Postpro(fx,fy)
-fpy
-px,py = Postpro(prx,pry)
-py
-setdiff(py,fpy)
+nx,ny = Postpro(lx,ly)
+ny
+cc,dd = Postpro(aa,bb)
+dd
+setdiff(dd,ly)

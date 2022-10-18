@@ -614,7 +614,7 @@ function nextSI(neibour,SI)
     end
 end
 function First_FBcheck(neibour)
-    neibour1 = filter(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
+    neibour1 = filter!(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
     for j=1:dt1.N["plant"]+dt1.N["distribution"]
         filter!(p-> sum(p[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour1)
     end
@@ -634,7 +634,7 @@ function Second_FBcheck(model,yr)#,u1r,u2r,u3r)
 end
 function PR(X,Y,len,TL)
     candX = copy(X); candY = copy(Y); bvar = sum(len[i] for i=1:4);
-    IGPair=[]; exploredSI = []; t0=time(); iter=0;
+    IGPair=[]; exploredSI = []; t0=time(); iter=0; newsol=0;
     while time()-t0 < TL && length(IGPair)<(length(candY)*(length(candY)-1))
         @label NewIter
 	    I,G = StatsBase.sample(1:length(candX), 2, replace=false);
@@ -663,7 +663,7 @@ function PR(X,Y,len,TL)
                         push!(candSI,sol)
                         if sol ∉ candX && dominated(ndp,candY)==false
                             push!(candX, sol); push!(candY, ndp);
-                            # newsol+=1;
+                            newsol+=1;
                             # println("new sol");
                         end
                     end
@@ -685,10 +685,10 @@ function PR(X,Y,len,TL)
         push!(IGPair,[I,G]);
         iter+=1
     end
-    return candX,candY,IGPair
+    return candX,candY,newsol
 end
 fpx,fpy = Postpro(fx,fy)
-PRtime = @CPUelapsed px,py,pairs = PR(fpx,fpy,len,200)
+PRtime = @CPUelapsed px,py,pairs = PR(fx,fy,len,200)
 # px,py,pairs = PR(vd.X_E,vd.Y_N,len,1400)
 prx,pry = Postpro(px,py)
 pry
