@@ -151,8 +151,18 @@ struct Data1
     end
 end
 dt1 = Data1(file)
-
 #######################################
+function dominated(x,P)
+    st = false
+    for k=1:length(P)
+        if all( x .>= P[k])
+            st=true; break
+        else
+            continue
+        end
+    end
+    return st
+end
 function epmodel1dim()
     scnd1 = Model(optimizer_with_attributes(
             CPLEX.Optimizer,
@@ -231,9 +241,10 @@ function epmodel1dim()
     return scnd1
 end
 m1 = epmodel1dim()
-function opt1dim(ϵ)
+function opt1dim(ϵ,TL)
     JuMP.fix(m1[:ep], ϵ; force = true);
     optimize!(m1)
+    set_time_limit_sec(m1,TL)
     if termination_status(m1) == MOI.OPTIMAL
         # y1 = round.(JuMP.value.(m1[:y1]))
         # h1 = round.(JuMP.value.(m1[:h1]); digits=4)
@@ -260,29 +271,32 @@ function opt1dim(ϵ)
                 sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1)
         return [objective_value(m1),obj2]
         # return [objective_value(m1),obj1]
+    elseif termination_status(m1) == MOI.INFEASIBLE
+        return 0
     else
         return nothing
     end
 end
-function epsilon()
-    Y = []; ϵ =  ; δ =10; lb = 10^(6); fval = [0,ϵ]
-    while fval[2] >= lb
-        fval = opt1dim(ϵ)
-        println(fval)
+function epsilon(TL)
+    Y = []; ϵ = 1.2665377400539995e6; δ =40000.00000000074; lb = 866537.740053992; fval = [0,ϵ]
+    iter = 0;
+    while fval[2] >= lb && iter<11
+        fval = opt1dim(ϵ,TL)
+        # println(fval)
         # println([fval[2],fval[1]])
-        if fval == nothing
+        if fval == 0
             break
-        # end
-        # if dominated(fval,Y)==false
-        else
+        elseif fval == nothing
+                fval = [0,ϵ]
+        else dominated(fval,Y)==false
             push!(Y,fval);
         end
-        ϵ = ϵ-δ
+        ϵ = ϵ-δ; iter+=1;
     end
     return Y
 end
-ey = epsilon()
-
+ey = epsilon(300)
+1
 ##############################
 
 function epmodel1dim()
@@ -356,6 +370,7 @@ function epmodel1dim()
     return scnd1
 end
 m1 = epmodel1dim()
+
 function opt1dim(ϵ)
     JuMP.fix(m1[:ep], ϵ; force = true);
     optimize!(m1)

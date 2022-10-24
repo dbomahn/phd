@@ -432,6 +432,138 @@ BigM = sum(sum(dt.N["demand"]));
 optimize!(scnd0)
 println(objective_value(scnd0))
 1
+# using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
+# # CSV
+#
+# struct Data1d
+#     file::String; N::Dict{}; d::Array{}; cj::Array{}; ck::Array{}; a::Array{}; ej::Array{}; ek::Array{};
+#     gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
+#     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{};
+#     Mij::Array{}; Mjk::Array{}; Mkl::Array{}; ija::Array{}; jka::Array{}; kla::Array{};
+#     b::Array{}; qj::Array{}; qk::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
+#     function Data1d(file)
+#         dt1 = readdlm(file);
+#         notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+#         # notafile = readdlm("F:/scnd/Notations.txt", '=');
+#         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+#         nota = notafile[1:end,1];  N= Dict();
+#
+#         for i=1:length(nota)-1
+#             id1 = findall(x->x==nota[i], dt1)[1][1];
+#             id2 = findall(x->x==nota[i+1], dt1)[1][1];
+#             if id2-id1<3
+#                 tmp = filter(x->x!="",  dt1[id1+(id2-id1-1),:])
+#                 if length(tmp)<2
+#                     N[nota[i]] = tmp[1];
+#                 else
+#                     N[nota[i]] = tmp;
+#                 end
+#             else
+#                 W = []
+#                 for x=id1+1:id1+(id2-id1-1)
+#                     tmp = filter(x->x!="", dt1[x,:]);
+#                     append!(W,tmp)
+#                     # push!(W,tmp);
+#                 end
+#                 # tmp = [filter(x->x!="", dt1[x,:]) for x in id1+1:id1+(id2-id1-1)]
+#                 N[nota[i]] = W;
+#             end
+#         end
+#         # I = N["supplier"]; J = N["plant"]; K = N["distribution"]; L = N["customer"]
+#         d = N["demand"]
+#         cj = N["fcp"]; ck= N["fcd"];
+#         a = N["vcs"];  ej = N["vcp"]; ek = N["vcd"]
+#         gij = sparse(N["fixedcostModesp"]); gjk = sparse(N["fixedcostModepd"]); gkl = sparse(N["fixedcostModedc"]);
+#         vij = N["tcp"]; vjk = N["tcd"]; vkl = N["tcc"];
+#         Vij = sparse(N["LcapacityModesp"]); Vjk = sparse(N["LcapacityModepd"]); #Vkl =  sparse(N["LcapacityModedc"]);
+#         Mij = transpose(reshape(N["ModeIJ"], (N["plant"],N["supplier"])));
+#         Mjk = transpose(reshape(N["ModeJK"], (N["distribution"],N["plant"])));
+#         Mkl = transpose(reshape(N["ModeKL"], (N["customer"],N["distribution"])));
+#         ija = N["ModeIJ"]; jka = N["ModeJK"]; kla = N["ModeKL"];
+#         b = N["ves"];  qj = N["vep"]; qk = N["ved"]
+#         rij = N["cep"]; rjk = N["ced"]; rkl = N["cec"];
+#         upl = N["upperpants"]; udc = N["upperdistribution"]; bigM = sum(N["demand"])
+#
+#         new(file,N,d,cj,ck,a,ej,ek,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,ija,jka,kla,b,qj,qk,rij,rjk,rkl,upl,udc,bigM);
+#     end
+# end
+# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+# dt1 = Data1d(file)
+#
+# scnd1 = vModel(optimizer_with_attributes(
+#         CPLEX.Optimizer,
+#         "CPX_PARAM_EPGAP" => 1e-8
+#       ));
+# set_silent(scnd1)
+# # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+# @variable(scnd1, 0<=yj[1:dt1.N["plant"]*2]<=1)
+# @variable(scnd1, 0<=yk[1:dt1.N["distribution"]*2]<=1)
+#
+# @variable(scnd1, 0<=uij[1:sum(dt1.Mij)]<=1);
+# @variable(scnd1, 0<=ujk[1:sum(dt1.Mjk)]<=1);
+# @variable(scnd1, 0<=ukl[1:sum(dt1.Mkl)]<=1);
+# @variable( scnd1, 0<= xij[1:sum(dt1.Mij)*5] );
+# @variable( scnd1, 0<= xjk[1:sum(dt1.Mjk)*5] );
+# @variable( scnd1, 0<= xkl[1:sum(dt1.Mkl)*5] );
+# @variable(scnd1, 0<=hj[1:dt1.N["plant"]*5*2])
+# @variable(scnd1, 0<=hk[1:dt1.N["distribution"]*5*2])
+
+# @addobjective(scnd1, Min, sum(dt1.cj.*yj) + sum(dt1.ck.*yk) +
+# sum(dt1.a[5*(i-1)+p]*xij[sum(dt1.ija[1:(6*(i-1)+j-1)])*5+(m-1)*5+p] for i=1:dt1.N["supplier"] for j=1:dt1.N["plant"] for m=1:dt1.Mij[i,j] for p=1:5)
+# sum(dt1.a[5*(i-1)+p]*xij[sum(dt1.ija[1:(6*(i-1)+j-1)])*5+(m-1)*5+p] for i=1:dt1.N["supplier"] for j=1:dt1.N["plant"] for m=1:dt1.Mij[i,j] for p=1:5)
+#
+# +
+#
+#     sum(dt1.ej.*hj) + sum(dt1.ek.*hk) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
+#     sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl)
+# );
+#
+# @addobjective(scnd1, Min, sum(dt1.b[5*(i-1)+p]*xij[(dt1.N["supplier"]*(i-1)+(j-1+m-1))*5+p] for i=1:dt1.N["supplier"] for j=1:dt1.N["plant"] for m=1:dt1.Mij[i,j] for p=1:5)+
+#     sum(dt1.qj.*hj) + sum(dt1.qk.*hk) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl)
+# );
+#
+# ########## constraint 3 #############
+# @constraint(scnd1, [j=1:dt1.N["plant"],p=1:5], sum(xij[(dt1.N["supplier"]*(i-1)+(j-1+m-1))*5+p] for i=1:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk[(dt1.N["plant"]*(j-1)+(k-1+m-1))*5+p] for k=1:dt1.N["distribution"] for m=1:dt1.Mjk[j,k]) );
+# @constraint(scnd1, [k=1:dt1.N["distribution"],p=1:5], sum(xjk[(dt1.N["plant"]*(j-1)+(k-1+m-1))*5+p] for j=1:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) == sum(xkl[(dt1.N["distribution"]*(k-1)+(l-1+m-1))*5+p] for l=1:dt1.N["distribution"] for m=1:dt1.Mkl[k,l]) );
+# ########### constraint 4-6 #############
+# @constraint(scnd1, [j=1:dt1.N["plant"],p=1:5], sum(hj[5*2*(j-1)+2*(p-1)+t] for t=1:2) == sum(xij[(dt1.N["supplier"]*(i-1)+(j-1+m-1))*5+p] for i=1:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) );
+# @constraint(scnd1, [k=1:dt1.N["distribution"],p=1:5], sum(hk[5*2*(k-1)+2*(p-1)+t] for t=1:2) == sum(xjk[(dt1.N["plant"]*(j-1)+(k-1+m-1))*5+p] for j=1:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) );
+# @constraint(scnd1, [l=1:dt1.N["customer"],p=1:5], sum(xkl[(dt1.N["distribution"]*(k-1)+(l-1+m-1))*5+p] for k=1:dt1.N["distribution"] for m=1:dt1.Mkl[k,l]) >= dt1.d[5*(l-1)+p]);
+# ########### constraint 7 #############
+# @constraint(scnd1, [i=1:dt1.N["supplier"]], sum(xij[(dt1.N["supplier"]*(i-1)+(j-1+m-1))*5+p] for i=1:dt1.N["supplier"] for m=1:dt1.Mij[i,j] for p=1:5) <= dt1.N["cas"][i]);
+# ########### constraint 8 #############
+# @constraint(scnd1, [j=1:dt1.N["plant"],t=1:2], sum(hj[5*2*(j-1)+2*(p-1)+t] for p=1:5) <= dt1.N["cap"][j]*yj[2*(j-1)+t] );
+# @constraint(scnd1, [k=1:dt1.N["distribution"],t=1:2], sum(hk[5*2*(k-1)+2*(p-1)+t] for p=1:5) <= dt1.N["cad"][k]*yk[2*(k-1)+t]);
+# ########### constraint 9 #############
+# @CPUtime @constraint(scnd1,[j=1:dt1.N["plant"]], sum(yj[2*(j-1)+t] for t=1:2) <= 1);
+# @CPUtime @constraint(scnd1,[k=1:dt1.N["distribution"]], sum(yk[2*(k-1)+t] for t=1:2) <= 1);
+# ########### constraint 10 #############
+# @constraints(scnd1,begin
+#         [i=1:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
+#         sum(ujk[1:dt1.Mjk[1,1]]) <= 1
+#         [k=2:dt1.N["distribution"]], sum(ujk[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
+#         [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
+#         sum(ukl[1:dt1.Mkl[1,1]]) <= 1
+#         [l=2:dt1.N["customer"]], sum(ukl[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
+#         [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
+# end);
+# ########### constraint 11 #############
+# @constraints(scnd1, begin
+#     [i=1:sum(dt1.Mij)], sum(xij[5*(i-1)+1:5*i]) <= dt1.bigM*uij[i]
+#     [i=1:sum(dt1.Mjk)], sum(xjk[5*(i-1)+1:5*i]) <= dt1.bigM*ujk[i]
+#     [i=1:sum(dt1.Mkl)], sum(xkl[5*(i-1)+1:5*i]) <= dt1.bigM*ukl[i]
+# end);
+# ########### constraint 12 #############
+# @constraints(scnd1, begin
+#         [i in findnz(dt1.Vij)[1]], sum(xij[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij[i]
+#         [i in findnz(dt1.Vjk)[1]], sum(xjk[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk[i]
+#         # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
+# end);
+# ########### constraint 13-14 #############
+# @constraint(scnd1, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
+# @constraint(scnd1, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
+# return scnd1
+
 # with supplivers availability optsol obj1: 1.351098484864179e8
 # with BigM obj1: 1.3414953963385555e8
 # without BigM obj1: 1.3414953963385555e8
