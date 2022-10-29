@@ -15,16 +15,15 @@ end
 #############################        2D plot      ###########################
 sol = NDpoints("/home/ak121396/Desktop/relise/test01S2_img_p.sol");
 benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
-
-alleps = readdlm("/home/ak121396/Desktop/relise/test01S2Y.log")
+eps = readdlm("/home/ak121396/Desktop/relise/test01S2Y.log")
 ten = readdlm("/home/ak121396/Desktop/relise/Test1_10hrY.log")
 
-lsg = filter!(p->p!=[],collect(values(linesg)))
-lsg1 = []; lsg2 = []
-for i=1:length(lsg)
-    append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
-    append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
-end
+# lsg = filter!(p->p!=[],collect(values(linesg)))
+# lsg1 = []; lsg2 = []
+# for i=1:length(lsg)
+#     append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
+#     append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
+# end
 # opt dominated out
 
 lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
@@ -32,64 +31,21 @@ dlp1 = [dd[i][1] for i=1:length(dd)]; dlp2 = [dd[i][2] for i=1:length(dd)]
 fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 
+ry1= [ry[i][1] for i=1:length(ry)]; ry2 = [ry[i][2] for i=1:length(ry)]
+s1 = [pp[i] for i=1:2:Int(length(pp))]; s2 = [pp[i] for i=2:2:Int(length(pp))]
 
-ry = [ [1.295191654543e8, 873282.5275340001]
+gfpr [  [1.201136332243e8, 883896.5015659999]
+ [1.0530758626449999e8, 1.291987527147e6]
+ [1.094816536099e8, 915452.147906]
  [1.050179496042e8, 1.293142252187e6]
+ [1.3153919367119999e8, 860094.7364370001]
  [1.409508358823e8, 851968.907189]
  [1.186620332035e8, 901220.13756]
- [1.0530758626449999e8, 1.291987527147e6]
- [1.059458847031e8, 1.056525335116e6]
- [1.094816536099e8, 915452.147906]
- [1.3153919367119999e8, 860094.7364370001]
- [1.201136332243e8, 883896.5015659999]]
-ry1= [ry[i][1] for i=1:length(ry)]; ry2 = [ry[i][2] for i=1:length(ry)]
-ry1 = [rr[i] for i=1:2:Int(length(rr))]; ry2 = [rr[i] for i=2:2:Int(length(rr))]
+ [1.295191654543e8, 873282.5275340001]
+ [1.059458847031e8, 1.056525335116e6] ]
+g1 = [gfpr[i] for i=1:2:Int(length(gfpr))]; g2 = [gfpr[i] for i=2:2:Int(length(gfpr))]
 
-pp = [ [1.059458847031e8, 1.056525335116e6]
- [1.186620332035e8, 901220.13756]
- [1.094816536099e8, 915452.147906]
- [1.0530758626449999e8, 1.291987527147e6]
- [1.406028573926e8, 852570.4506870001]
- [1.0567853421939999e8, 1.0861540601559998e6]
- [1.295191654543e8, 873282.5275340001]
- [1.201136332243e8, 883896.5015659999]
- [1.291711869646e8, 873884.071032]
- [1.3129318075209999e8, 872969.3772280001]
- [1.182284693952e8, 901547.9921859999]
- [1.050179496042e8, 1.293142252187e6]
- [1.3153919367119999e8, 860094.7364370001]
- [1.409508358823e8, 851968.907189] ]
-s1 = [pp[i] for i=1:2:Int(length(pp))]; s2 = [pp[i] for i=2:2:Int(length(pp))]
-groupfp = [ [1.1435266747745e8, 1.285780902767e6]
- [1.3153919367119999e8, 860094.7364370001]
- [1.405606362992e8, 866148.934108]
- [1.318033869896e8, 873169.5305730001]
- [1.315742232889e8, 885773.740539]
- [1.129980823651e8, 1.233046312514e6]
- [1.16989077159e8, 1.002490321142e6]
- [1.1574171339840999e8, 1.017601549103e6]
- [1.3129318075209999e8, 872969.3772280001]
- [1.050179496042e8, 1.293142252187e6]
- [1.3136849965891e8, 910528.0098049999]
- [1.0738606828989999e8, 1.080068125525e6]
- [1.0577879824319999e8, 1.3026541192370001e6]
- [1.154768934298e8, 1.057536897188e6]
- [1.273374435361e8, 928389.211278]
-]
-gg = [ [1.480383398823e8, 851968.907189]
- [1.295191654543e8, 873282.5275340001]
- [1.186620332035e8, 901220.13756]
- [1.0935475816799998e8, 981632.789198]
- [1.3129318075209999e8, 872969.3772280001]
- [1.0530758626449999e8, 1.291987527147e6]
- [1.0567853421939999e8, 1.0861540601559998e6]
- [1.094816536099e8, 915452.147906]
- [1.201136332243e8, 883896.5015659999]
- [1.3153919367119999e8, 860094.7364370001]
- [1.050179496042e8, 1.293142252187e6]
- [1.059458847031e8, 1.056525335116e6]
-]
-g1 = [gg[i] for i=1:2:Int(length(gg))]; g2 = [gg[i] for i=2:2:Int(length(gg))]
+
 
 layout = Layout(
     title="Plot Title",
@@ -102,30 +58,32 @@ layout = Layout(
     )
 )
 # mode="markers+text"
-trace1 = scatter(x=ry1,y=ry2,name="FP+PR", mode="markers", marker=attr(color="royalblue"))
-# trace22 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="blue"))      # this sets its legend entry
-trace2 = scatter(x=lp1, y=lp2,  name="LB", mode="line", marker=attr(color = "black"))
-trace3 = scatter(x=alleps[:,1], y=alleps[:,2],name="epsilon", mode="markers", marker=attr(color="Crimson"))
-trace4 = scatter(x=g1, y=g2,  name="GFP+PR", mode="markers", marker=attr(color="orange")) #Turquios
-trace5 = scatter(x=py1, y=py2, name="MIP+FFP+PR", mode="markers", marker=attr(color="LimeGreen"))
-trace6 = scatter(x=ten[:,1], y=ten[:,2], name="10hrDicho", mode="markers", market=attr(color="Purple"))
+# trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="blue"))      # this sets its legend entry
+t1 = scatter(x=lp1, y=lp2,  name="LB", mode="line", marker=attr(color = "black"))
+t2 = scatter(x=dlp1, y=dlp2,  name="fixbinary", mode="markers", marker=attr(color = "cyan"))
+t3 = scatter(x=ry1,y=ry2,name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
+trace = scatter(x=alleps[:,1], y=alleps[:,2],name="epsilon", mode="markers", marker=attr(color="crimson"))
+trace4 = scatter(x=g1, y=g2,  name="FP+GFP+PR", mode="markers", marker=attr(color="orange")) #Turquios
+# trace5 = scatter(x=py1, y=py2, name="MIP+FFP+PR", mode="markers", marker=attr(color="limeGreen"))
+trace = scatter(x=ten[:,1], y=ten[:,2], name="10hrDicho", mode="markers", market=attr(color="Purple"))
 
+plot([trace1,trace2,trace3,trace4,trace6,trace5,t7,t8],layout)
 plot([trace1,trace2,trace3,trace6,trace4,trace5], layout)
 
 # plot([trace2,trace3,trace1,trace5], layout)
-
-cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
-
-plot_array = GenericTrace[]
-push!(plot_array,trace5);
-for i=1:length(linesg)
-    if linesg[i]!=[]
-        tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
-        push!(plot_array,tradeoffs)
+function MIPplot(trace,linesg)
+    cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+    plot_array = GenericTrace[]
+    push!(plot_array,trace)
+    for i=1:length(linesg)
+        if linesg[i]!=[]
+            tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
+            push!(plot_array,tradeoffs)
+        end
     end
+    fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
 end
-fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
-
+MIPplot(lsgdict)
 
 
 ##########################     3D Visualisation       ###########################

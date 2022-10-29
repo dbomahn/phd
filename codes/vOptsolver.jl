@@ -1,5 +1,5 @@
 using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
-# using LazySets
+using CSV,JLD2
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -7,9 +7,9 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -51,35 +51,36 @@ end
 file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 # @show file = ARGS[1]
 # file = "F:scnd/Test1S2"
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "/home/ak121396/Desktop/instances/SCND/test01S2"
 dt1 = Data1dim(file);
 
-if dt1.N["supplier"] == 6
+if dt1.N["supplier"] >=6 && dt1.N["supplier"] <= 7
     TL = dt1.N["supplier"]*60*1
-elseif dt1.N["supplier"]>6 && dt1.N["supplier"] <= 9
+elseif dt1.N["supplier"]>7 && dt1.N["supplier"] <= 9
     TL = dt1.N["supplier"]*60*2
 elseif dt1.N["supplier"]>9 && dt1.N["supplier"] <= 12
     TL = dt1.N["supplier"]*60*3
-elseif dt1.N["supplier"]>12 && dt1.N["supplier"] <= 18
+elseif dt1.N["supplier"]>12 && dt1.N["supplier"] <= 16
     TL = dt1.N["supplier"]*60*4
-elseif dt1.N["supplier"] == 20
+elseif dt1.N["supplier"]>16 && dt1.N["supplier"] <= 20
     TL = dt1.N["supplier"]*60*5
-elseif dt1.N["supplier"]>20 && dt1.N["supplier"] <= 24
+elseif dt1.N["supplier"]>20 && dt1.N["supplier"] <= 26
     TL = dt1.N["supplier"]*60*6
-elseif dt1.N["supplier"] == 26
-    TL = dt1.N["supplier"]*60*7
-elseif dt1.N["supplier"] == 28
-    TL = dt1.N["supplier"]*60*8
+# elseif dt1.N["supplier"] == 26
+    # TL = dt1.N["supplier"]*60*7
+# elseif dt1.N["supplier"]
+#     TL = dt1.N["supplier"]*60*8
 else
-    TL = dt1.N["supplier"]*60*10
+    TL = dt1.N["supplier"]*60*8
 end
 
 
 function SCND1dim()
-    scnd1 = vModel(optimizer_with_attributes(
-            CPLEX.Optimizer,
-            "CPX_PARAM_EPGAP" => 1e-8
-          ));
+    scnd1 = vModel( CPLEX.Optimizer
+    # optimizer_with_attributes(
+    #         CPLEX.Optimizer,
+    #         "CPX_PARAM_EPGAP" => 1e-8)
+          );
     set_silent(scnd1)
     MOI.set(scnd1, MOI.NumberOfThreads(), 1)
     @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
@@ -151,18 +152,16 @@ function SCND1dim()
     return scnd1
 end
 scnd = SCND1dim()
-@CPUtime vSolve(scnd, TL-100, method=:dicho, verbose=false)
+Dichotime = @CPUelapsed vSolve(scnd, TL-120, method=:dicho, verbose=false)
 # @CPUtime vSolve(scnd, TL, method=:epsilon, step=5*(10^4.0), verbose=true);
 # @CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
 # @CPUtime vSolve(scnd, 600, method=:lex, verbose=false);
 vd = getvOptData(scnd);
-vd.Y_N
-vd.X_E
-
+weight = round(Int,mean([vd.Y_N[i][1]/vd.Y_N[i][2] for i=1:length(vd.Y_N)]))
 ################### Check binary variable values in common  ####################
-bva = (dt1.N["plant"]+dt1.N["distribution"])*2+sum(dt1.Mij)+sum(dt1.Mjk)+sum(dt1.Mkl)
-samele = [findall(in(vd.X_E[1][1:bva]),vd.X_E[i][1:bva]) for i=2:length(vd.X_E)]
-[length(samele[i]) for i=1:length(samele)]
+# bva = (dt1.N["plant"]+dt1.N["distribution"])*2+sum(dt1.Mij)+sum(dt1.Mjk)+sum(dt1.Mkl)
+# samele = [findall(in(vd.X_E[1][1:bva]),vd.X_E[i][1:bva]) for i=2:length(vd.X_E)]
+# [length(samele[i]) for i=1:length(samele)]
 
 #########################  Feasibility Pump+   ###########################
 function FP_Model(weight)
@@ -308,8 +307,6 @@ function LP_Model(weight)
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
-weight = round(Int,mean([vd.Y_N[i][1]/vd.Y_N[i][2] for i=1:length(vd.Y_N)]))
-
 fbmodel = FP_Model(weight)
 dist = LP_Model(weight)
 function flip(x_h,j,e)
@@ -363,8 +360,6 @@ function FP_FBcheck(model,yr)#,u1r,u2r,u3r)
     end
 end
 
-# function feasicheck(yr,u1r,u2r,u3r)
-# end
 function fbsearch(yr,u1r,u2r,u3r) #solveLP
     idy_0 = findall(k->k==0, yr)
     idy_1 = findall(k->k==1, yr)
@@ -419,8 +414,8 @@ function getobjval(x)
 end
 
 function FPplus(dvar,len,TL,Y_N) #𝚯
-    X = copy(dvar); IGPair=[]; Tabu = []; newsol=0; t0=time(); PF = copy(Y_N);
-    Y = []; U1 = []; U2= []; U3 = [];
+    X = copy(dvar); PF = copy(Y_N); Y = []; IGPair=[]; Tabu = []; newsol=0; t0=time();
+    # U1 = []; U2= []; U3 = [];
     while time()-t0 < TL && length(IGPair)<(length(PF)*(length(PF)-1))
         I,G = StatsBase.sample(1:length(X), 2, replace=false)
         x1 = X[I][1:sum(len[i] for i=1:4)]; x2 = X[G][1:sum(len[i] for i=1:4)];
@@ -431,7 +426,7 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
         u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
         u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
         SearchDone = false; iter=0;
-        Max_iter = 20 # length(findall(i-> 0<i<1,x_t))
+        Max_iter = 5 # length(findall(i-> 0<i<1,x_t))
         while [I,G]∉IGPair && iter<Max_iter && SearchDone == false
             # x_r = round.(Int,x_t);
             yr = round.(Int, yt); u1r = round.(Int, u1t);
@@ -441,14 +436,15 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                 if sol ∉ X  && dominated(ndp,PF)==false
                     push!(X,sol); push!(PF,ndp)
-                    push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                    # push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
                     newsol+=1; SearchDone = true
                     # println("rounding worked")
                 end
             else
-                if [yr;u1r;u2r;u3r] ∈ Tabu
-                    yr = flipoper(Y,yt,yr); u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
-                    if any(i->i==[], [yr,u1r,u2r,u3r])
+                if yr ∈ Tabu #[yr;u1r;u2r;u3r] ∈ Tabu
+                    yr = flipoper(Y,yt,yr);
+                    # u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
+                    if yr == [] # if any(i->i==[], [yr,u1r,u2r,u3r])
                         SearchDone = true;
                         # println("flip failed")
                     else
@@ -456,7 +452,7 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
                             if sol ∉ X && dominated(ndp,PF)==false
                                 push!(X,sol); push!(PF,ndp)
-                                push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                                # push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
                                 newsol+=1; SearchDone = true;
                                 # println("flip worked")
                             end
@@ -467,7 +463,7 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
                     break
                 end
                 if SearchDone == false
-                    push!(Tabu,[yr;u1r;u2r;u3r])
+                    push!(Tabu,yr) #[yr;u1r;u2r;u3r]
                     yt,u1t,u2t,u3t = fbsearch(yr,u1r,u2r,u3r)
                     if any(i->i==0, [yt,u1t,u2t,u3t])  #when there's no new feasible lp sol
                         # println("no solution")
@@ -482,31 +478,8 @@ function FPplus(dvar,len,TL,Y_N) #𝚯
     end
     return X,PF,newsol,IGPair
 end
-# optimize!(fbmodel); optimize!(dist);
-FPtime = @CPUelapsed fx,fy,fn,usedPairs = FPplus(vd.X_E,len,200,vd.Y_N)
-
-function Postpro(P,Pobj)
-    copysol = Dict(); copyobj = Dict();
-    for i=1:length(Pobj)
-        copysol[i] = P[i]
-        copyobj[i] = Pobj[i]
-    end
-    for i=1:length(Pobj)-1
-        for j=i+1:length(Pobj)
-            if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
-                copyobj[i]=nothing; copysol[i]=nothing; break
-            elseif all(Pobj[j] .>= Pobj[i]) == true
-                copyobj[j]=nothing; copysol[j]=nothing;
-            end
-        end
-    end
-
-    finalsol = filter!(a->a!=nothing, collect(values(copysol)))
-    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
-
-    return finalsol,finalobj
-end
-
+optimize!(fbmodel); optimize!(dist);
+FPtime = @CPUelapsed fx,fy,fn,usedPairs = FPplus(vd.X_E,len,round(Int,Dichotime/8),vd.Y_N)
 ################################ Path Relinking  ###############################
 function PR_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
@@ -546,7 +519,7 @@ function PR_Model(weight)
     ########### constraint 8 #############
     @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"], t=1:2], sum(h[5*2*(j-1)+((p-1)*2)+t] for p=1:5) <= [dt1.N["cap"];dt1.N["cad"]][j]*y[2*(j-1)+t]);
     ########### constraint 9 #############
-    # @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
+    @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
     @constraints(model,begin
         sum(uij[1:dt1.Mij[1,1]]) <= 1
@@ -575,12 +548,34 @@ function PR_Model(weight)
             # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
     end);
     ########### constraint 13-14 #############
-    # @constraint(model, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
-    # @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
+    @constraint(model, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
+    @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
 prmodel = PR_Model(weight)
 
+function nextSI(neibour,SI)
+    SIobj = getobjval(SI)
+    neiobj = [getobjval(neibour[i]) for i=1:length(neibour)]
+    for i=1:length(neiobj)
+        if length(neibour) == 1  #if there is one candiate sol
+            return neibour[1]#,neibour[1]
+        else length(neiobj) > 1 # if there are multiple candiates, check the improved ratio
+            ratiotb = zeros(length(neiobj),length(neiobj[1]))
+            for i=1:length(neiobj)
+                ratiotb[i,:] = neiobj[i]./SIobj
+            end
+            ranktb = zeros(length(neiobj),length(neiobj[1]))
+            for i=1:length(neiobj[1])
+                ranktb[:,i] = tiedrank(ratiotb[:,i])
+            end
+            ranksum = [sum(ranktb[i,:]) for i=1:length(neiobj)]
+            mostimp = findall(x-> x == maximum(ranksum), ranksum)
+            k = rand(mostimp)[1]
+            return neibour[k]#,neiobj[k]
+        end
+    end
+end
 function createNB(SI,dif,exploredSI)
     neibour = []; #neiobj = [];
     for i in dif
@@ -604,36 +599,14 @@ function createNB(SI,dif,exploredSI)
     # neiobj = neiobj[setdiff(1:end, idx),:]
     return neibour2#,neiobj
 end
-function nextSI(neibour,SI)
-    SIobj = getobjval(SI)
-    neiobj = [getobjval(neibour[i]) for i=1:length(neibour)]
-    for i=1:length(neiobj)
-        if length(neibour) == 1  #if there is one candiate sol
-            return neibour[1]#,neibour[1]
-        else length(neiobj) > 1 # if there are multiple candiates, check the improved ratio
-            ratiotb = zeros(length(neiobj),length(neiobj[1]))
-            for i=1:length(neiobj)
-                ratiotb[i,:] = neiobj[i]./SIobj
-            end
-            ranktb = zeros(length(neiobj),length(neiobj[1]))
-            for i=1:length(neiobj[1])
-                ranktb[:,i] = tiedrank(ratiotb[:,i])
-            end
-            ranksum = [sum(ranktb[i,:]) for i=1:length(neiobj)]
-            mostimp = findall(x-> x == maximum(ranksum), ranksum)
-            k = rand(mostimp)[1]
-            return neibour[k]#,neiobj[k]
-        end
-    end
-end
-function First_FBcheck(neibour)
-    neibour1 = filter!(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
-    for j=1:dt1.N["plant"]+dt1.N["distribution"]
-        filter!(p-> sum(p[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour1)
-    end
-    return neibour1
-end
-function Second_FBcheck(model,yr)#,u1r,u2r,u3r)
+# function First_FBcheck(neibour)
+#     neibour1 = filter!(p->(sum(p[1:dt1.N["plant"]*2])<=dt1.upl && sum(p[1:dt1.N["plant"]*2])>0) || (sum(p[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(p[1+dt1.N["plant"]*2:len[1]])>0), neibour)
+#     for j=1:dt1.N["plant"]+dt1.N["distribution"]
+#         filter!(p-> sum(p[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour1)
+#     end
+#     return neibour1
+# end
+function PR_FBcheck(model,yr)#,u1r,u2r,u3r)
     JuMP.fix.(model[:y],yr; force=true)
     # JuMP.fix.(model[:uij],u1r; force=true)
     # JuMP.fix.(model[:ujk],u2r; force=true)
@@ -665,9 +638,9 @@ function PR(X,Y,len,TL)
                 # l=1;
                 # newsol=0;
                 # while (time()-t0<TL) && l<=length(neibour) && newsol <=1 #floor(dt1.N["supplier"]/3) &&
-                neibour2 = First_FBcheck(neibour)
-                for l=1:length(neibour2)
-                    st = Second_FBcheck( prmodel, neibour2[l][1:len[1]])
+                # neibour2 = First_FBcheck(neibour)
+                for l=1:length(neibour)
+                    st = PR_FBcheck( prmodel, neibour[l])
                     # , neibour2[l][1+len[1]:sum(len[i] for i=1:2)],
                     #     neibour2[l][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)],neibour2[l][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)] )
                     # @show st
@@ -696,35 +669,53 @@ function PR(X,Y,len,TL)
             end
         end
         push!(IGPair,[I,G]);
-        iter+=1
+        # iter+=1
     end
-    return candX,candY,newsol
+    return candX,candY,newsol,IGPair
 end
-fpx,fpy = Postpro(fx,fy)
-PRtime = @CPUelapsed px,py,pairs = PR(fx,fy,len,200)
-# px,py,pairs = PR(vd.X_E,vd.Y_N,len,1400)
+PRtime = @CPUelapsed px,py,pn,pairs = PR(fx,fy,len,round(Int,FPtime*2))
+
+function Postpro(P,Pobj)
+    copysol = Dict(); copyobj = Dict();
+    for i=1:length(Pobj)
+        copysol[i] = P[i]
+        copyobj[i] = Pobj[i]
+    end
+    for i=1:length(Pobj)-1
+        for j=i+1:length(Pobj)
+            if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; copysol[i]=nothing; break
+            elseif all(Pobj[j] .>= Pobj[i]) == true
+                copyobj[j]=nothing; copysol[j]=nothing;
+            end
+        end
+    end
+
+    finalsol = filter!(a->a!=nothing, collect(values(copysol)))
+    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
+
+    return finalsol,finalobj
+end
 prx,pry = Postpro(px,py)
-pry
-setdiff(fpy,fy)
-setdiff(fy,vd.Y_N)
-setdiff(pry,fpy)
 
 ################### Fix the binary values and Solve Dicho  ####################
-function SCND_LP()
-    scnd1 = vModel(optimizer_with_attributes(
-            CPLEX.Optimizer,
-            "CPX_PARAM_EPGAP" => 1e-8
-          ));
+function FixbinSCND_LP(prx,len)
+    scnd1 = vModel(CPLEX.Optimizer)
     set_silent(scnd1)
     # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
-    @variable(scnd1, 0<=y[1:(dt1.N["plant"]+dt1.N["distribution"])*2]<=1)
-    @variable(scnd1, 0<=uij[1:sum(dt1.Mij)]<=1);
-    @variable(scnd1, 0<=ujk[1:sum(dt1.Mjk)]<=1);
-    @variable(scnd1, 0<=ukl[1:sum(dt1.Mkl)]<=1);
+    @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2])
+    @variable(scnd1, uij[1:sum(dt1.Mij)]);
+    @variable(scnd1, ujk[1:sum(dt1.Mjk)]);
+    @variable(scnd1, ukl[1:sum(dt1.Mkl)]);
     @variable( scnd1, 0<= xij[1:sum(dt1.Mij)*5] );
     @variable( scnd1, 0<= xjk[1:sum(dt1.Mjk)*5] );
     @variable( scnd1, 0<= xkl[1:sum(dt1.Mkl)*5] );
     @variable( scnd1, 0<= h[1:(dt1.N["plant"]+dt1.N["distribution"])*5*2] );
+    # @constraint(scnd1, y == prx[1:len[1]])
+    # @constraint(scnd1, uij == prx[1+len[1]:sum(len[i] for i=1:2)])
+    # @constraint(scnd1, ujk == prx[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)])
+    # @constraint(scnd1, ukl == prx[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)])
+
 
     @addobjective(scnd1, Min, sum(dt1.c.*y) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5])+
             sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
@@ -785,32 +776,141 @@ function SCND_LP()
     @constraint(scnd1, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return scnd1
 end
-function FixedBinDicho(pry)
-    linesg = Dict()
-    for k=1:length(pry)
-        model = SCND_LP()
-        JuMP.fix.(model[:y], prx[k][1:len[1]]; force = true)
-        JuMP.fix.(model[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
-        JuMP.fix.(model[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
-        JuMP.fix.(model[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-        @CPUtime vSolve(model, 120, method=:dicho, verbose=false)
-        res = getvOptData(model);
+function FixedBinDicho(prx,len)
+    linesg = Dict(); dtime = 0;
+    for k=1:length(prx)
+        scnd1 = vModel(CPLEX.Optimizer)
+        set_silent(scnd1)
+        MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+        @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2])
+        @variable(scnd1, uij[1:sum(dt1.Mij)]);
+        @variable(scnd1, ujk[1:sum(dt1.Mjk)]);
+        @variable(scnd1, ukl[1:sum(dt1.Mkl)]);
+        @variable( scnd1, 0<= xij[1:sum(dt1.Mij)*5] );
+        @variable( scnd1, 0<= xjk[1:sum(dt1.Mjk)*5] );
+        @variable( scnd1, 0<= xkl[1:sum(dt1.Mkl)*5] );
+        @variable( scnd1, 0<= h[1:(dt1.N["plant"]+dt1.N["distribution"])*5*2] );
+        @constraint(scnd1, y .== prx[k][1:len[1]])
+        @constraint(scnd1, uij .== prx[k][1+len[1]:sum(len[i] for i=1:2)])
+        @constraint(scnd1, ujk .== prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)])
+        @constraint(scnd1, ukl .== prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)])
+
+
+        @addobjective(scnd1, Min, sum(dt1.c.*y) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5])+
+                sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+                sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
+                sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl));
+        @addobjective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
+                sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+                sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl));
+
+        ########## constraint 3 #############
+        @constraint(scnd1, [p=1:5], sum(xij[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
+        @constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(xij[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) );
+        @constraint(scnd1, [p=1:5], sum(xjk[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) == sum(xkl[5*(m-1)+p] for m=1:sum(dt1.Mkl[1,:])) );
+        @constraint(scnd1, [k=2:dt1.N["distribution"],p=1:5],sum(xjk[5*sum(dt1.Mjk[1,1:k-1])+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk[5*sum(dt1.Mjk[j,1:k-1])+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) == sum(xkl[sum(dt1.Mkl[1:k-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mkl[k,:])) );
+        ########### constraint 4-6 #############
+        @constraint(scnd1, [p=1:5],sum(h[2*(p-1)+t] for t=1:2) == sum(xij[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]));
+        @constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(h[5*2*(j-1)+2*(p-1)+t] for t=1:2) == sum(xij[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) );
+        @constraint(scnd1, [p=1:5], sum(h[5*2*dt1.N["plant"]+2*(p-1)+t] for t=1:2) == sum(xjk[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) );
+        @constraint(scnd1, [k=2:dt1.N["distribution"],p=1:5], sum(h[5*2*dt1.N["plant"]+5*2*(k-1)+2*(p-1)+t] for t=1:2) == sum(xjk[5*sum(dt1.Mjk[1,1:k-1])+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk[5*sum(dt1.Mjk[j,1:k-1])+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]));
+        @constraint(scnd1, [p=1:5], sum(xkl[5*(m-1)+p] for m=1:dt1.Mkl[1,1]) +sum(xkl[5*(m-1)+p+(5*sum(dt1.Mkl[1:k-1,:]))] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,1]) >= dt1.d[1,p]);
+        @constraint(scnd1, [l=2:dt1.N["customer"], p=1:5], sum(xkl[sum(dt1.Mkl[1,1:l-1])*5 + 5*(m-1)+p] for m=1:dt1.Mkl[1,l])+ sum(xkl[5*sum(dt1.Mkl[1:k-1,:])+5*sum(dt1.Mkl[k,1:l-1])+5*(m-1)+p] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,l]) >= dt1.d[l,p]);
+        ########### constraint 7 #############
+        @constraint(scnd1, sum(xij[1:5*sum(dt1.Mij[1,:])]) <= dt1.N["cas"][1]);
+        @constraint(scnd1, [i=2:dt1.N["supplier"]],  sum(xij[5*sum(dt1.Mij[1:i-1,:])+1:5*sum(dt1.Mij[1:i,:])]) <= dt1.N["cas"][i]);
+        ########### constraint 8 #############
+        @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"], t=1:2], sum(h[5*2*(j-1)+((p-1)*2)+t] for p=1:5) <= [dt1.N["cap"];dt1.N["cad"]][j]*y[2*(j-1)+t]);
+        ########### constraint 9 #############
+        @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
+        ########### constraint 10 #############
+        @constraints(scnd1,begin
+            sum(uij[1:dt1.Mij[1,1]]) <= 1
+            sum(uij[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= 1
+            [j=2:dt1.N["plant"]], sum(uij[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
+            [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
+            sum(ujk[1:dt1.Mjk[1,1]]) <= 1
+            sum(ujk[sum(dt1.Mjk[1,:])+dt1.Mjk[2,1]]) <= 1
+            [k=2:dt1.N["distribution"]], sum(ujk[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
+            [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
+            sum(ukl[1:dt1.Mkl[1,1]]) <= 1 #[1,1]
+            sum(ukl[sum(dt1.Mkl[1,:])+dt1.Mkl[2,1]]) <= 1 #[2,1]
+            [l=2:dt1.N["customer"]], sum(ukl[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
+            [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
+        end);
+        ########### constraint 11 #############
+        @constraints(scnd1, begin
+            [i=1:sum(dt1.Mij)], sum(xij[5*(i-1)+1:5*i]) <= dt1.bigM*uij[i]
+            [i=1:sum(dt1.Mjk)], sum(xjk[5*(i-1)+1:5*i]) <= dt1.bigM*ujk[i]
+            [i=1:sum(dt1.Mkl)], sum(xkl[5*(i-1)+1:5*i]) <= dt1.bigM*ukl[i]
+        end);
+        ########### constraint 12 #############
+        @constraints(scnd1, begin
+                [i in findnz(dt1.Vij)[1]], sum(xij[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij[i]
+                [i in findnz(dt1.Vjk)[1]], sum(xjk[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk[i]
+                # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
+        end);
+        ########### constraint 13-14 #############
+        @constraint(scnd1, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
+        @constraint(scnd1, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
+
+        t = @CPUelapsed vSolve(scnd1, TL, method=:dicho, verbose=false)
+        res = getvOptData(scnd1);
         if res!= []
             linesg[k]=res.Y_N
         end
+        @show dtime = dtime + t;
     end
-    return linesg
+    return linesg,dtime
 end
+function LinesgPostpro(linesg)
+    lsg1 = []
+    lsg2 = collect(values(linesg))
+    for i=1:length(lsg2)
+        lsg1 = vcat(lsg1,lsg2[i])
+    end
 
-linesg = FixedBinDicho(pry)
+    copyobj = Dict();
+    for i=1:length(lsg1)
+        copyobj[i] = lsg1[i]
+    end
+    for i=1:length(lsg1)-1
+        for j=i+1:length(lsg1)
+            if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; break
+            elseif all(lsg1[j] .>= lsg1[i]) == true
+                copyobj[j]=nothing;
+            end
+        end
+    end
+    ndlsg = sort!(filter!(a->a!=nothing, collect(values(copyobj))))
+
+    lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
+
+    finalDict = Dict( i=>[] for i=1:length(linesg) )
+    for l=1:size(lsgtb,1)
+        for k in collect(keys(linesg))
+            if lsgtb[l,:] ∈ linesg[k]
+                push!(finalDict[k],lsgtb[l,:])
+            end
+        end
+    end
+    return finalDict
+end
+linesg,Linetime = FixedBinDicho(prx,len);
+lsgdict = LinesgPostpro(linesg);
+save("./mipY/"*name*"mipLS.jld2", "dict", lsgdict)
+# ld = load("/home/ak121396/Desktop/data.jld2")["dict"]
 ########################## Saving the output file ###########################
-otable = zeros( length(vd.Y_N),2)
-for i=1:length(vd.Y_N)
+otable = zeros( length(pry),2)
+for i=1:length(pry)
     for j=1:2
-        otable[i,j] = vd.Y_N[i][j]
+        otable[i,j] = pry[i][j]
     end
 end
-CSV.write("/home/k2g00/k2g3475/scnd/vopt/Test1_10hrY")
+name = ARGS[1][end-7:end];
+CSV.write("./mipY/"*name*"mipY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+println("time $name: ", Dichotime,":",FPtime+PRtime+Linetime, "#sol: ", length(pry))
 
 # function Postpro(P)
 #     #Filter fractional solutions from LB
@@ -1093,7 +1193,7 @@ end
 scndm = voptmodel()
 # using vOptGeneric
 # @CPUtime vSolve(scndm, TL, method=:dicho, verbose=false)
-@CPUtime vSolve(scndm, 500, method=:lex, verbose=false)
+MIPtime = @CPUelapsed vSolve(scndm, 500, method=:lex, verbose=false)
 
 res = getvOptData(scndm);
 res.Y_N
