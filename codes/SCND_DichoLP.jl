@@ -48,7 +48,7 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+# file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 @show file = ARGS[1]
 # file = "F:scnd/Test1S2"
 # file = "/home/ak121396/Desktop/instances/SCND/test01S2"
@@ -341,7 +341,9 @@ function FP_FBcheck(model,yr)#,u1r,u2r,u3r)
     # JuMP.fix.(model[:ujk],u2r; force=true)
     # JuMP.fix.(model[:ukl],u3r; force=true)
     optimize!(model)
-    if termination_status(model) == MOI.OPTIMAL
+    # @show
+    st = termination_status(model)
+    if st == MOI.OPTIMAL
         return true
     else
         return false
@@ -401,70 +403,62 @@ function getobjval(x)
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl)
     return [obj1,obj2]
 end
-function Grouping(LB)
-    fmin = minimum([LB[i][1] for i=1:length(LB)]),minimum([LB[i][2] for i=1:length(LB)])
-    fmax = maximum([LB[i][1] for i=1:length(LB)]),maximum([LB[i][2] for i=1:length(LB)])
-    steps = [round.(Int,abs(fmax[k]-fmin[k])/9) for k=1:2]
-    cubes = Dict();
-    for iter=1:length(LB)
-        loca = [round.(Int,((LB[iter][k]-fmin[k])/steps[k])+1) for k=1:2]
-        if !haskey(cubes,loca)
-            cubes[loca] = [iter]
-        else
-            push!(cubes[loca], iter)
-        end
-    end
-    groups = collect(values(cubes)); groupkeys = collect(keys(cubes))
-    return cubes,groupkeys
-end
 
-function GFP(candX,candY,len,TL)
-    X = []; PF =[]; Tabu = [];  newsol = 0;
-    Y = []; U1 = []; U2= []; U3 = []; t0 = time();
-    cubes,gkeys = Grouping(candY)
-    glist = copy(gkeys)
-    while time() - t0 < TL && glist != []
-        g = sample(1:length(glist))
-        k = sample(cubes[glist[g]])
-        x_t = candX[k]
-        yt = x_t[1:len[1]];
+function FP(candX,len,TL)
+    X = []; PF =[]; Tabu = []; newsol = 0; candlist = copy(candX)
+    Y = []; t0 = time();
+    # U1 = []; U2= []; U3 = [];
+    while candlist != [] && time() - t0 < TL
+        k = rand(1:length(candlist))
+        x_t = candlist[k]
+        yt = x_t[1:len[1]]; yr = copy(yt)
         # u1t = x_t[1+len[1]:len[1]+len[2]];
         # u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
         # u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
-        SearchDone = false; iter=0; Max_iter =  5#length(findall(i-> 0<i<1,yt))
+        SearchDone = false; iter=0;
+        Max_iter =  5#length(findall(i-> 0<i<1,yt))
         while iter < Max_iter && SearchDone == false && time() - t0 < TL
+            # x_r = round.(Int,x_t);
             yid = findall(p->p>0.2,yt);
             for j=1:len[1]
                 if j in yid
-                    yt[j]=1
+                    yr[j]=1
                 else
-                    yt[j]=0
+                    yr[j]=0
                 end
             end
-            yr = yt
             if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                if sol ∉ X  && dominated(ndp,PF)==false
-                    push!(X,sol); push!(PF,ndp)
+                if sol ∉ X  && dominated(ndp,collect(values(PF)))==false
+                    push!(X,sol); push!(PF,ndp) #PF[k] = ndp
+                    # u1r = sol[1+len[1]:len[1]+len[2]];
+                    # u2r = sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
+                    # u3r = sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
                     push!(Y,yr);
+                    # push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
                     newsol+=1; SearchDone = true
-                    deleteat!(glist, g);
+                    deleteat!(candlist, k);
+                    # println("rounding worked")
                 end
             else
                 if yr ∈ Tabu
-                    yr = flipoper(Y,yt,yr);
-                    if yr == []
+                    yr = flipoper(Y,yt,yr); # u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
+                    if yr == [] # if any(i->i==[], [yr,u1r,u2r,u3r])
                         SearchDone = true;
-                        deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
                         # println("flip failed")
                     else
                         if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                            if sol ∉ X && dominated(ndp,PF)==false
-                                push!(X,sol); push!(PF,ndp)
+                            if sol ∉ X && dominated(ndp,collect(values(PF)))==false
+                                push!(X,sol); push!(PF,ndp) #PF[k] = ndp
+                                # u1r = sol[1+len[1]:len[1]+len[2]];
+                                # u2r = sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
+                                # u3r = sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
                                 push!(Y,yr);
+                                # push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
                                 newsol+=1; SearchDone = true;
-                                deleteat!(glist, g);
+                                deleteat!(candlist, k);
+                                # println("flip worked")
                             end
                         end
                     end
@@ -476,7 +470,7 @@ function GFP(candX,candY,len,TL)
                     push!(Tabu,yr)
                     yt = fbsearch(yr)
                     if yt==0  #when there's no new feasible lp sol
-                        deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
+                        deleteat!(candlist, k);
                         # println("no solution")
                         SearchDone = true
                     end
@@ -485,12 +479,10 @@ function GFP(candX,candY,len,TL)
 			iter+=1
         end
     end
-    return X,PF,newsol,glist
+    return X,PF,newsol,candlist
 end
-
 fbmodel = FP_Model(weight); dist = LP_Model(weight)
-optimize!(fbmodel); optimize!(dist);
-FPtime = @CPUelapsed lx,ly,ln,glist = GFP(lp.X_E,lp.Y_N,len,round(Int,LPtime))
+FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*2))
 function Postpro(P,Pobj)
     copysol = Dict(); copyobj = Dict();
     for i=1:length(Pobj)
@@ -512,9 +504,9 @@ function Postpro(P,Pobj)
 
     return finalsol,finalobj
 end
-gx,gy = Postpro(lx,ly)
+fx,fy = Postpro(lx,ly)
 
-
+optimize!(fbmodel); optimize!(dist);
 function PR_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
     MOI.set(model, MOI.NumberOfThreads(), 1)
@@ -708,135 +700,8 @@ function PR(X,Y,len,TL)
     end
     return candX,candY,newsol,IGPair
 end
-PRtime = @CPUelapsed px,py,pn,pairs = PR(gx,gy,len,round(Int,FPtime*2))
+PRtime = @CPUelapsed px,py,pn,pairs = PR(fx,fy,len,round(Int,FPtime))
 prx,pry = Postpro(px,py)
-################### Fix the binary values and Solve Dicho  ####################
-function FixbinSCND_LP()
-    scnd1 = vModel(CPLEX.Optimizer)
-    set_silent(scnd1)
-    MOI.set(scnd1, MOI.NumberOfThreads(), 1)
-    @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2])
-    @variable(scnd1, uij[1:sum(dt1.Mij)]);
-    @variable(scnd1, ujk[1:sum(dt1.Mjk)]);
-    @variable(scnd1, ukl[1:sum(dt1.Mkl)]);
-    @variable( scnd1, 0<= xij[1:sum(dt1.Mij)*5] );
-    @variable( scnd1, 0<= xjk[1:sum(dt1.Mjk)*5] );
-    @variable( scnd1, 0<= xkl[1:sum(dt1.Mkl)*5] );
-    @variable( scnd1, 0<= h[1:(dt1.N["plant"]+dt1.N["distribution"])*5*2] );
-    @addobjective(scnd1, Min, sum(dt1.c.*y) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5])+
-            sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-            sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
-            sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl));
-    @addobjective(scnd1, Min, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
-            sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-            sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl));
-    ########## constraint 3 #############
-    @constraint(scnd1, [p=1:5], sum(xij[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
-    @constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(xij[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) );
-    @constraint(scnd1, [p=1:5], sum(xjk[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) == sum(xkl[5*(m-1)+p] for m=1:sum(dt1.Mkl[1,:])) );
-    @constraint(scnd1, [k=2:dt1.N["distribution"],p=1:5],sum(xjk[5*sum(dt1.Mjk[1,1:k-1])+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk[5*sum(dt1.Mjk[j,1:k-1])+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]) == sum(xkl[sum(dt1.Mkl[1:k-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mkl[k,:])) );
-    ########### constraint 4-6 #############
-    @constraint(scnd1, [p=1:5],sum(h[2*(p-1)+t] for t=1:2) == sum(xij[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]));
-    @constraint(scnd1, [j=2:dt1.N["plant"],p=1:5], sum(h[5*2*(j-1)+2*(p-1)+t] for t=1:2) == sum(xij[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) );
-    @constraint(scnd1, [p=1:5], sum(h[5*2*dt1.N["plant"]+2*(p-1)+t] for t=1:2) == sum(xjk[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) );
-    @constraint(scnd1, [k=2:dt1.N["distribution"],p=1:5], sum(h[5*2*dt1.N["plant"]+5*2*(k-1)+2*(p-1)+t] for t=1:2) == sum(xjk[5*sum(dt1.Mjk[1,1:k-1])+5*(m-1)+p] for m=1:dt1.Mjk[1,k])+sum(xjk[5*sum(dt1.Mjk[j,1:k-1])+5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,k]));
-    @constraint(scnd1, [p=1:5], sum(xkl[5*(m-1)+p] for m=1:dt1.Mkl[1,1]) +sum(xkl[5*(m-1)+p+(5*sum(dt1.Mkl[1:k-1,:]))] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,1]) >= dt1.d[1,p]);
-    @constraint(scnd1, [l=2:dt1.N["customer"], p=1:5], sum(xkl[sum(dt1.Mkl[1,1:l-1])*5 + 5*(m-1)+p] for m=1:dt1.Mkl[1,l])+ sum(xkl[5*sum(dt1.Mkl[1:k-1,:])+5*sum(dt1.Mkl[k,1:l-1])+5*(m-1)+p] for k=2:dt1.N["distribution"] for m=1:dt1.Mkl[k,l]) >= dt1.d[l,p]);
-    ########### constraint 7 #############
-    @constraint(scnd1, sum(xij[1:5*sum(dt1.Mij[1,:])]) <= dt1.N["cas"][1]);
-    @constraint(scnd1, [i=2:dt1.N["supplier"]],  sum(xij[5*sum(dt1.Mij[1:i-1,:])+1:5*sum(dt1.Mij[1:i,:])]) <= dt1.N["cas"][i]);
-    ########### constraint 8 #############
-    @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"], t=1:2], sum(h[5*2*(j-1)+((p-1)*2)+t] for p=1:5) <= [dt1.N["cap"];dt1.N["cad"]][j]*y[2*(j-1)+t]);
-    ########### constraint 9 #############
-    @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
-    ########### constraint 10 #############
-    @constraints(scnd1,begin
-        sum(uij[1:dt1.Mij[1,1]]) <= 1
-        sum(uij[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= 1
-        [j=2:dt1.N["plant"]], sum(uij[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
-        [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
-        sum(ujk[1:dt1.Mjk[1,1]]) <= 1
-        sum(ujk[sum(dt1.Mjk[1,:])+dt1.Mjk[2,1]]) <= 1
-        [k=2:dt1.N["distribution"]], sum(ujk[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
-        [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
-        sum(ukl[1:dt1.Mkl[1,1]]) <= 1 #[1,1]
-        sum(ukl[sum(dt1.Mkl[1,:])+dt1.Mkl[2,1]]) <= 1 #[2,1]
-        [l=2:dt1.N["customer"]], sum(ukl[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
-        [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
-    end);
-    ########### constraint 11 #############
-    @constraints(scnd1, begin
-        [i=1:sum(dt1.Mij)], sum(xij[5*(i-1)+1:5*i]) <= dt1.bigM*uij[i]
-        [i=1:sum(dt1.Mjk)], sum(xjk[5*(i-1)+1:5*i]) <= dt1.bigM*ujk[i]
-        [i=1:sum(dt1.Mkl)], sum(xkl[5*(i-1)+1:5*i]) <= dt1.bigM*ukl[i]
-    end);
-    ########### constraint 12 #############
-    @constraints(scnd1, begin
-            [i in findnz(dt1.Vij)[1]], sum(xij[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij[i]
-            [i in findnz(dt1.Vjk)[1]], sum(xjk[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk[i]
-            # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
-    end);
-    ########### constraint 13-14 #############
-    @constraint(scnd1, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
-    @constraint(scnd1, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
-    return scnd1
-end
-function FixedBinDicho(prx)
-    linesg = Dict(); dtime = 0
-    for k=1:length(prx)
-        fixmodel = FixbinSCND_LP()
-        JuMP.fix.(fixmodel[:y], prx[k][1:len[1]]; force = true)
-        JuMP.fix.(fixmodel[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
-        JuMP.fix.(fixmodel[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
-        JuMP.fix.(fixmodel[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-        t = @CPUelapsed vSolve(fixmodel, TL, method=:dicho, verbose=false)
-        res = getvOptData(fixmodel);
-        if res!= []
-            linesg[k]=res.Y_N
-        end
-        @show dtime = dtime + t;
-        unfix.(fixmodel[:y]);unfix.(fixmodel[:uij]);unfix.(fixmodel[:ujk]);unfix.(fixmodel[:ukl]);
-    end
-    return linesg,dtime
-end
-function LinesgPostpro(linesg)
-    lsg1 = []
-    lsg2 = collect(values(linesg))
-    for i=1:length(lsg2)
-        lsg1 = vcat(lsg1,lsg2[i])
-    end
-
-    copyobj = Dict();
-    for i=1:length(lsg1)
-        copyobj[i] = lsg1[i]
-    end
-    for i=1:length(lsg1)-1
-        for j=i+1:length(lsg1)
-            if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
-                copyobj[i]=nothing; break
-            elseif all(lsg1[j] .>= lsg1[i]) == true
-                copyobj[j]=nothing;
-            end
-        end
-    end
-    ndlsg = sort!(filter!(a->a!=nothing, collect(values(copyobj))))
-
-    lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
-
-    finalDict = Dict( i=>[] for i=1:length(linesg) )
-    for l=1:size(lsgtb,1)
-        for k in collect(keys(linesg))
-            if lsgtb[l,:] ∈ linesg[k]
-                push!(finalDict[k],lsgtb[l,:])
-            end
-        end
-    end
-    return finalDict
-end
-linesg,Linetime = FixedBinDicho(prx);
-lsgdict = LinesgPostpro(linesg);
-save("./lpY/"*name*"lpLS.jld2", "dict", lsgdict)
-# ld = load("/home/ak121396/Desktop/data.jld2")["dict"]
 ########################## Saving the output file ###########################
 otable = zeros( length(pry),2)
 for i=1:length(pry)
@@ -845,64 +710,78 @@ for i=1:length(pry)
     end
 end
 name = ARGS[1][end-7:end];
-CSV.write("./lpY/"*name*"lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
-println("time $name: ", LPtime,":",FPtime+PRtime+Linetime, "#sol: ", length(pry))
+CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+println("time $name: ", LPtime+FPtime+PRtime,": #sol: ", length(pry))
 
 
 ###############################
-function FP(candX,len,TL)
-    X = []; PF =Dict(); Tabu = []; t0 = time(); newsol = 0; candlist = copy(candX)
-    Y = []; U1 = []; U2= []; U3 = [];
-    while candlist != [] && time() - t0 < TL
-        k = rand(1:length(candlist))
-        x_t = candlist[k]
-        yt = x_t[1:len[1]];
+function Grouping(LB)
+    fmin = minimum([LB[i][1] for i=1:length(LB)]),minimum([LB[i][2] for i=1:length(LB)])
+    fmax = maximum([LB[i][1] for i=1:length(LB)]),maximum([LB[i][2] for i=1:length(LB)])
+    steps = [round.(Int,abs(fmax[k]-fmin[k])/9) for k=1:2]
+    cubes = Dict();
+    for iter=1:length(LB)
+        loca = [round.(Int,((LB[iter][k]-fmin[k])/steps[k])+1) for k=1:2]
+        if !haskey(cubes,loca)
+            cubes[loca] = [iter]
+        else
+            push!(cubes[loca], iter)
+        end
+    end
+    groups = collect(values(cubes)); groupkeys = collect(keys(cubes))
+    return cubes,groupkeys
+end
+
+function GFP(candX,candY,len,TL)
+    X = []; PF =[]; Tabu = [];  newsol = 0;
+    Y = []; U1 = []; U2= []; U3 = []; t0 = time();
+    cubes,gkeys = Grouping(candY)
+    glist = copy(gkeys)
+    while time() - t0 < TL && glist != []
+        g = sample(1:length(glist))
+        k = sample(cubes[glist[g]])
+        x_t = candX[k]
+        yt = x_t[1:len[1]]; yr = copy(yt)
         # u1t = x_t[1+len[1]:len[1]+len[2]];
         # u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
         # u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
-        SearchDone = false; iter=0;
-        Max_iter =  5#length(findall(i-> 0<i<1,yt))
+        SearchDone = false; iter=0; Max_iter = 5#length(findall(i-> 0<i<1,yt))
         while iter < Max_iter && SearchDone == false && time() - t0 < TL
-            # x_r = round.(Int,x_t);
-            yid = findall(p->p>0.2,yt);
+            yid = findall(p->p>0.5,yt);
             for j=1:len[1]
                 if j in yid
-                    yt[j]=1
+                    yr[j]=1
                 else
-                    yt[j]=0
+                    yr[j]=0
                 end
             end
-            yr = yt # yr = round.(Int, yt);
             if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                if sol ∉ X  && dominated(ndp,collect(values(PF)))==false
-                    push!(X,sol); PF[k] = ndp#push!(PF,ndp)
-                    u1r = sol[1+len[1]:len[1]+len[2]];
-                    u2r = sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
-                    u3r = sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
-                    push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                if sol ∉ X  && dominated(ndp,PF)==false
+                    push!(X,sol); push!(PF,ndp)
+                    push!(Y,yr);
                     newsol+=1; SearchDone = true
-                    deleteat!(candlist, k);
-                    # println("rounding worked")
+                    deleteat!(glist, g);
+                    println("rounding worked")
+
                 end
             else
                 if yr ∈ Tabu
-                    yr = flipoper(Y,yt,yr); # u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
-                    if yr == [] # if any(i->i==[], [yr,u1r,u2r,u3r])
+                    yr = flipoper(Y,yt,yr);
+                    if yr == []
                         SearchDone = true;
-                        # println("flip failed")
+                        deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
+                        println("flip failed")
                     else
                         if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                            if sol ∉ X && dominated(ndp,collect(values(PF)))==false
-                                push!(X,sol); PF[k] = ndp #push!(PF,ndp)
-                                u1r = sol[1+len[1]:len[1]+len[2]];
-                                u2r = sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
-                                u3r = sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
-                                push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                            if sol ∉ X && dominated(ndp,PF)==false
+                                push!(X,sol); push!(PF,ndp)
+                                push!(Y,yr);
                                 newsol+=1; SearchDone = true;
-                                deleteat!(candlist, k);
-                                # println("flip worked")
+                                deleteat!(glist, g);
+                                println("flip worked")
+
                             end
                         end
                     end
@@ -914,8 +793,8 @@ function FP(candX,len,TL)
                     push!(Tabu,yr)
                     yt = fbsearch(yr)
                     if yt==0  #when there's no new feasible lp sol
-                        deleteat!(candlist, k);
-                        # println("no solution")
+                        deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
+                        println("no solution")
                         SearchDone = true
                     end
                 end
@@ -923,8 +802,12 @@ function FP(candX,len,TL)
 			iter+=1
         end
     end
-    return X,PF,newsol,candlist
+    return X,PF,newsol,glist
 end
+FPtime = @CPUelapsed lx,ly,ln,glist = GFP(lp.X_E,lp.Y_N,len,round(Int,LPtime*3))
+gx,gy = Postpro(lx,ly)
+PRtime = @CPUelapsed px,py,pn,pairs = PR(lx,ly,len,round(Int,FPtime))
+prx,pry = Postpro(px,py)
 
 
 # len = [length(fbm[:yj]),length(fbm[:yk]),length(fbm[:uij]),length(fbm[:ujk]),length(fbm[:ukl]),length(fbm[:xij]),length(fbm[:xjk]),length(fbm[:xkl]),length(fbm[:h])]
