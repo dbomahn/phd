@@ -297,6 +297,8 @@ function LP_Model(weight)
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
+fbmodel = FP_Model(weight); dist = LP_Model(weight)
+
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -481,7 +483,7 @@ function FP(candX,len,TL)
     end
     return X,PF,newsol,candlist
 end
-fbmodel = FP_Model(weight); dist = LP_Model(weight)
+optimize!(fbmodel); optimize!(dist);
 FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*2))
 function Postpro(P,Pobj)
     copysol = Dict(); copyobj = Dict();
@@ -506,7 +508,6 @@ function Postpro(P,Pobj)
 end
 fx,fy = Postpro(lx,ly)
 
-optimize!(fbmodel); optimize!(dist);
 function PR_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
     MOI.set(model, MOI.NumberOfThreads(), 1)

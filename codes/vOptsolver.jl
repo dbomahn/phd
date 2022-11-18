@@ -56,22 +56,22 @@ dt1 = Data1dim(file);
 
 if dt1.N["supplier"] >=6 && dt1.N["supplier"] <= 7
     TL = dt1.N["supplier"]*60*1
-elseif dt1.N["supplier"]>7 && dt1.N["supplier"] <= 9
+elseif dt1.N["supplier"]>7 && dt1.N["supplier"] <= 12
     TL = dt1.N["supplier"]*60*2
-elseif dt1.N["supplier"]>9 && dt1.N["supplier"] <= 12
-    TL = dt1.N["supplier"]*60*3
 elseif dt1.N["supplier"]>12 && dt1.N["supplier"] <= 16
+    TL = dt1.N["supplier"]*60*3
+elseif dt1.N["supplier"]>16 && dt1.N["supplier"] <= 24
     TL = dt1.N["supplier"]*60*4
-elseif dt1.N["supplier"]>16 && dt1.N["supplier"] <= 20
-    TL = dt1.N["supplier"]*60*5
-elseif dt1.N["supplier"]>20 && dt1.N["supplier"] <= 26
-    TL = dt1.N["supplier"]*60*6
+# elseif dt1.N["supplier"]>24 && dt1.N["supplier"] <= 26
+#     TL = dt1.N["supplier"]*60*5
+# elseif dt1.N["supplier"]>22 && dt1.N["supplier"] <= 26
+    # TL = dt1.N["supplier"]*60*6
 # elseif dt1.N["supplier"] == 26
     # TL = dt1.N["supplier"]*60*7
 # elseif dt1.N["supplier"]
 #     TL = dt1.N["supplier"]*60*8
 else
-    TL = dt1.N["supplier"]*60*8
+    TL = dt1.N["supplier"]*60*5
 end
 
 
@@ -552,7 +552,7 @@ function PR_Model(weight)
     @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
-prmodel = PR_Model(weight)
+prmodel = PR_Model(weight); optimize!(prmodel);
 
 function nextSI(neibour,SI)
     SIobj = getobjval(SI)
