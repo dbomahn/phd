@@ -7,9 +7,9 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -51,7 +51,7 @@ end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 @show file = ARGS[1]
 # file = "F:scnd/Test1S2"
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "/home/desk/Desktop/instances/SCND/test01S2"
 
 dt1 = Data1dim(file);
 if dt1.N["supplier"] >=6 && dt1.N["supplier"] <= 7

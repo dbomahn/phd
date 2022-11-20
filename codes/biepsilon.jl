@@ -1,16 +1,16 @@
-using DataStructures,CSV,CPUTime,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase
-# file = "F:/scnd/Test1S2"
+using DataStructures,CPUTime,DataFrames,DelimitedFiles,JuMP,CPLEX,SparseArrays,LinearAlgebra,StatsBase
+using CSV
+
 struct Data1
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        # notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
         notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
-
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt1)[1][1];
             id2 = findall(x->x==nota[i+1], dt1)[1][1];
@@ -47,7 +47,11 @@ struct Data1
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
+
+
 file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
+# file = "F:/scnd/Test1S2"
+# file = "/home/desk/Desktop/instances/SCND/test01S2"
 dt1 = Data1(file);
 test = Model(CPLEX.Optimizer);set_silent(test)
 #########################  IP  ########################################
@@ -66,8 +70,10 @@ obj2 = @expression(test,sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:
 optimize!(test);
 
 @show file = ARGS[1]
+# file = "/home/k2g00/k2g3475/scnd/instances/test15S3"
 dt1 = Data1(file);
 TL=3600*3
+# TL=600
 #######################################
 function dominated(x,P)
     st = false
@@ -80,7 +86,7 @@ function dominated(x,P)
     end
     return st
 end
-function getobjval(model)
+function getobjval(model,num)
     y1 = value.(model[:y1]);
     uij1 = value.(model[:uij1]);
     ujk1 = value.(model[:ujk1]);
@@ -89,14 +95,17 @@ function getobjval(model)
     xjk1 = value.(model[:xjk1]);
     xkl1 = value.(model[:xkl1]);
     h1 = value.(model[:h1]);
-    # obj1 = sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
-    #         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-    #         sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-    #         sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1)
-    obj2 = sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
+    if num==1
+        obj = sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
+            sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+            sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
+            sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1)
+    else
+        obj = sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1)
-    return obj2
+    end
+    return obj
 end
 
 function lexobj1(TL)
@@ -176,8 +185,8 @@ function lexobj1(TL)
     return lex
 end
 l1 = lexobj1(TL)
-l1time = @CPUelapsed optimize!(l1);
-lex1 = getobjval(l1)
+@show l1time = @CPUelapsed optimize!(l1);
+lex1 = getobjval(l1,2)
 
 function lexobj2(TL)
     lex = Model(CPLEX.Optimizer)
@@ -256,10 +265,10 @@ function lexobj2(TL)
     return lex
 end
 l2 = lexobj2(TL)
-l2time = @CPUelapsed optimize!(l2); lex2 = objective_value(l2)
+@show l2time = @CPUelapsed optimize!(l2); lex2 = objective_value(l2)
 ##################################
 step = (lex1-lex2)/9;
-
+Y = [[objective_value(l1), lex1],[getobjval(l2,1), lex2]]
 function epmodel1dim(TL)
     scnd1 = Model(CPLEX.Optimizer)
     # optimizer_with_attributes(
@@ -344,13 +353,13 @@ function opt1dim(ϵ)
     if termination_status(m2) == MOI.INFEASIBLE
         return 0
     else
-        obj2 = getobjval(m2)
+        obj2 = getobjval(m2,2)
         return [objective_value(m2),obj2]
     end
 end
-function epsilon(lex1,lex2,step)
-    Y = []; ϵ = lex1; δ =step; lb = lex2; fval = [0,ϵ]
-    while fval[2] >= lb
+function epsilon(Y,lex1,lex2,step)
+    ϵ = lex1; δ =step; lb = lex2; fval = [0,ϵ]
+    while fval[2] > lb
         fval = opt1dim(ϵ)
         # println(fval)
         if fval == 0
@@ -363,7 +372,7 @@ function epsilon(lex1,lex2,step)
     return Y
 end
 m2 = epmodel1dim(TL)
-ept = @CPUelapsed ey = epsilon(lex1,lex2,step)
+ept = @CPUelapsed ey = epsilon(Y,lex1,lex2,step)
 
 otable = zeros(length(ey),2);
 for i=1:length(ey)
@@ -372,7 +381,8 @@ end
 name = ARGS[1][end-7:end];
 CSV.write(name*"Y.log", DataFrame(otable, :auto), append=false, header=false, delim=' ')
 print("time $name: ", l1time+l2time+ept)
-##############################
+
+##########################################################################################
 function epmodel1dim()
     scnd1 = Model(CPLEX.Optimizer); set_silent(scnd1)
     # MOI.set(scnd1, MOI.NumberOfThreads(), 1);

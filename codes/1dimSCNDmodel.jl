@@ -7,7 +7,7 @@ struct Data1
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
@@ -51,7 +51,7 @@ end
 
 # @show file = ARGS[1];
 # file = "F:/scnd/Test4S4"
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "/home/desk/Desktop/instances/SCND/test01S2"
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 dt1 = Data1(file);
 function SCND1dim()
