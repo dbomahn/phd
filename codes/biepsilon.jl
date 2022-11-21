@@ -185,7 +185,7 @@ function lexobj1(TL)
     return lex
 end
 l1 = lexobj1(TL)
-@show l1time = @CPUelapsed optimize!(l1);
+l1time = @CPUelapsed optimize!(l1);
 lex1 = getobjval(l1,2)
 
 function lexobj2(TL)
@@ -209,7 +209,7 @@ function lexobj2(TL)
             sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
             sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
             sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1))
-    obj2 = @expression(lex,sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
+    obj2 = @expression(lex, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
     # @variable(lex, ep);
@@ -265,10 +265,11 @@ function lexobj2(TL)
     return lex
 end
 l2 = lexobj2(TL)
-@show l2time = @CPUelapsed optimize!(l2); lex2 = objective_value(l2)
+l2time = @CPUelapsed optimize!(l2); lex2 = objective_value(l2)
 ##################################
 step = (lex1-lex2)/9;
-Y = [[objective_value(l1), lex1],[getobjval(l2,1), lex2]]
+Y = [[objective_value(l1),lex1],[getobjval(l2,1),lex2]]
+
 function epmodel1dim(TL)
     scnd1 = Model(CPLEX.Optimizer)
     # optimizer_with_attributes(
@@ -346,22 +347,24 @@ function epmodel1dim(TL)
     @constraint(scnd1, sum(y1[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return scnd1
 end
+m2 = epmodel1dim(TL)
 
 function opt1dim(ϵ)
     JuMP.fix(m2[:ep], ϵ; force = true);
     optimize!(m2)
-    if termination_status(m2) == MOI.INFEASIBLE
-        return 0
-    else
+    # @show termination_status(m2)
+    if has_values(m2) == true
         obj2 = getobjval(m2,2)
         return [objective_value(m2),obj2]
+    else
+        return 0
     end
 end
 function epsilon(Y,lex1,lex2,step)
-    ϵ = lex1; δ =step; lb = lex2; fval = [0,ϵ]
-    while fval[2] > lb
+    ϵ = lex1-step; δ =step; lb = lex2; fval = [0,ϵ]
+    while length(Y) < 11 && fval[2] > lb
         fval = opt1dim(ϵ)
-        # println(fval)
+        println(fval)
         if fval == 0
             break
         else dominated(fval,Y)==false
@@ -371,15 +374,14 @@ function epsilon(Y,lex1,lex2,step)
     end
     return Y
 end
-m2 = epmodel1dim(TL)
-ept = @CPUelapsed ey = epsilon(Y,lex1,lex2,step)
+ept = @CPUelapsed ey = epsilon(Y, lex1,lex2,step)
 
 otable = zeros(length(ey),2);
 for i=1:length(ey)
     otable[i,:] = ey[i]
 end
 name = ARGS[1][end-7:end];
-CSV.write(name*"Y.log", DataFrame(otable, :auto), append=false, header=false, delim=' ')
+CSV.write(name*"newY.log", DataFrame(otable, :auto), append=false, header=false, delim=' ')
 print("time $name: ", l1time+l2time+ept)
 
 ##########################################################################################
