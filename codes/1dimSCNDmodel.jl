@@ -7,9 +7,9 @@ struct Data1
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
+        #notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -49,9 +49,9 @@ struct Data1
     end
 end
 
-# @show file = ARGS[1];
+@show file = ARGS[1];
 # file = "F:/scnd/Test4S4"
-file = "/home/desk/Desktop/instances/SCND/test01S2"
+#file = "/home/desk/Desktop/instances/SCND/test01S2"
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 dt1 = Data1(file);
 function SCND1dim()
@@ -149,22 +149,21 @@ function SCND1dim()
     return scnd1
 end
 scnd1 = SCND1dim()
-optimize!(scnd1); objective_value(scnd1)
-solve_time(scnd1)
+#optimize!(scnd1); objective_value(scnd1)
+#solve_time(scnd1)
 # termination_status(scnd1)
-write_to_file(scnd1, "/home/ak121396/Desktop/instances/SCND/small/test1s2_obj1.lp")
-1
-###########################    Make vlp file   #########################
-#,MathProgBase
-# const MPB = MathProgBase
-# function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
-#     model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
-#     MPB.loadproblem!(model,filename) # load what we actually want
-#     return model
-# end
+#write_to_file(scnd1, "/home/ak121396/Desktop/instances/SCND/small/test1s2_obj1.lp")
 
+###########################    Make vlp file   #########################
+using MathProgBase
+const MPB = MathProgBase
+function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
+    model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
+    MPB.loadproblem!(model,filename) # load what we actually want
+    return model
+end
 write_to_file(scnd1, file*"1dim.lp")
-lpmodel = loadlp(file*"1dim.lp")
+lpmodel = loadlp(file*"1dim.lp") 
 Bmtx = MPB.getconstrmatrix(lpmodel);
 # cut = findall(i-> varub[i]==1 && varub[i+1]!=1, 1:length(varub))[end]
 # B = Bmtx[3:end,1:cut];P = Bmtx[1:2,1:cut]; vub = varub[1:cut]
@@ -235,7 +234,7 @@ for j=1:n
 end
 push!(wholearray,"e")
 
-ins = open("/home/k2g00/k2g3475/scnd/vlp/"*file[36:end]*"1dim.vlp","w")
-# ins = open(file*".vlp","w")
+ins = open("/home/k2g00/k2g3475/scnd/vlp/"*file[36:end]*"1d.vlp","w")
+#ins = open(file*".vlp","w")
 writedlm(ins,wholearray)
 close(ins)
