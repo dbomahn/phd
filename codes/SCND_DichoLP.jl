@@ -4,11 +4,11 @@ using CSV,JLD2
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
-    b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
+    b::Array{}; q::Array{}; rij:``:Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
-        # notafile = readdlm("F:/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("E:/scnd/Notations.txt", '=');
         # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
@@ -50,12 +50,10 @@ struct Data1dim
 end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 @show file = ARGS[1]
-name = ARGS[1][end-7:end];
-testnum = parse(Int,name[end-3:end-2]) 
 # file = "F:scnd/Test1S2"
-file = "/home/desk/Desktop/instances/SCND/test01S2"
-
 dt1 = Data1dim(file);
+name = ARGS[1][end-7:end]
+testnum = parse(Int,name[end-3:end-2])
 TL = dt1.N["supplier"]*10*testnum
 
 
@@ -284,7 +282,26 @@ function LP_Model(weight)
     @constraint(lp, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lp
 end
-fbmodel = FP_Model(weight); dist = LP_Model(weight)
+fbmodel = FP_Model(weight)
+@CPUtime optimize!(fbmodel)
+@objective(fbmodel, Min, sum(dt1.c.*fbmodel[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*fbmodel[:xij][1:sum(dt1.Mij[1,:])*5])+
+            sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*fbmodel[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+            sum(dt1.e.*fbmodel[:h]) + sum(dt1.gij[i]*fbmodel[:uij][i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*fbmodel[:ujk][i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*fbmodel[:ukl][i] for i in findnz(dt1.gkl)[1])+
+            sum(dt1.vij.*fbmodel[:xij])+sum(dt1.vjk.*fbmodel[:xjk])+sum(dt1.vkl.*fbmodel[:xkl]) +
+            weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*fbmodel[:xij][1:sum(dt1.Mij[1,:])*5]) +
+            sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*fbmodel[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+            sum(dt1.q.*fbmodel[:h]) + sum(dt1.rij.*fbmodel[:xij])+sum(dt1.rjk.*fbmodel[:xjk])+sum(dt1.rkl.*fbmodel[:xkl])));
+
+dist = LP_Model(weight)
+@CPUtime optimize!(dist)
+@objective(lp, Min, sum(dt1.c.*dist[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*dist[:xij][1:sum(dt1.Mij[1,:])*5])+
+    sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*dist[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+    sum(dt1.e.*dist[:h]) + sum(dt1.gij[i]*dist[:uij][i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*dist[:ujk][i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*dist[:ukl][i] for i in findnz(dt1.gkl)[1])+
+    sum(dt1.vij.*dist[:xij])+sum(dt1.vjk.*dist[:xjk])+sum(dt1.vkl.*dist[:xkl]) +
+    weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*dist[:xij][1:sum(dt1.Mij[1,:])*5]) +
+    sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*dist[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+    sum(dt1.q.*dist[:h]) + sum(dt1.rij.*dist[:xij])+sum(dt1.rjk.*dist[:xjk])+sum(dt1.rkl.*dist[:xkl])));
+
 
 function flip(x_h,j,e)
     if x_h[e[j]]==1
