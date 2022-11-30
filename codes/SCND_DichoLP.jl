@@ -50,29 +50,14 @@ struct Data1dim
 end
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 @show file = ARGS[1]
+name = ARGS[1][end-7:end];
+testnum = parse(Int,name[end-3:end-2]) 
 # file = "F:scnd/Test1S2"
 file = "/home/desk/Desktop/instances/SCND/test01S2"
 
 dt1 = Data1dim(file);
-if dt1.N["supplier"] >=6 && dt1.N["supplier"] <= 7
-    TL = dt1.N["supplier"]*60*1
-elseif dt1.N["supplier"]>7 && dt1.N["supplier"] <= 9
-    TL = dt1.N["supplier"]*60*2
-elseif dt1.N["supplier"]>9 && dt1.N["supplier"] <= 12
-    TL = dt1.N["supplier"]*60*3
-elseif dt1.N["supplier"]>12 && dt1.N["supplier"] <= 16
-    TL = dt1.N["supplier"]*60*4
-elseif dt1.N["supplier"]>16 && dt1.N["supplier"] <= 20
-    TL = dt1.N["supplier"]*60*5
-elseif dt1.N["supplier"]>20 && dt1.N["supplier"] <= 26
-    TL = dt1.N["supplier"]*60*6
-# elseif dt1.N["supplier"] == 26
-    # TL = dt1.N["supplier"]*60*7
-# elseif dt1.N["supplier"]
-#     TL = dt1.N["supplier"]*60*8
-else
-    TL = dt1.N["supplier"]*60*8
-end
+TL = dt1.N["supplier"]*10*testnum
+
 
 function SCND_LP()
     scnd1 = vModel(CPLEX.Optimizer)
@@ -151,6 +136,8 @@ function SCND_LP()
     return scnd1
 end
 scndlp = SCND_LP()
+#COMPILE
+vSolve(scndlp, 60, method=:dicho, verbose=false) 
 LPtime = @CPUelapsed vSolve(scndlp, TL, method=:dicho, verbose=false)
 lp = getvOptData(scndlp);
 weight = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
@@ -484,7 +471,7 @@ function FP(candX,len,TL)
     return X,PF,newsol,candlist
 end
 optimize!(fbmodel); optimize!(dist);
-FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*2))
+@show FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*2))
 function Postpro(P,Pobj)
     copysol = Dict(); copyobj = Dict();
     for i=1:length(Pobj)
@@ -701,6 +688,8 @@ function PR(X,Y,len,TL)
     end
     return candX,candY,newsol,IGPair
 end
+
+
 PRtime = @CPUelapsed px,py,pn,pairs = PR(fx,fy,len,round(Int,FPtime))
 prx,pry = Postpro(px,py)
 ########################## Saving the output file ###########################
@@ -710,7 +699,7 @@ for i=1:length(pry)
         otable[i,j] = pry[i][j]
     end
 end
-name = ARGS[1][end-7:end];
+
 CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 println("time $name: ", LPtime+FPtime+PRtime,": #sol: ", length(pry))
 
