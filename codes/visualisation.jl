@@ -1,54 +1,29 @@
-using PlotlyJS,DataFrames,DelimitedFiles,JLD2,Colors
-# using PlotlyJS,RDatasets,Colors,GoldenSequences,DelimitedFiles
-struct NDpoints
-    y::String
-    LB::Array{}
-    LBmtx::Array{}
-    function NDpoints(y)
-        objs = round.(readdlm(y); digits = 4)
-        ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
-        LBmtx = objs[setdiff(1:end, ind), 2:end]
-        LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
-        new(y, LB, LBmtx)
-    end
-end
+using PlotlyJS,DataFrames,DelimitedFiles,Colors
+# using JLD2
 #############################        2D plot      ###########################
-sol = NDpoints("/home/ak121396/Desktop/relise/test01S2_img_p.sol");
-benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
-eps = readdlm("/home/ak121396/Desktop/relise/test01S2Y.log")
-ten = readdlm("/home/ak121396/Desktop/relise/Test1_10hrY.log")
 
-# lsg = filter!(p->p!=[],collect(values(linesg)))
-# lsg1 = []; lsg2 = []
-# for i=1:length(lsg)
-#     append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
-#     append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
-# end
-# opt dominated out
-
-lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
-dlp1 = [dd[i][1] for i=1:length(dd)]; dlp2 = [dd[i][2] for i=1:length(dd)]
-fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
-py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-
-ry1= [ry[i][1] for i=1:length(ry)]; ry2 = [ry[i][2] for i=1:length(ry)]
-s1 = [pp[i] for i=1:2:Int(length(pp))]; s2 = [pp[i] for i=2:2:Int(length(pp))]
-
-gfpr [  [1.201136332243e8, 883896.5015659999]
- [1.0530758626449999e8, 1.291987527147e6]
- [1.094816536099e8, 915452.147906]
- [1.050179496042e8, 1.293142252187e6]
- [1.3153919367119999e8, 860094.7364370001]
- [1.409508358823e8, 851968.907189]
- [1.186620332035e8, 901220.13756]
- [1.295191654543e8, 873282.5275340001]
- [1.059458847031e8, 1.056525335116e6] ]
-g1 = [gfpr[i] for i=1:2:Int(length(gfpr))]; g2 = [gfpr[i] for i=2:2:Int(length(gfpr))]
-
+function NDfilter(Pobj)
+    copyobj = Dict();
+    for i=1:length(Pobj)
+        copyobj[i] = Pobj[i]
+    end
+    for i=1:length(Pobj)-1
+        for j=i+1:length(Pobj)
+            if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; break
+            elseif all(Pobj[j] .>= Pobj[i]) == true
+                copyobj[j]=nothing; 
+            end
+        end
+    end
+    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
+    return finalobj
+end
+# benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
 
 
 layout = Layout(
-    title="Plot Title",
+    title="Test",
     xaxis_title="Cost",
     yaxis_title="CO2 emission",
     legend_title="Legend Title",
@@ -57,24 +32,95 @@ layout = Layout(
         size=18
     )
 )
+function Plot_epYlpY(i)
+    layout = Layout(
+    title="Test$i",
+    xaxis_title="Cost",
+    yaxis_title="CO2 emission",
+    legend_title="Legend Title",
+    font=attr(
+        family="Courier New, monospace",
+        size=18
+    )
+)
+    eplist = readdir("/home/desk/Desktop/relise/epsilon/")
+    eps = readdlm("/home/desk/Desktop/relise/epsilon/"*eplist[i])
+    e1 = filter!(i->i!=0, eps[:,1]); e2 = filter!(i->i!=0, eps[:,2])
+    ep = [[e1[k],e2[k]] for k=1:length(e1)]
+    epp = NDfilter(ep)
+    ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
+
+    lplist = readdir("/home/desk/Desktop/relise/lp/4/")
+    lpY = readdlm("/home/desk/Desktop/relise/lp/4/"*lplist[i])
+    l1 = lpY[:,1]; l2 = lpY[:,2]
+    t1 = scatter(x=ep1, y=ep2,  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+    t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+    plot([t1,t3], layout)
+
+end
+
+
+Plot_epYlpY(3)
+########################################################################
+# mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
+m1 = mip[:,1]; m2 = mip[:,2]
+
+eplist = readdir("/home/desk/Desktop/relise/epsilon/")
+eps = readdlm("/home/desk/Desktop/relise/epsilon/"*eplist[10])
+e1 = filter!(i->i!=0, eps[:,1]); e2 = filter!(i->i!=0, eps[:,2])
+ep = [[e1[k],e2[k]] for k=1:length(e1)]
+epp = NDfilter(ep)
+ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
+lpY = readdlm("/home/desk/Desktop/relise/lp/2/test10S3lpY.log")
+l1 = lpY[:,1]; l2 = lpY[:,2]
+###########################################
+# lsg = filter!(p->p!=[],collect(values(linesg)))
+# lsg1 = []; lsg2 = []
+# for i=1:length(lsg)
+#     append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
+#     append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
+# end
+# opt dominated out
+lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
+# fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
+fy1= [fy[i][1] for i=1:length(fy)]; fy2 = [fy[i][2] for i=1:length(fy)]
+
 # mode="markers+text"
-# trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="lines", market=attr(color="blue"))      # this sets its legend entry
-t1 = scatter(x=lp1, y=lp2,  name="LB", mode="line", marker=attr(color = "black"))
-t2 = scatter(x=dlp1, y=dlp2,  name="fixbinary", mode="markers", marker=attr(color = "cyan"))
-t3 = scatter(x=ry1,y=ry2,name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
-trace = scatter(x=alleps[:,1], y=alleps[:,2],name="epsilon", mode="markers", marker=attr(color="crimson"))
-trace4 = scatter(x=g1, y=g2,  name="FP+GFP+PR", mode="markers", marker=attr(color="orange")) #Turquios
-# trace5 = scatter(x=py1, y=py2, name="MIP+FFP+PR", mode="markers", marker=attr(color="limeGreen"))
-trace = scatter(x=ten[:,1], y=ten[:,2], name="10hrDicho", mode="markers", market=attr(color="Purple"))
+# trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
+t1 = scatter(x=ep1, y=ep2,  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+t2 = scatter(x=m1, y=m2,  name="MIP+FFP+PR", mode="markers", marker=attr(color = "lime"))
 
-plot([trace1,trace2,trace3,trace4,trace6,trace5,t7,t8],layout)
-plot([trace1,trace2,trace3,trace6,trace4,trace5], layout)
+# t4 = scatter(x=py1, y=py2,  name="MIP+FFP+PR", mode="markers", marker=attr(color="orange")) #royalblue
+t4 = scatter(x=fy1, y=fy2,  name="LP+FP", mode="markers", marker=attr(color="orange")) #Turquios
+t6 = scatter(x=lp1, y=lp2, name="LB with TL", mode="lines", market=attr(color="Turquios"))
+py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
+t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+# plot([t4,trace6,trace5,t7,t8],layout)
+plot([t1,t3], layout)
+plot([t1,t4,t5,t6],layout)
 
-# plot([trace2,trace3,trace1,trace5], layout)
-function MIPplot(trace,linesg)
+1
+plot([trace2,trace3,trace1,trace5], layout)
+
+cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+plot_array = GenericTrace[]
+push!(plot_array,trace)
+for i=1:length(linesg)
+    if linesg[i]!=[]
+        tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
+        push!(plot_array,tradeoffs)
+    end
+end
+fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
+using JLD2
+JLD2.@load "/home/desk/Desktop/relise/mip/test03S1mipLS2.jld2" lsgdict;
+
+function MIPplot(linesg)
     cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
     plot_array = GenericTrace[]
-    push!(plot_array,trace)
+    push!(plot_array,t1)
+    push!(plot_array,t2)
     for i=1:length(linesg)
         if linesg[i]!=[]
             tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
@@ -83,10 +129,24 @@ function MIPplot(trace,linesg)
     end
     fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
 end
-MIPplot(lsgdict)
+MIPplot(collect(values(lsgdict)))
 
 
 ##########################     3D Visualisation       ###########################
+# using RDatasets,GoldenSequences
+
+# struct NDpoints
+#     y::String
+#     LB::Array{}
+#     LBmtx::Array{}
+#     function NDpoints(y)
+#         objs = round.(readdlm(y); digits = 4)
+#         ind = findall(i -> 0 in objs[i, :], 1:size(objs)[1])
+#         LBmtx = objs[setdiff(1:end, ind), 2:end]
+#         LB = [Vector(LBmtx[i, :]) for i = 1:size(LBmtx)[1]]
+#         new(y, LB, LBmtx)
+#     end
+# end
 nms = ["FPBH vs FPGPR plot"]
 title = "FPBH vs FPGPR: " #this is the caption appearing in the figure
 colors = [RGB(0.89, 0.1, 0.1),RGB(0.28, 0.68, 0.3),RGB(0.4,0.4,1), RGB(0.8, 0.40, 0)]
