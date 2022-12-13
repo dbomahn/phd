@@ -62,11 +62,35 @@ end
 
 Plot_epYlpY(3)
 ########################################################################
+pr0 =  [ 
+    [1.5915289235356e8, 1.1821620824743002e6]
+    [1.588411746292e8, 1.1851198253166e6]
+    [1.2972395418918e8, 1.3382641479715e6]
+    [1.3382885623264e8, 1.2856436983137e6]
+    [1.315696008407e8, 1.3188448638841002e6]
+    [1.404107751805e8, 1.200426931811e6]
+    [1.522637912619e8, 1.1857169966667e6]
+    [1.4948463997709998e8, 1.1869914123136e6]
+    [1.6568463560940006e8, 1.1491379060148e6]
+    [1.3566817399909e8, 1.273205527515e6]
+    [1.3267586486371e8, 1.2950516617781e6]
+    [1.2634031648188029e8, 1.6132277048116904e6]
+
+]
+pr1=reshape(pr0,2,Int(length(pr0)/2))
+p11,p12 =[],[]
+for i=1:Int(length(pr1)/2)
+    push!(p11,pr1[1,i])
+    push!(p12,pr1[2,i])
+end
+t4 = scatter(x=p11, y=p12,  name="LP+FP+PR", mode="markers", marker=attr(color="royalblue")) #
+plot([t1,t4], layout)
+
 # mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
 m1 = mip[:,1]; m2 = mip[:,2]
 
 eplist = readdir("/home/desk/Desktop/relise/epsilon/")
-eps = readdlm("/home/desk/Desktop/relise/epsilon/"*eplist[10])
+eps = readdlm("/home/desk/Desktop/relise/epsilon/"*eplist[3])
 e1 = filter!(i->i!=0, eps[:,1]); e2 = filter!(i->i!=0, eps[:,2])
 ep = [[e1[k],e2[k]] for k=1:length(e1)]
 epp = NDfilter(ep)
@@ -95,9 +119,9 @@ t2 = scatter(x=m1, y=m2,  name="MIP+FFP+PR", mode="markers", marker=attr(color =
 t4 = scatter(x=fy1, y=fy2,  name="LP+FP", mode="markers", marker=attr(color="orange")) #Turquios
 t6 = scatter(x=lp1, y=lp2, name="LB with TL", mode="lines", market=attr(color="Turquios"))
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="orange"))
 # plot([t4,trace6,trace5,t7,t8],layout)
-plot([t1,t3], layout)
+plot([t1,t5], layout)
 plot([t1,t4,t5,t6],layout)
 
 1
