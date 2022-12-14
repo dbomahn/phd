@@ -7,9 +7,9 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/scnd/Notations.txt", '=');
         # notafile = readdlm("E:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -50,12 +50,12 @@ struct Data1dim
 end
 # file = "/home/k2g00/k2g3475/scnd/instances/test11S2"
 # @show file = ARGS[1]
-# file = "F:scnd/Test1S2"
+file = "/home/ak121396/Desktop/instances/scnd/test01S2"
 dt1 = Data1dim(file);
-name = ARGS[1][end-7:end]
-testnum = parse(Int,name[end-3:end-2])
-TL = dt1.N["supplier"]*10*testnum
-
+# name = ARGS[1][end-7:end]
+# testnum = parse(Int,name[end-3:end-2])
+# TL = dt1.N["supplier"]*10*testnum
+tnum = 1
 
 function SCND_LP()
     scnd1 = vModel(CPLEX.Optimizer)
@@ -64,7 +64,7 @@ function SCND_LP()
     #         "CPX_PARAM_EPGAP" => 1e-8
     #       ));
     set_silent(scnd1)
-    MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+    # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
     @variable(scnd1, 0<=y[1:(dt1.N["plant"]+dt1.N["distribution"])*2]<=1)
     @variable(scnd1, 0<=uij[1:sum(dt1.Mij)]<=1);
     @variable(scnd1, 0<=ujk[1:sum(dt1.Mjk)]<=1);
@@ -155,8 +155,8 @@ end
 
 scndlp = SCND_LP()
 #COMPILE
-vSolve(scndlp, 60, method=:dicho, verbose=false) 
-LPtime = @CPUelapsed vSolve(scndlp, TL, method=:dicho, verbose=false)
+# vSolve(scndlp, 2, method=:dicho, verbose=false) 
+LPtime = @CPUelapsed vSolve(scndlp, 20, method=:dicho, verbose=false)
 lp = getvOptData(scndlp);
 w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
 len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
@@ -234,8 +234,8 @@ function lexobj1()
     return lex
 end
 l1 = lexobj1()
-set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", 3); optimize!(l1);
-set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*10,50));
+# set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", 3); optimize!(l1);
+# set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*10,50));
 @show l1time = @CPUelapsed optimize!(l1) 
 lex1X = [value.(all_variables(l1))]; lex1Y = [getobjval(value.(all_variables(l1)))]
 
@@ -426,7 +426,7 @@ function NDfilter(P,Pobj)
 end
 function FP_Model(weight)
     model = Model(CPLEX.Optimizer); set_silent(model)
-    MOI.set(model, MOI.NumberOfThreads(), 1)
+    # MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
@@ -497,7 +497,7 @@ function FP_Model(weight)
 end
 function LP_Model(weight)
     lp = Model(CPLEX.Optimizer); set_silent(lp)
-    MOI.set(lp, MOI.NumberOfThreads(), 1)
+    # MOI.set(lp, MOI.NumberOfThreads(), 1)
     # MOI.set(lp, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(lp, 0 <= y[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1)
     @variable(lp, 0 <= uij[1:sum(dt1.Mij)] <= 1);
@@ -583,7 +583,7 @@ function FP(candX,len,TL)
         x_t = candX[k]
         yt = x_t[1:len[1]]; yr = copy(yt)
         SearchDone = false; iter=0;
-        Max_iter = 5#length(findall(i-> 0<i<1,yt))
+        Max_iter = 30#length(findall(i-> 0<i<1,yt))
         while iter < Max_iter && SearchDone == false && time() - t0 < TL
             # x_r = round.(Int,x_t);
             yid = findall(p->p>0.2,yt);
@@ -643,15 +643,13 @@ function FP(candX,len,TL)
     end
     return X,PF,newsol,candlist
 end
-@show FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*50))
+@show FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*30))
 fx,fy = NDfilter(lx,ly)
-println("FPtime: ", FPtime, "FPsol: ", length(fy))
-df = DataFrame(X=fx,Y=fy)
-sort!(df,[order(:Y)])
+# println("FPtime: ", FPtime, "FPsol: ", length(fy))
 
-function PR_Model(weight)
+function PR_Model()
     model = Model(CPLEX.Optimizer); set_silent(model)
-    MOI.set(model, MOI.NumberOfThreads(), 1)
+    # MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
@@ -828,23 +826,24 @@ function PR_FBcheck(model,iter,yr)#,u1r,u2r,u3r)
 end
 
 prmodel = PR_Model(); 
-optimize!(prmodel);
+set_optimizer_attribute(prmodel, "CPXPARAM_TimeLimit", 3);optimize!(prmodel);
 set_optimizer_attribute(prmodel, "CPXPARAM_TimeLimit", 10);
 
 
-function PR(X,Y,leX,leY,len,TL)
+function PR(X,Y,len,TL)
     candX = copy(X); candY = copy(Y); 
     # bvar = sum(len[i] for i=1:4);
     IGPair=[]; exploredSI = []; t0=time();  newsol=0;
 
-    # push!(IGPair,[1,length(X)-1],[2,length(X)-1])
+
+    push!(IGPair,[1,2],[1,3]])
     # Left side 
-    for k = 1:2 
+    for k = 2:3
         # I = IGPair[k][1]; G = IGPair[k][2]
-        SI = X[k]; SG = leX[1];    
+        SI = X[k]; SG = X[1];    
         dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
         iter=0; Max_iter = 10; 
-        while all.(SI != SG) && iter<Max_iter && (time()-t0 < TL*0.15)
+        while all.(SI != SG) && iter<Max_iter && (time()-t0 < TL*0.3)
             neibour = createNB1(SI[1:len[1]],dif,exploredSI)
             # println("# of neighbours: ", length(neibour))
             if (length(neibour)==0) #(time()-t0 >= TL)
@@ -875,13 +874,14 @@ function PR(X,Y,leX,leY,len,TL)
             iter+=1
         end
     end
+    push!(IGPair,[length(candX)-2,length(X)],[length(X)-1,length(X)])
     # println("Right side")
-    for k = length(X):-1:length(X)-1 
+    for k = length(X)-2:length(X)-1 
         # I = IGPair[k][1]; G = IGPair[k][2]
-        SI = X[k]; SG = leX[2];    
+        SI = X[k]; SG = X[end];    
         dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
         iter=0; Max_iter = 10; 
-        while all.(SI != SG) && iter<Max_iter && (time()-t0 < TL*0.25)
+        while all.(SI != SG) && iter<Max_iter && (time()-t0 < TL*0.6)
             neibour = createNB(SI[1:len[1]],dif,exploredSI)
             # println("# of neighbours: ", length(neibour))
             if (length(neibour)==0) #(time()-t0 >= TL)
@@ -897,7 +897,7 @@ function PR(X,Y,leX,leY,len,TL)
                             push!(candX, sol); push!(candY, ndp);
                             # println(ndp)
                             newsol+=1;
-                            # println("new sol");
+                            println("new sol");
                         end
                     end
                 end
@@ -916,11 +916,11 @@ function PR(X,Y,leX,leY,len,TL)
 
     # candX,candY = NDfilter([candX;leX],[candY;leY])
     # push!(IGPair,[1,length(candX)-1],[2,length(candX)-1],[length(X)-1,length(candX)],[length(X),length(candX)])
-    # println("now randomly choose IG pairs")
-    candX = [candX;leX]; candY = [candY;leY]
+    println("now randomly choose IG pairs")
+    # candX = [candX;leX]; candY = [candY;leY]
 
-    while time()-t0 < TL && length(IGPair)<(length(candY)*(length(candY)-1))
-        candX,candY = NDfilter(candX,candY)
+    while time()-t0 < TL*0.8 #&& length(IGPair)<(length(candY)*(length(candY)-1))
+        # candX,candY = NDfilter(candX,candY)
         new_weight = round(Int,mean([candY[i][1]/candY[i][2] for i=1:length(candY)]))
         @label NewIter
 	    I,G = StatsBase.sample(1:length(candX), 2, replace=false);
@@ -976,13 +976,13 @@ function PR(X,Y,leX,leY,len,TL)
 
     # list = DataFrame(X=candX,Y=candY)
     # sort!(list,[order(:Y)])
-    # gap = [abs(list.Y[i][1]-list.Y[i+1][1]) for i=1:length(list.Y)-1]; idx = findmax(gap)[1]
-
-    # gap = [abs(list.Y[i][2]-list.Y[i+1][2]) for i=1:length(list.Y)-1]; idx = findmax(gap)[2]
+    # gap = [abs(list.Y[i][1]-list.Y[i+1][1]) for i=1:length(list.Y)-1]; 
+    # idx = findmax(gap)[2]
     # SI = list.X[idx]; SG = list.X[idx+1];    
     # dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
     # iter=0; Max_iter = 10; 
     # new_weight = round(Int,mean([list.Y[idx][1]/list.Y[idx][2],list.Y[idx+1][1]/list.Y[idx+1][2]]))
+
     # println("Left side again")   
     # while all.(SI != SG) && (time()-t0 < TL*0.9)
     #     neibour = createNB1(SI[1:len[1]],dif,exploredSI)
@@ -998,7 +998,8 @@ function PR(X,Y,leX,leY,len,TL)
     #                 push!(candSI,sol)
     #                 if sol ∉ candX && dominated(ndp,candY)==false
     #                     push!(candX, sol); push!(candY, ndp);
-    #                     newsol+=1;  println(ndp)
+    #                     newsol+=1;  
+    #                     # println(ndp)
     #                     println("new sol");
     #                 end
     #             end
@@ -1050,14 +1051,15 @@ function PR(X,Y,leX,leY,len,TL)
     #         end
     #     end
     #     iter+=1
-    # end
-
-    
+    # end    
     return candX,candY,newsol,IGPair
 end
 
-# PRtime = @CPUelapsed px,py,pn,pairs = PR(df.X,df.Y,[lex1X;lex2X],[lex1Y;lex2Y],len,round(Int,FPtime*dt1.N["distribution"]))
-@show PRtime = @CPUelapsed px,py,pn,pairs = PR(df.X,df.Y,[lex1X;lex2X],[lex1Y;lex2Y],len,round(Int,FPtime*5))
+candX,candY = NDfilter([fx;lex1X;lex2X],[fy;lex1Y;lex2Y])
+df = DataFrame(X=candX,Y=candY)
+sort!(df,[order(:Y)])
+PRtime = @CPUelapsed px,py,pn,pairs = PR(df.X,df.Y,len,round(Int,FPtime*dt1.N["distribution"]))
+# PRtime = @CPUelapsed px,py,pn,pairs = PR(df.X,df.Y,len,round(Int,FPtime*max(dt1.N["distribution"],30)))
 prx,pry = NDfilter(px,py);
 pry
 ########################## Saving the output file ###########################
@@ -1067,11 +1069,8 @@ for i=1:length(pry)
         otable[i,j] = pry[i][j]
     end
 end
-
 CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 println("time $name: ", LPtime+FPtime+PRtime,": #sol: ", length(pry))
-
-
 ###############################
 function Grouping(LB)
     fmin = minimum([LB[i][1] for i=1:length(LB)]),minimum([LB[i][2] for i=1:length(LB)])

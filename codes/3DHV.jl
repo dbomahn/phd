@@ -1,4 +1,5 @@
 using DelimitedFiles,DataFrames,StatsBase,CSV
+ENV["CPLEX_STUDIO_BINARIES"] = "/opt/ibm/ILOG/CPLEX_Studio221/cplex/bin/x86-64_linux/"
 
 ####################################LINUX###################################
 ksp = "/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intKP_Y/"
@@ -209,13 +210,61 @@ for i=1:12
     push!(tt,a)
 end
 tt
-############################### Ref set of FPPB + GPR   ###################################
-fp = "/home/ak121396/Desktop/FPBH/MIPLIP/GLPK/"
-fp = "F:/results/mergedMIP\\"
-fpfiles = readdir(fp)
-pr = "/home/ak121396/Desktop/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
-prfiles = readdir(pr)
+############################### Ref set of solver A + solver B   ###################################
+# fp = "/home/ak121396/Desktop/FPBH/MIPLIP/GLPK/"
+# fp = "F:/results/mergedMIP\\"
+# fpfiles = readdir(fp)
+# pr = "/home/ak121396/Desktop/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
+# prfiles = readdir(pr)
 
+ep = "/home/ak121396/Desktop/relise/epsilon/"
+epfiles = readdir(ep)
+mat = "/home/ak121396/Desktop/relise/lpY/5/"
+matfiles = readdir(mat)
+function biobjHV(ep,epfiles,mat,matfiles,num)
+    tb = zeros(num,2);
+    for i=1:num
+        epobj = readdlm(ep*epfiles[i])
+        matobj = readdlm(mat*matfiles[i]);
+        x = [epobj[:,1]; matobj[:,1]] 
+        y = [epobj[:,2]; matobj[:,2]] 
+    
+        ideal = [minimum(x),minimum(y)]
+        nadir = [maximum(x),maximum(y)]
+    
+        # FPBH HV calculation
+        r = size(epobj)[1]
+        norm = zeros(r,2)
+        for k=1:r
+            norm[k,1] = (epobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
+            norm[k,2] = (epobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
+        end
+        # dfE = normz,normy
+        Y=DataFrame(norm, :auto);
+        CSV.write(ep*epfiles[i][1:end-7]*"normal_Y.csv",Y, header=false, delim=' ' )
+        cd("/home/ak121396/Downloads/hv-1.3-src")
+        smetric1 =readlines( pipeline(`./hv -r "2 2" $(ep*epfiles[i][1:end-7]*"normal_Y.csv")`))
+        tb[i,1] = parse(Float64,smetric1[1]);
+    
+        # mat HV calculation
+        u = size(matobj)[1]
+        norm = zeros(u,2)
+        # normalisting
+        for k=1:u
+            norm[k,1] = (matobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
+            norm[k,2] = (matobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
+        end
+        Y = DataFrame(norm, :auto)
+        CSV.write(mat*matfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
+        smetric2 =readlines( pipeline(`./hv -r "2 2" $(mat*matfiles[i][1:11]*"_normal_Y.csv")`))
+        tb[i,2] = parse(Float64,smetric2[1]);
+    end
+    return tb
+end
+
+
+eppr = biobjHV(ep,epfiles,mat,matfiles,15)
+1
 function fpprHV(fp,fpfiles,pr,prfiles,num) #,pr2,prfiles2,pr3,prfiles3,ks,ksfiles,num)
     tb = zeros(num,2);
     for i=1:num
@@ -263,6 +312,9 @@ function fpprHV(fp,fpfiles,pr,prfiles,num) #,pr2,prfiles2,pr3,prfiles3,ks,ksfile
     end
     return tb
 end
+
+
+
 ########################  Merging GFP+Kirlik output  ######################
 #NDpoint
 x=[0];y=[0];z=[0]

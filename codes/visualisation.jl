@@ -89,13 +89,16 @@ plot([t1,t4], layout)
 # mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
 m1 = mip[:,1]; m2 = mip[:,2]
 
-eplist = readdir("/home/desk/Desktop/relise/epsilon/")
-eps = readdlm("/home/desk/Desktop/relise/epsilon/"*eplist[3])
+
+fpath = "/home/desk/Desktop/relise/epsilon/"
+fpath = "/home/ak121396/Desktop/relise/epsilon/"
+eplist = readdir(fpath)
+eps = readdlm(fpath*eplist[1])
 e1 = filter!(i->i!=0, eps[:,1]); e2 = filter!(i->i!=0, eps[:,2])
 ep = [[e1[k],e2[k]] for k=1:length(e1)]
 epp = NDfilter(ep)
 ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
-lpY = readdlm("/home/desk/Desktop/relise/lp/2/test10S3lpY.log")
+lpY = readdlm("/home/ak121396/Desktop/relise/lpY/5/test02S3lpY.log")
 l1 = lpY[:,1]; l2 = lpY[:,2]
 ###########################################
 # lsg = filter!(p->p!=[],collect(values(linesg)))
@@ -105,7 +108,6 @@ l1 = lpY[:,1]; l2 = lpY[:,2]
 #     append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
 # end
 # opt dominated out
-lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
 # fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
 fy1= [fy[i][1] for i=1:length(fy)]; fy2 = [fy[i][2] for i=1:length(fy)]
 
@@ -114,15 +116,16 @@ fy1= [fy[i][1] for i=1:length(fy)]; fy2 = [fy[i][2] for i=1:length(fy)]
 t1 = scatter(x=ep1, y=ep2,  name="epsilon", mode="markers", marker=attr(color = "crimson"))
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
 t2 = scatter(x=m1, y=m2,  name="MIP+FFP+PR", mode="markers", marker=attr(color = "lime"))
-
 # t4 = scatter(x=py1, y=py2,  name="MIP+FFP+PR", mode="markers", marker=attr(color="orange")) #royalblue
+
+fy1= [fy[i][1] for i=1:length(fy)]; fy2 = [fy[i][2] for i=1:length(fy)]
 t4 = scatter(x=fy1, y=fy2,  name="LP+FP", mode="markers", marker=attr(color="orange")) #Turquios
+lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
 t6 = scatter(x=lp1, y=lp2, name="LB with TL", mode="lines", market=attr(color="Turquios"))
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="orange"))
+t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
 # plot([t4,trace6,trace5,t7,t8],layout)
-plot([t1,t5], layout)
-plot([t1,t4,t5,t6],layout)
+plot([t1,t5,t4,t6],layout)
 
 1
 plot([trace2,trace3,trace1,trace5], layout)
