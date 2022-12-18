@@ -2,7 +2,7 @@ using PlotlyJS,DataFrames,DelimitedFiles,Colors
 # using JLD2
 #############################        2D plot      ###########################
 
-function NDfilter(Pobj)
+function NDfilter2(Pobj)
     copyobj = Dict();
     for i=1:length(Pobj)
         copyobj[i] = Pobj[i]
@@ -32,49 +32,42 @@ layout = Layout(
         size=18
     )
 )
-function Plot_epYlpY(i)
-    layout = Layout(
-    title="Test$i",
-    xaxis_title="Cost",
-    yaxis_title="CO2 emission",
-    legend_title="Legend Title",
-    font=attr(
-        family="Courier New, monospace",
-        size=18
-    )
-)
-    eplist = readdir("/home/desk/Desktop/relise/epsilon/")
-    eps = readdlm("/home/desk/Desktop/relise/epsilon/"*eplist[i])
-    e1 = filter!(i->i!=0, eps[:,1]); e2 = filter!(i->i!=0, eps[:,2])
-    ep = [[e1[k],e2[k]] for k=1:length(e1)]
-    epp = NDfilter(ep)
-    ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
+function Plot_epYlpY(num)
+    eplist = readdir("/home/ak121396/Desktop/relise/epsilon/")
+    lplist = readdir("/home/ak121396/Desktop/relise/lpY/2/")
+    for i=1:num
+        layout = Layout(
+        title="Test$i",
+        xaxis_title="Cost",
+        yaxis_title="CO2 emission",
+        legend_title="Legend Title",
+        font=attr(
+            family="Courier New, monospace",
+            size=18
+            )
+        )
+        
+        ep1 = readdlm("/home/ak121396/Desktop/relise/epsilon/"*eplist[i+1])[1:10,:]
 
-    lplist = readdir("/home/desk/Desktop/relise/lp/4/")
-    lpY = readdlm("/home/desk/Desktop/relise/lp/4/"*lplist[i])
-    l1 = lpY[:,1]; l2 = lpY[:,2]
-    t1 = scatter(x=ep1, y=ep2,  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-    t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-    plot([t1,t3], layout)
+        # e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])
+        # ep = [[e1[k],e2[k]] for k=1:length(e1)]
+        # epp = NDfilter2(ep)
+        # ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
 
+        
+        lpY = readdlm("/home/ak121396/Desktop/relise/lpY/2/"*lplist[i])
+        l1 = lpY[:,1]; l2 = lpY[:,2]
+        t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+        t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+        fig = plot([t1,t3], layout)
+        savefig(fig,"/home/ak121396/Dropbox/5_w/$i.png")
+    end
 end
 
 
-Plot_epYlpY(3)
+Plot_epYlpY(15)
 ########################################################################
 pr0 =  [ 
-    [1.5915289235356e8, 1.1821620824743002e6]
-    [1.588411746292e8, 1.1851198253166e6]
-    [1.2972395418918e8, 1.3382641479715e6]
-    [1.3382885623264e8, 1.2856436983137e6]
-    [1.315696008407e8, 1.3188448638841002e6]
-    [1.404107751805e8, 1.200426931811e6]
-    [1.522637912619e8, 1.1857169966667e6]
-    [1.4948463997709998e8, 1.1869914123136e6]
-    [1.6568463560940006e8, 1.1491379060148e6]
-    [1.3566817399909e8, 1.273205527515e6]
-    [1.3267586486371e8, 1.2950516617781e6]
-    [1.2634031648188029e8, 1.6132277048116904e6]
 
 ]
 pr1=reshape(pr0,2,Int(length(pr0)/2))
@@ -83,23 +76,31 @@ for i=1:Int(length(pr1)/2)
     push!(p11,pr1[1,i])
     push!(p12,pr1[2,i])
 end
+
+
 t4 = scatter(x=p11, y=p12,  name="LP+FP+PR", mode="markers", marker=attr(color="royalblue")) #
 plot([t1,t4], layout)
+
+
 
 # mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
 m1 = mip[:,1]; m2 = mip[:,2]
 
 
-fpath = "/home/desk/Desktop/relise/epsilon/"
 fpath = "/home/ak121396/Desktop/relise/epsilon/"
-eplist = readdir(fpath)
-eps = readdlm(fpath*eplist[1])
-e1 = filter!(i->i!=0, eps[:,1]); e2 = filter!(i->i!=0, eps[:,2])
-ep = [[e1[k],e2[k]] for k=1:length(e1)]
-epp = NDfilter(ep)
-ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
-lpY = readdlm("/home/ak121396/Desktop/relise/lpY/5/test02S3lpY.log")
+eplist = readdir(fpath)[2:end]
+ep1 = readdlm(fpath*eplist[5])[1:10,:]
+t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+# e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])
+# ep = [[e1[k],e2[k]] for k=1:length(e1)]
+# epp = NDfilter2(ep)
+# ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
+
+lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test07lpy.log")
 l1 = lpY[:,1]; l2 = lpY[:,2]
+t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+plot([t1,t3],layout)
+
 ###########################################
 # lsg = filter!(p->p!=[],collect(values(linesg)))
 # lsg1 = []; lsg2 = []
@@ -109,23 +110,21 @@ l1 = lpY[:,1]; l2 = lpY[:,2]
 # end
 # opt dominated out
 # fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
-fy1= [fy[i][1] for i=1:length(fy)]; fy2 = [fy[i][2] for i=1:length(fy)]
 
 # mode="markers+text"
 # trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
-t1 = scatter(x=ep1, y=ep2,  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+t1 = scatter(x=ep1[1:10,1], y=ep1[1:10,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-t2 = scatter(x=m1, y=m2,  name="MIP+FFP+PR", mode="markers", marker=attr(color = "lime"))
+# t2 = scatter(x=m1, y=m2,  name="MIP+FFP+PR", mode="markers", marker=attr(color = "lime"))
 # t4 = scatter(x=py1, y=py2,  name="MIP+FFP+PR", mode="markers", marker=attr(color="orange")) #royalblue
-
-fy1= [fy[i][1] for i=1:length(fy)]; fy2 = [fy[i][2] for i=1:length(fy)]
+fy1= [df.Y[i][1] for i=1:length(df.Y)]; fy2 = [df.Y[i][2] for i=1:length(df.Y)]
 t4 = scatter(x=fy1, y=fy2,  name="LP+FP", mode="markers", marker=attr(color="orange")) #Turquios
-lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
-t6 = scatter(x=lp1, y=lp2, name="LB with TL", mode="lines", market=attr(color="Turquios"))
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
+# lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
+# t6 = scatter(x=lp1, y=lp2, name="LB with TL", mode="lines", market=attr(color="Turquios"))
 # plot([t4,trace6,trace5,t7,t8],layout)
-plot([t1,t5,t4,t6],layout)
+plot([t1,t5],layout)
 
 1
 plot([trace2,trace3,trace1,trace5], layout)
