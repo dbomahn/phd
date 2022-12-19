@@ -48,13 +48,13 @@ struct Data1dim
     end
 end
 # @show file = ARGS[1]
-file = "/home/ak121396/Desktop/instances/scnd/test05S1"
+file = "/home/ak121396/Desktop/instances/scnd/test07S2"
 dt1 = Data1dim(file);
 
 # name = ARGS[1][end-7:end]
 # testnum = parse(Int,name[end-3:end-2])
 # TL = dt1.N["supplier"]*10*testnum
-tnum = 5
+tnum = 7
 if tnum ==  1
     TL = 500
 elseif tnum == 2
@@ -182,14 +182,12 @@ function getobjval(x)
             sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl)
     return [obj1,obj2]
 end
-
-
 scndlp = SCND_LP()
 #COMPILE
 vSolve(scndlp, 2, method=:dicho, verbose=false) 
 LPtime = @CPUelapsed vSolve(scndlp, 30, method=:dicho, verbose=false)
 lp = getvOptData(scndlp);
-w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
+# w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
 len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
 
 function lexobj1()
@@ -197,7 +195,7 @@ function lexobj1()
     # optimizer_with_attributes(
             # ,"CPX_PARAM_EPGAP" => 1e-8);
     set_silent(lex)
-    MOI.set(lex, MOI.NumberOfThreads(), 1);
+    # MOI.set(lex, MOI.NumberOfThreads(), 1);
     #########################  IP  ########################################
     @variable(lex, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(lex, uij1[1:sum(dt1.Mij)], Bin);
@@ -275,7 +273,7 @@ function lexobj2()
     # optimizer_with_attributes(
             # ,"CPX_PARAM_EPGAP" => 1e-8);
     set_silent(lex)
-    MOI.set(lex, MOI.NumberOfThreads(), 1);
+    # MOI.set(lex, MOI.NumberOfThreads(), 1);
     #########################  IP  ########################################
     @variable(lex, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(lex, uij1[1:sum(dt1.Mij)], Bin);
@@ -290,9 +288,9 @@ function lexobj2()
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
     obj1 = @expression(lex, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
-    sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-    sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-    sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1))
+        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+        sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
+        sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1))
     # @objective(lex, Min, obj2)
     @objective(lex, Min, obj2+(obj1/(w1*w1)))
     @constraint(lex, [p=1:5], sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
@@ -472,7 +470,7 @@ function NDdict(Pobj)
 end
 function FP_Model()
     model = Model(CPLEX.Optimizer); set_silent(model)
-    MOI.set(model, MOI.NumberOfThreads(), 1)
+    # MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
@@ -543,7 +541,7 @@ function FP_Model()
 end
 function LP_Model()
     lp = Model(CPLEX.Optimizer); set_silent(lp)
-    MOI.set(lp, MOI.NumberOfThreads(), 1)
+    # MOI.set(lp, MOI.NumberOfThreads(), 1)
     # MOI.set(lp, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(lp, 0 <= y[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1)
     @variable(lp, 0 <= uij[1:sum(dt1.Mij)] <= 1);
@@ -606,7 +604,7 @@ function LP_Model()
 end
 function PR_Model()
     model = Model(CPLEX.Optimizer); set_silent(model)
-    MOI.set(model, MOI.NumberOfThreads(), 1)
+    # MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
@@ -779,7 +777,7 @@ function PR_FBcheck(model,iter,yr)#,u1r,u2r,u3r)
         return false
     end
 end
-fbmodel = FP_Model(w1); dist = LP_Model(w1);
+fbmodel = FP_Model(); dist = LP_Model();
 set_optimizer_attribute(fbmodel, "CPXPARAM_TimeLimit", 3)
 set_optimizer_attribute(dist, "CPXPARAM_TimeLimit", 3)
 optimize!(fbmodel); optimize!(dist);
@@ -848,10 +846,10 @@ function FP(candX,len,TL)
     return X,PF,newsol,candlist
 end
 @show FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*30))
-fx,fy = NDfilter(lx,ly)
+fx,fy = NDfilter(lx,ly);
 # println("FPtime: ", FPtime, "FPsol: ", length(fy))
-candX,candY = NDfilter([fx;lex1X;lex2X],[fy;lex1Y;lex2Y])
-df = DataFrame(X=candX,Y=candY)
+candX,candY = NDfilter([fx;lex1X;lex2X],[fy;lex1Y;lex2Y]);
+df = DataFrame(X=candX,Y=candY);
 sort!(df,[order(:Y)])
 
 function PR(X,Y,len,TL)
@@ -946,7 +944,7 @@ function PR(X,Y,len,TL)
     # candX,candY = NDfilter([candX;leX],[candY;leY])
     # push!(IGPair,[1,length(candX)-1],[2,length(candX)-1],[length(X)-1,length(candX)],[length(X),length(candX)])
     # println("now randomly choose IG pairs")
-    while time()-t0 < TL*0.85  && length(IGPair)<(length(candY)*(length(candY)-1))
+    while time()-t0 < TL*0.8  && length(IGPair)<(length(candY)*(length(candY)-1))
         dicY = NDdict(candY)
         avail = findall(i->dicY[i]!=0,1:length(dicY))
         @label NewIter
@@ -956,9 +954,9 @@ function PR(X,Y,len,TL)
         nosol = 0
         while all.(SI != SG) && [I,G]∉IGPair && (time()-t0<TL) && nosol < 5 #iter<Maxiter
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
-            # weight = round(Int,mean([candY[i][1]/candY[i][2] for i=1:length(candY)]))
+            # new_ weight = round(Int,mean([candY[i][1]/candY[i][2] for i=1:length(candY)]))
             new_weight = round(Int, (abs(candY[I][1]-candY[G][1])/2)/(abs(candY[I][2]-candY[G][2])/2))
-            neibour = createAllNB(SI[1:len[1]],dif,exploredSI)
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
             newsol = 0; 
             # println("# of neighbours: ", length(neibour))
             if (length(neibour)==0) #(time()-t0 >= TL)
@@ -1001,9 +999,10 @@ function PR(X,Y,len,TL)
 
     candX,candY = NDfilter(candX,candY)
     list = DataFrame(X=candX,Y=candY)
-    sort!(list,[order(:Y)]); IGPair2 = []
+    IGPair2 = []
     while time()-t0 < TL
-        I,G = StatsBase.sample(1:length(list.Y), 2, replace=false);
+        sort!(list,[order(:Y)]);
+        I,G = StatsBase.sample(1:10, 2, replace=false);
         SI = list.X[I]; SG = list.X[G];    
         nosol = 0; iter=0
         while all.(SI != SG)  && [I,G]∉IGPair2 && nosol < 5
@@ -1047,10 +1046,13 @@ function PR(X,Y,len,TL)
     return list.X,list.Y,IGPair
 end
 
-PRtime = @CPUelapsed px,py,pairs = PR(df.X,df.Y,len,TL)
+PRtime = @CPUelapsed px,py,pairs = PR(df.X,df.Y,len,TL/2)
 # PRtime = @CPUelapsed px,py,pn,pairs = PR(df.X,df.Y,len,round(Int,FPtime*max(dt1.N["distribution"],30)))
 prx,pry = NDfilter(px,py);
 
+py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
+t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
+plot([t1,t5],layout)
 
 ########################## Saving the output file ###########################
 otable = zeros( length(pry),2)
@@ -1059,7 +1061,7 @@ for i=1:length(pry)
         otable[i,j] = pry[i][j]
     end
 end
-CSV.write("/home/ak121396/Desktop/relise/lpY/test05lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+CSV.write("/home/ak121396/Desktop/relise/lpY/test07lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 
 CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 println("time $name: ", LPtime+FPtime+PRtime+l1time+l2time,": #sol: ", length(pry))
