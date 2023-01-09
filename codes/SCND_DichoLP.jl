@@ -1,5 +1,5 @@
 using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
-using CSV,JLD2
+using CSV#,JLD2
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -48,13 +48,13 @@ struct Data1dim
     end
 end
 # @show file = ARGS[1]
-file = "/home/ak121396/Desktop/instances/scnd/test07S2"
+file = "/home/ak121396/Desktop/instances/scnd/test08S4"
 dt1 = Data1dim(file);
 
 # name = ARGS[1][end-7:end]
 # testnum = parse(Int,name[end-3:end-2])
 # TL = dt1.N["supplier"]*10*testnum
-tnum = 7
+tnum = 8
 if tnum ==  1
     TL = 500
 elseif tnum == 2
@@ -94,7 +94,7 @@ function SCND_LP()
     #         "CPX_PARAM_EPGAP" => 1e-8
     #       ));
     set_silent(scnd1)
-    # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+    MOI.set(scnd1, MOI.NumberOfThreads(), 1)
     @variable(scnd1, 0<=y[1:(dt1.N["plant"]+dt1.N["distribution"])*2]<=1)
     @variable(scnd1, 0<=uij[1:sum(dt1.Mij)]<=1);
     @variable(scnd1, 0<=ujk[1:sum(dt1.Mjk)]<=1);
@@ -185,9 +185,10 @@ end
 scndlp = SCND_LP()
 #COMPILE
 vSolve(scndlp, 2, method=:dicho, verbose=false) 
-LPtime = @CPUelapsed vSolve(scndlp, 30, method=:dicho, verbose=false)
+@show LPtime = @CPUelapsed vSolve(scndlp, 30, method=:dicho, verbose=false)
 lp = getvOptData(scndlp);
-# w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
+# lp.Y_N
+w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
 len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
 
 function lexobj1()
@@ -195,7 +196,7 @@ function lexobj1()
     # optimizer_with_attributes(
             # ,"CPX_PARAM_EPGAP" => 1e-8);
     set_silent(lex)
-    # MOI.set(lex, MOI.NumberOfThreads(), 1);
+    MOI.set(lex, MOI.NumberOfThreads(), 1);
     #########################  IP  ########################################
     @variable(lex, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(lex, uij1[1:sum(dt1.Mij)], Bin);
@@ -214,7 +215,6 @@ function lexobj1()
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
     @objective(lex, Min, obj1+obj2)
-    # @objective(lex, Min, obj1)
     @constraint(lex, [p=1:5], sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
     @constraint(lex, [j=2:dt1.N["plant"],p=1:5], sum(xij1[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij1[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk1[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) );
     @constraint(lex, [p=1:5], sum(xjk1[5*(m-1)+p] for m=1:dt1.Mjk[1,1])+sum(xjk1[5*(m-1)+p+(5*sum(dt1.Mjk[1:j-1,:]))] for j=2:dt1.N["plant"] for m=1:dt1.Mjk[j,1]) == sum(xkl1[5*(m-1)+p] for m=1:sum(dt1.Mkl[1,:])) );
@@ -262,18 +262,18 @@ function lexobj1()
     @constraint(lex, sum(y1[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lex
 end
-l1 = lexobj1();
+l1 = lexobj1()
 set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", 3); optimize!(l1);
-set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*30);
-@show l1time = @CPUelapsed optimize!(l1) 
-lex1X = [value.(all_variables(l1))]; lex1Y = [getobjval(value.(all_variables(l1)))]
+set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*8,50));
+l1time = @CPUelapsed optimize!(l1); lex1X = [value.(all_variables(l1))]; lex1Y = [getobjval(value.(all_variables(l1)))]
 
 function lexobj2()
     lex = Model(CPLEX.Optimizer)
     # optimizer_with_attributes(
             # ,"CPX_PARAM_EPGAP" => 1e-8);
     set_silent(lex)
-    # MOI.set(lex, MOI.NumberOfThreads(), 1);
+    MOI.set(lex, MOI.NumberOfThreads(), 1);
+    
     #########################  IP  ########################################
     @variable(lex, y1[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(lex, uij1[1:sum(dt1.Mij)], Bin);
@@ -287,10 +287,10 @@ function lexobj2()
     obj2 = @expression(lex, sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5]) +
             sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
             sum(dt1.q.*h1) + sum(dt1.rij.*xij1)+sum(dt1.rjk.*xjk1)+sum(dt1.rkl.*xkl1))
-    obj1 = @expression(lex, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
-        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-        sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
-        sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1))
+        obj1 = @expression(lex, sum(dt1.c.*y1) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij1[1:sum(dt1.Mij[1,:])*5])+
+    sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij1[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+    sum(dt1.e.*h1) + sum(dt1.gij[i]*uij1[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk1[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl1[i] for i in findnz(dt1.gkl)[1])+
+    sum(dt1.vij.*xij1)+sum(dt1.vjk.*xjk1)+sum(dt1.vkl.*xkl1))
     # @objective(lex, Min, obj2)
     @objective(lex, Min, obj2+(obj1/(w1*w1)))
     @constraint(lex, [p=1:5], sum(xij1[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij1[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk1[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
@@ -340,12 +340,13 @@ function lexobj2()
     @constraint(lex, sum(y1[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return lex
 end
-l2 = lexobj2();
+l2 = lexobj2()
 set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", 3); optimize!(l2)
-set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*30);
-@show l2time = @CPUelapsed optimize!(l2)
+set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*max(tnum*8,50));
+@show l2time = @CPUelapsed optimize!(l2);
 lex2X = [value.(all_variables(l2))]; lex2Y = [getobjval(value.(all_variables(l2)))]
-#########################  Feasibility Pump  ###########################
+len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
+
 function flip(x_h,j,e)
     if x_h[e[j]]==1
         x_h[e[j]] = 0
@@ -384,6 +385,7 @@ function flipoper(Tabu,x_t,x_r)
     end
     return xi
 end
+
 function FP_FBcheck(model,yr,iter)
     if isodd(iter)==true
         @objective(model, Min, sum(dt1.c.*model[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*model[:xij][1:sum(dt1.Mij[1,:])*5])+
@@ -421,7 +423,27 @@ function fbsearch(yr)#,u1r,u2r,u3r) #solveLP
         return 0#,0,0,0
     end
 end
-# 𝚯 = [0,ℯ/(ℯ+ℯ^2),ℯ^2/(ℯ+ℯ^2)];
+function fbsearch2(yr,u1r,u2r,u3r) #solveLP
+    idy_0 = findall(k->k==0, yr)
+    idy_1 = findall(k->k==1, yr)
+    idu1_0 = findall(k->k==0, u1r)
+    idu1_1 = findall(k->k==1, u1r)
+    idu2_0 = findall(k->k==0, u2r)
+    idu2_1 = findall(k->k==1, u2r)
+    idu3_0 = findall(k->k==0, u3r)
+    idu3_1 = findall(k->k==1, u3r)
+    @objective( dist, Min, sum(dist[:y][i] for i in idy_0) + sum(1-(dist[:y][j]) for j in idy_1) +
+        sum(dist[:uij][i] for i in idu1_0) + sum(1-(dist[:uij][j]) for j in idu1_1)+
+        sum(dist[:ujk][i] for i in idu2_0) + sum(1-(dist[:ujk][j]) for j in idu2_1)+
+        sum(dist[:ukl][i] for i in idu3_0) + sum(1-(dist[:ukl][j]) for j in idu3_1))
+    optimize!(dist)
+    if termination_status(dist) == MOI.OPTIMAL
+        return JuMP.value.(dist[:y]),JuMP.value.(dist[:uij]),JuMP.value.(dist[:ujk]),JuMP.value.(dist[:ukl])
+    else
+        return 0,0,0,0
+    end
+end
+
 function dominated(x,P)
     st = false
     for k=1:length(P)
@@ -433,6 +455,7 @@ function dominated(x,P)
     end
     return st
 end
+
 function NDfilter(P,Pobj)
     copysol = Dict(); copyobj = Dict();
     for i=1:length(Pobj)
@@ -448,30 +471,37 @@ function NDfilter(P,Pobj)
             end
         end
     end
+
     finalsol = filter!(a->a!=nothing, collect(values(copysol)))
     finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
+
     return finalsol,finalobj
 end
-function NDdict(Pobj)
-    copyobj = Dict();
+function SortingSol(P,Pobj)
+    copysol = Dict(); copyobj = Dict();
     for i=1:length(Pobj)
+        copysol[i] = P[i]
         copyobj[i] = Pobj[i]
     end
     for i=1:length(Pobj)-1
         for j=i+1:length(Pobj)
             if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
-                copyobj[i]=nothing; break
+                copyobj[i]=0; copysol[i]=0; break
             elseif all(Pobj[j] .>= Pobj[i]) == true
-                copyobj[j]=nothing; 
+                copyobj[j]=0; copysol[j]=0;
             end
         end
     end
-    return copyobj
+    sortedsol = filter!(a->a!=0, collect(values(copysol)))
+    sortedobj = filter!(a->a!=0, collect(values(copyobj)))
+    df = DataFrame(X=sortedsol,Y=sortedobj);
+    sort!(df,[order(:Y)])
+    return df
 end
+
 function FP_Model()
     model = Model(CPLEX.Optimizer); set_silent(model)
-    # MOI.set(model, MOI.NumberOfThreads(), 1)
-    # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
+    MOI.set(model, MOI.NumberOfThreads(), 1)
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
     @variable(model, ujk[1:sum(dt1.Mjk)], Bin);
@@ -480,14 +510,7 @@ function FP_Model()
     @variable( model, 0<= xjk[1:sum(dt1.Mjk)*5] );
     @variable( model, 0<= xkl[1:sum(dt1.Mkl)*5] );
     @variable( model, 0<= h[1:(dt1.N["plant"]+dt1.N["distribution"])*5*2] );
-    # @objective(model, Min, sum(dt1.c.*y) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5])+
-    #         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-    #         sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
-    #         sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl) +
-    #         weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
-    #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-    #         sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl))
-    # );
+
     ########## constraint 3 #############
     @constraint(model, [p=1:5], sum(xij[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
     @constraint(model, [j=2:dt1.N["plant"],p=1:5], sum(xij[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) );
@@ -541,8 +564,7 @@ function FP_Model()
 end
 function LP_Model()
     lp = Model(CPLEX.Optimizer); set_silent(lp)
-    # MOI.set(lp, MOI.NumberOfThreads(), 1)
-    # MOI.set(lp, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
+    MOI.set(lp, MOI.NumberOfThreads(), 1)
     @variable(lp, 0 <= y[1:(dt1.N["plant"]+dt1.N["distribution"])*2] <= 1)
     @variable(lp, 0 <= uij[1:sum(dt1.Mij)] <= 1);
     @variable(lp, 0 <= ujk[1:sum(dt1.Mjk)] <= 1);
@@ -604,7 +626,7 @@ function LP_Model()
 end
 function PR_Model()
     model = Model(CPLEX.Optimizer); set_silent(model)
-    # MOI.set(model, MOI.NumberOfThreads(), 1)
+    MOI.set(model, MOI.NumberOfThreads(), 1)
     # MOI.set(model, MOI.RawParameter("CPX_PARAM_SCRIND"), false);
     @variable(model, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(model, uij[1:sum(dt1.Mij)], Bin);
@@ -614,14 +636,6 @@ function PR_Model()
     @variable( model, 0<= xjk[1:sum(dt1.Mjk)*5] );
     @variable( model, 0<= xkl[1:sum(dt1.Mkl)*5] );
     @variable( model, 0<= h[1:(dt1.N["plant"]+dt1.N["distribution"])*5*2] );
-    # @objective(model, Min, sum(dt1.c.*y) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5])+
-    #         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
-    #         sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
-    #         sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl) +
-    #         weight*(sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
-    #         sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
-    #         sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl))
-    # );
     ########## constraint 3 #############
     @constraint(model, [p=1:5], sum(xij[5*(m-1)+p] for m=1:dt1.Mij[1,1])+sum(xij[5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,1]) == sum(xjk[5*(m-1)+p] for m=1:sum(dt1.Mjk[1,:])) );
     @constraint(model, [j=2:dt1.N["plant"],p=1:5], sum(xij[5*sum(dt1.Mij[1,1:j-1])+5*(m-1)+p] for m=1:dt1.Mij[1,j])+sum(xij[5*sum(dt1.Mij[i,1:j-1])+5*(m-1)+p+(5*sum(dt1.Mij[1:i-1,:]))] for i=2:dt1.N["supplier"] for m=1:dt1.Mij[i,j]) == sum(xjk[sum(dt1.Mjk[1:j-1,:])*5 + 5*(m-1)+p] for m=1:sum(dt1.Mjk[j,:])) );
@@ -741,7 +755,7 @@ function nextSI(neibour,SI)
         end
     end
 end
-function PR_FBcheck_w(model,weight,yr)#,u1r,u2r,u3r)
+function PR_FBcheck_w(model,weight,yr)
     @objective(model, Min, sum(dt1.c.*model[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*model[:xij][1:sum(dt1.Mij[1,:])*5])+
     sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*model[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
     sum(dt1.e.*model[:h]) + sum(dt1.gij[i]*model[:uij][i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*model[:ujk][i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*model[:ukl][i] for i in findnz(dt1.gkl)[1])+
@@ -758,7 +772,7 @@ function PR_FBcheck_w(model,weight,yr)#,u1r,u2r,u3r)
         return false
     end
 end
-function PR_FBcheck(model,iter,yr)#,u1r,u2r,u3r)
+function PR_FBcheck(model,iter,yr)
     if isodd(iter)==true
         @objective(model, Min, sum(dt1.c.*model[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*model[:xij][1:sum(dt1.Mij[1,:])*5])+
         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*model[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
@@ -777,15 +791,14 @@ function PR_FBcheck(model,iter,yr)#,u1r,u2r,u3r)
         return false
     end
 end
-fbmodel = FP_Model(); dist = LP_Model();
-set_optimizer_attribute(fbmodel, "CPXPARAM_TimeLimit", 3)
-set_optimizer_attribute(dist, "CPXPARAM_TimeLimit", 3)
-optimize!(fbmodel); optimize!(dist);
+
+fbmodel = FP_Model(); optimize!(fbmodel);
 set_optimizer_attribute(fbmodel, "CPXPARAM_TimeLimit", 10)
+dist = LP_Model(); optimize!(dist);
 set_optimizer_attribute(dist, "CPXPARAM_TimeLimit", 10)
-prmodel = PR_Model(); 
-set_optimizer_attribute(prmodel, "CPXPARAM_TimeLimit", 3);optimize!(prmodel);
+prmodel = PR_Model(); optimize!(prmodel);
 set_optimizer_attribute(prmodel, "CPXPARAM_TimeLimit", 10);
+
 function FP(candX,len,TL)
     X = []; PF =[]; Tabu = []; newsol = 0; Y = [];
     candlist = sample(1:length(candX), length(candX), replace=false)
@@ -809,13 +822,15 @@ function FP(candX,len,TL)
                 if sol ∉ X  && dominated(ndp,collect(values(PF)))==false
                     push!(X,sol); push!(PF,ndp) #PF[k] = ndp
                     push!(Y,yr);
-                    newsol+=1; SearchDone = true
+                    newsol+=1; SearchDone = true; 
+                    # deleteat!(candlist, k);
                 end
             else
                 if yr ∈ Tabu
                     yr = flipoper(Y,yt,yr); # u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
                     if yr == [] # if any(i->i==[], [yr,u1r,u2r,u3r])
-                        SearchDone = true; deleteat!(candlist, k);
+                        SearchDone = true; 
+                        # deleteat!(candlist, k);
                        
                     else
                         if FP_FBcheck(fbmodel,yr,iter) == true #,u1r,u2r,u3r)
@@ -843,124 +858,115 @@ function FP(candX,len,TL)
 			iter+=1
         end
     end
-    return X,PF,newsol,candlist
+    return X,PF
 end
-@show FPtime = @CPUelapsed lx,ly,ln,candlist = FP(lp.X_E,len,round(Int,LPtime*30))
-fx,fy = NDfilter(lx,ly);
-# println("FPtime: ", FPtime, "FPsol: ", length(fy))
-candX,candY = NDfilter([fx;lex1X;lex2X],[fy;lex1Y;lex2Y]);
-df = DataFrame(X=candX,Y=candY);
-sort!(df,[order(:Y)])
+FP(lp.X_E,len,3)
+FPtime = @CPUelapsed f1x,f1y = FP(lp.X_E,len,Inf)
+f2x,f2y = NDfilter(f1x,f1y);
+println("FPtime: ", FPtime, " FPsol: ", length(f2y))
+fpX,fpY = NDfilter([f2x;lex1X;lex2X],[f2y;lex1Y;lex2Y])
+dfp = DataFrame(X=fpX,Y=fpY);
+sort!(dfp,[order(:Y)])
 
-function PR(X,Y,len,TL)
-    candX = copy(X); candY = copy(Y); 
-    IGPair=[]; exploredSI = []; t0=time();  
-   
-    push!(IGPair,[1,2],[1,3])
-    # Left side 
-    for k = 2:3
-        SI = X[k]; SG = X[1];    
-        nosol = 0; iter=0
-        while all.(SI != SG)  && (time()-t0 < TL*0.15) && nosol < 5
-            # new_weight = round(Int, (abs(Y[k][1]-Y[1][1])/2)/(abs(Y[k][2]-Y[1][2])/2))
-            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
-            newsol=0;
-            neibour = createAllNB(SI[1:len[1]],dif,exploredSI)
-            if (length(neibour)==0) 
-                break
+function FPplus(dvar,Y_N,len,TL) 
+    X = copy(dvar); PF = copy(Y_N); Y = []; IGPair=[]; Tabu = []; t0=time();
+    # U1 = []; U2= []; U3 = []; newsol=0; 
+    while time()-t0 < TL && length(IGPair)<(length(PF)*(length(PF)-1))
+        I,G = StatsBase.sample(1:length(X), 2, replace=false)
+        x1 = X[I][1:sum(len[i] for i=1:4)]; x2 = X[G][1:sum(len[i] for i=1:4)];
+        λ = round(rand(Float64, 1)[1]; digits=1)
+        x_t = x1*λ + x2*(1-λ);
+        # x_t = x1*.5 + x2*.5;
+        yt = x_t[1:len[1]]; u1t = x_t[1+len[1]:len[1]+len[2]];
+        u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
+        u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
+        SearchDone = false; iter=0;
+        Max_iter = 5 # length(findall(i-> 0<i<1,x_t))
+        while [I,G]∉IGPair && iter<Max_iter && SearchDone == false
+            # x_r = round.(Int,x_t);
+            yr = round.(Int, yt); u1r = round.(Int, u1t);
+            u2r = round.(Int, u2t); u3r = round.(Int, u3t);
+
+            if FP_FBcheck(fbmodel,yr,iter) == true
+                sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+                if sol ∉ X  && dominated(ndp,PF)==false
+                    push!(X,sol); push!(PF,ndp)
+                    # push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                    # newsol+=1; 
+                    SearchDone = true
+                    # println("rounding worked")
+                end
             else
-                candSI =[]
-                for l=1:length(neibour)
-                    st = PR_FBcheck( prmodel, iter, neibour[l])
-                    # st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
-                    if st==true
-                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
-                        push!(candSI,sol)
-                        if sol ∉ candX && dominated(ndp,candY)==false
-                            push!(candX, sol); push!(candY, ndp);
-                            newsol+=1; 
-                            # println(iter, " new sol ", ndp);
-
+                if yr ∈ Tabu #[yr;u1r;u2r;u3r] ∈ Tabu
+                    yr = flipoper(Y,yt,yr);
+                    # u1r = flipoper(U1,u1t,u1r); u2r = flipoper(U2,u2t,u2r); u3r = flipoper(U3,u3t,u3r)
+                    if yr == [] # if any(i->i==[], [yr,u1r,u2r,u3r])
+                        SearchDone = true;
+                        # println("flip failed")
+                    else
+                        if FP_FBcheck(fbmodel,yr,iter) == true
+                            sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+                            if sol ∉ X && dominated(ndp,PF)==false
+                                push!(X,sol); push!(PF,ndp)
+                                # newsol+=1; push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
+                                SearchDone = true;
+                                # println("flip worked")
+                            end
                         end
                     end
                 end
-            end
-            if candSI == []
-                break
-            else
-                SI = nextSI(candSI,SI)
-                if SI∉candX
-                    push!(exploredSI,SI);
+                if time()-t0 >= TL
+                    break
                 end
-            end
-            if newsol == 0
-                nosol+=1
-            end
-            iter+=1
-        end
-    end
-    push!(IGPair,[length(X)-2,length(X)],[length(X)-1,length(X)])
-    # println("Right side")
-    for k = length(X)-2:length(X)-1    
-        SI = X[k]; SG = X[end];    
-        nosol = 0; 
-        iter = 0; #Max_iter = 10#dt1.N["supplier"]; 
-        while all.(SI != SG) && (time()-t0 < TL*0.25) && nosol < 5 #iter<Max_iter
-            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
-            newsol=0; 
-            neibour = createAllNB(SI[1:len[1]],dif,exploredSI)
-            if (length(neibour)==0) 
-                break
-            else
-                candSI =[]
-                for l=1:length(neibour)
-                    st = PR_FBcheck( prmodel, iter, neibour[l])
-                    if st==true
-                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
-                        push!(candSI,sol)
-                        if sol ∉ candX && dominated(ndp,candY)==false
-                            push!(candX, sol); push!(candY, ndp);
-                            # println(ndp)
-                            newsol+=1;
-                            # println(iter, " new sol ", ndp);
-                        end
+                if SearchDone == false
+                    push!(Tabu,yr) #[yr;u1r;u2r;u3r]
+                    yt,u1t,u2t,u3t = fbsearch2(yr,u1r,u2r,u3r)
+                    if any(i->i==0, [yt,u1t,u2t,u3t])  #when there's no new feasible lp sol
+                        # println("no solution")
+                        SearchDone = true
                     end
                 end
             end
-            if candSI == []
-                break
-            else
-                SI = nextSI(candSI,SI)
-                if SI∉candX
-                    push!(exploredSI,SI);
-                end
-            end
-            if newsol == 0
-                nosol+=1
-            end
-            iter+=1
+			iter+=1
         end
+        push!(IGPair,[I,G])
+
     end
-    # candX,candY = NDfilter([candX;leX],[candY;leY])
-    # push!(IGPair,[1,length(candX)-1],[2,length(candX)-1],[length(X)-1,length(candX)],[length(X),length(candX)])
-    # println("now randomly choose IG pairs")
-    while time()-t0 < TL*0.8  && length(IGPair)<(length(candY)*(length(candY)-1))
-        dicY = NDdict(candY)
-        avail = findall(i->dicY[i]!=0,1:length(dicY))
-        @label NewIter
-	    I,G = StatsBase.sample(avail, 2, replace=false);
-        SI = candX[I]; SG = candX[G];
-        iter=0; #Maxiter = 10 #dt1.N["supplier"]; 
-        nosol = 0
-        while all.(SI != SG) && [I,G]∉IGPair && (time()-t0<TL) && nosol < 5 #iter<Maxiter
+    return X,PF#,IGPair,newsol
+end
+FPplus(dfp.X,dfp.Y,len,3)
+FPPtime = @CPUelapsed fpp1x,fpp1y = FPplus(dfp.X,dfp.Y,len,round(Int,TL/3))
+fpp2x,fpp2y = NDfilter(fpp1x,fpp1y);
+println("FPPtime: ", FPPtime, " FPPsol: ", length(fpp2y))
+dfpp = DataFrame(X=fpp2x,Y=fpp2y);
+sort!(dfpp,[order(:Y)])
+dX = Dict(i=>dfpp.X[i] for i=1:length(dfpp.Y)); dY = Dict(i=>dfpp.Y[i] for i=1:length(dfpp.Y));
+
+function PR(dX,dY,len,TL)
+    X = copy(dX); Y = copy(dY); 
+    IGPair=[]; exploredSI = copy(collect(values(X))); t0=time();    
+    println("now randomly choose IG pairs")
+    while time()-t0 < TL*0.7
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return nd
+        end
+        @label NewIter1
+        I0,G0 = StatsBase.sample(nd.Y, 2, replace=false);
+        I = findall(i->i==I0,Y)[1]; G = findall(i->i==G0,Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^4|| abs(Y[I][2]-Y[G][2]) < 10^4 
+        #     @goto NewIter1
+        # end
+        SI = X[I]; SG = X[G];
+        iter=0; nosol = 0
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*0.7
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
-            # new_ weight = round(Int,mean([candY[i][1]/candY[i][2] for i=1:length(candY)]))
-            new_weight = round(Int, (abs(candY[I][1]-candY[G][1])/2)/(abs(candY[I][2]-candY[G][2])/2))
+            # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
             neibour = createNB(SI[1:len[1]],dif,exploredSI)
             newsol = 0; 
-            # println("# of neighbours: ", length(neibour))
             if (length(neibour)==0) #(time()-t0 >= TL)
-                @goto NewIter
+                @goto NewIter1
             else
                 candSI =[]
                 for l=1:length(neibour)
@@ -969,23 +975,24 @@ function PR(X,Y,len,TL)
                     if st==true
                         sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
                         push!(candSI,sol)
-                        if sol ∉ candX && dominated(ndp,candY)==false
-                            push!(candX, sol); push!(candY, ndp);
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
                             newsol+=1;
-                            # println(iter, " new sol ", ndp);
+                            println(iter, " new sol ", ndp);
                         end
                     end
-                    if time()-t0 >= TL
+                    if time()-t0 >= TL*0.7
+                        println("__breaking point__!")
                         break
                     end
                 end
             end
             if candSI == []
                 push!(IGPair,[I,G]);
-                @goto NewIter
+                @goto NewIter1
             else
                 SI = nextSI(candSI,SI)
-                if SI∉candX
+                if SI∉collect(values(X))
                     push!(exploredSI,SI);
                 end
             end
@@ -997,43 +1004,53 @@ function PR(X,Y,len,TL)
         push!(IGPair,[I,G]);
     end
 
-    candX,candY = NDfilter(candX,candY)
-    list = DataFrame(X=candX,Y=candY)
-    IGPair2 = []
-    while time()-t0 < TL
-        sort!(list,[order(:Y)]);
-        I,G = StatsBase.sample(1:10, 2, replace=false);
-        SI = list.X[I]; SG = list.X[G];    
-        nosol = 0; iter=0
-        while all.(SI != SG)  && [I,G]∉IGPair2 && nosol < 5
-            newsol=0;
+    println("____1st Left____")
+    while time()-t0 < TL*0.8
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return nd
+        end
+        @label NewIter2
+        I0,G0 = StatsBase.sample(1:round(Int,length(nd.Y)*0.2), 2, replace=false);
+        I = findall(i->i==nd.Y[I0],Y)[1]; G = findall(i->i==nd.Y[G0],Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^5|| abs(Y[I][2]-Y[G][2]) < 10^5
+        #     @goto NewIter2
+        # end
+        SI = X[I]; SG = X[G];
+        iter=0; nosol = 0
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*0.8
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
-            # new_weight = round(Int, (abs(list.Y[I][1]-list.Y[G][1])/2)/(abs(list.Y[I][2]-list.Y[G][2])/2))
-            neibour = createAllNB(SI[1:len[1]],dif,exploredSI)
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            newsol = 0;
             if (length(neibour)==0) 
-                break
+                @goto NewIter2
             else
                 candSI =[]
                 for l=1:length(neibour)
-                    st = PR_FBcheck( prmodel, iter, neibour[l])
-                    # st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+                    # st = PR_FBcheck( prmodel, iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
                     if st==true
                         sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
                         push!(candSI,sol)
-                        if sol ∉ candX && dominated(ndp,candY)==false
-                            push!(list.X, sol); push!(list.Y, ndp);
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
                             newsol+=1; 
-                            # println(iter, " new sol ", ndp);
+                            println(iter, " new sol ", ndp);
 
                         end
+                    end
+                    if time()-t0 >= TL*0.8
+                        println("__breaking point__!")
+                        break
                     end
                 end
             end  
             if candSI == []
-                break
+                @goto NewIter2
             else
                 SI = nextSI(candSI,SI)
-                if SI∉candX
+                if SI∉collect(values(X))
                     push!(exploredSI,SI);
                 end
             end
@@ -1042,17 +1059,75 @@ function PR(X,Y,len,TL)
             end
             iter+=1
         end
+        push!(IGPair,[I,G]);
     end
-    return list.X,list.Y,IGPair
+
+    println("____2nd Left____")
+    while time()-t0 < TL
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return nd
+        end
+        @label NewIter3
+        buffer = round(Int,length(nd.Y)*0.15)
+        I0,G0 = StatsBase.sample(buffer:round(Int,length(nd.Y)*0.3), 2, replace=false);
+        I = findall(i->i==nd.Y[I0],Y)[1]; G = findall(i->i==nd.Y[G0],Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^5|| abs(Y[I][2]-Y[G][2]) < 10^5 
+        #     @goto NewIter3
+        # end
+        SI = X[I]; SG = X[G];
+        iter=0; nosol = 0
+        while nosol < 5 && all.(SI != SG)&& time()-t0 < TL
+            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+            # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            newsol = 0;
+            if (length(neibour)==0) 
+                @goto NewIter3
+            else
+                candSI =[]
+                for l=1:length(neibour)
+                    # st = PR_FBcheck( prmodel, iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+                    if st==true
+                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                        push!(candSI,sol)
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                            newsol+=1; 
+                            println(iter, " new sol ", ndp);
+
+                        end
+                    end
+                    if time()-t0 >= TL
+                        println("__breaking point__!")
+                        break
+                    end
+                end
+            end  
+            if candSI == []
+                @goto NewIter3
+            else
+                SI = nextSI(candSI,SI)
+                if SI∉collect(values(X))
+                    push!(exploredSI,SI);
+                end
+            end
+            if newsol == 0
+                nosol+=1
+            end
+            iter+=1
+        end
+        push!(IGPair,[I,G]);
+
+    end
+    return collect(values(X)),collect(values(Y))
 end
-
-PRtime = @CPUelapsed px,py,pairs = PR(df.X,df.Y,len,TL/2)
-# PRtime = @CPUelapsed px,py,pn,pairs = PR(df.X,df.Y,len,round(Int,FPtime*max(dt1.N["distribution"],30)))
+PR(dX,dY,len,3)
+PRtime = @CPUelapsed px,py = PR(dX,dY,len,TL)
 prx,pry = NDfilter(px,py);
-
-py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
-plot([t1,t5],layout)
+println("PRtime: ", PRtime, "PRsol: ", length(pry))
 
 ########################## Saving the output file ###########################
 otable = zeros( length(pry),2)
@@ -1061,104 +1136,166 @@ for i=1:length(pry)
         otable[i,j] = pry[i][j]
     end
 end
-CSV.write("/home/ak121396/Desktop/relise/lpY/test07lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 
-CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpy.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
-println("time $name: ", LPtime+FPtime+PRtime+l1time+l2time,": #sol: ", length(pry))
+CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+println("algotime $name: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
+dv = sparse(prx)
+JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*name*"X.jld2" dv
+
+################################## Find Line segments  ####################################
+function FixedBinDicho(prx)
+    linesg = Dict(); dtime = 0
+    model = SCND_LP()
+    for k=1:length(prx)
+        JuMP.fix.(model[:y], prx[k][1:len[1]]; force = true)
+        JuMP.fix.(model[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
+        JuMP.fix.(model[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
+        JuMP.fix.(model[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
+        t = @CPUelapsed vSolve(model, 10, method=:dicho, verbose=false)
+        res = getvOptData(model);
+        if res!= []
+            linesg[k]=res.Y_N
+        end
+        dtime = dtime + t;
+    end
+    return linesg,dtime
+end
+function LinesgPostpro(linesg)
+    lsg1 = []
+    lsg2 = collect(values(linesg))
+    for i=1:length(lsg2)
+        lsg1 = vcat(lsg1,lsg2[i])
+    end
+
+    copyobj = Dict();
+    for i=1:length(lsg1)
+        copyobj[i] = lsg1[i]
+    end
+    for i=1:length(lsg1)-1
+        for j=i+1:length(lsg1)
+            if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; break
+            elseif all(lsg1[j] .>= lsg1[i]) == true
+                copyobj[j]=nothing;
+            end
+        end
+    end
+    ndlsg = sort!(filter!(a->a!=nothing, collect(values(copyobj))))
+
+    lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
+
+    finalDict = Dict( i=>[] for i=1:length(linesg) )
+    for l=1:size(lsgtb,1)
+        for k in collect(keys(linesg))
+            if lsgtb[l,:] ∈ linesg[k]
+                push!(finalDict[k],lsgtb[l,:])
+            end
+        end
+    end
+    return finalDict
+end
+linesg,Linetime = FixedBinDicho(prx);
+lsgdict = LinesgPostpro(linesg);
+println("linetime $name: ", Linetime)
+
+name = ARGS[1][end-7:end];
+JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*name*"LS.jld2" lsgdict
+# JLD2.@load "/home/k2g00/k2g3475/scnd/vopt/mipY/mipLS.jld2" lsgdict 
+
 ###############################
-function Grouping(LB)
-    fmin = minimum([LB[i][1] for i=1:length(LB)]),minimum([LB[i][2] for i=1:length(LB)])
-    fmax = maximum([LB[i][1] for i=1:length(LB)]),maximum([LB[i][2] for i=1:length(LB)])
-    steps = [round.(Int,abs(fmax[k]-fmin[k])/9) for k=1:2]
-    cubes = Dict();
-    for iter=1:length(LB)
-        loca = [round.(Int,((LB[iter][k]-fmin[k])/steps[k])+1) for k=1:2]
-        if !haskey(cubes,loca)
-            cubes[loca] = [iter]
-        else
-            push!(cubes[loca], iter)
-        end
-    end
-    groups = collect(values(cubes)); groupkeys = collect(keys(cubes))
-    return cubes,groupkeys
-end
+# function Grouping(LB)
+#     fmin = minimum([LB[i][1] for i=1:length(LB)]),minimum([LB[i][2] for i=1:length(LB)])
+#     fmax = maximum([LB[i][1] for i=1:length(LB)]),maximum([LB[i][2] for i=1:length(LB)])
+#     steps = [round.(Int,abs(fmax[k]-fmin[k])/9) for k=1:2]
+#     cubes = Dict();
+#     for iter=1:length(LB)
+#         loca = [round.(Int,((LB[iter][k]-fmin[k])/steps[k])+1) for k=1:2]
+#         if !haskey(cubes,loca)
+#             cubes[loca] = [iter]
+#         else
+#             push!(cubes[loca], iter)
+#         end
+#     end
+#     groups = collect(values(cubes)); groupkeys = collect(keys(cubes))
+#     return cubes,groupkeys
+# end
 
-function GFP(candX,candY,len,TL)
-    X = []; PF =[]; Tabu = [];  newsol = 0;
-    Y = []; U1 = []; U2= []; U3 = []; t0 = time();
-    cubes,gkeys = Grouping(candY)
-    glist = copy(gkeys)
-    while time() - t0 < TL && glist != []
-        g = sample(1:length(glist))
-        k = sample(cubes[glist[g]])
-        x_t = candX[k]
-        yt = x_t[1:len[1]]; yr = copy(yt)
-        # u1t = x_t[1+len[1]:len[1]+len[2]];
-        # u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
-        # u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
-        SearchDone = false; iter=0; Max_iter = 5#length(findall(i-> 0<i<1,yt))
-        while iter < Max_iter && SearchDone == false && time() - t0 < TL
-            yid = findall(p->p>0.5,yt);
-            for j=1:len[1]
-                if j in yid
-                    yr[j]=1
-                else
-                    yr[j]=0
-                end
-            end
-            if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
-                sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                if sol ∉ X  && dominated(ndp,PF)==false
-                    push!(X,sol); push!(PF,ndp)
-                    push!(Y,yr);
-                    newsol+=1; SearchDone = true
-                    deleteat!(glist, g);
-                    println("rounding worked")
+# function GFP(candX,candY,len,TL)
+#     X = []; PF =[]; Tabu = [];  newsol = 0;
+#     Y = []; U1 = []; U2= []; U3 = []; t0 = time();
+#     cubes,gkeys = Grouping(candY)
+#     glist = copy(gkeys)
+#     while time() - t0 < TL && glist != []
+#         g = sample(1:length(glist))
+#         k = sample(cubes[glist[g]])
+#         x_t = candX[k]
+#         yt = x_t[1:len[1]]; yr = copy(yt)
+#         # u1t = x_t[1+len[1]:len[1]+len[2]];
+#         # u2t = x_t[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]
+#         # u3t = x_t[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]
+#         SearchDone = false; iter=0; Max_iter = 5#length(findall(i-> 0<i<1,yt))
+#         while iter < Max_iter && SearchDone == false && time() - t0 < TL
+#             yid = findall(p->p>0.5,yt);
+#             for j=1:len[1]
+#                 if j in yid
+#                     yr[j]=1
+#                 else
+#                     yr[j]=0
+#                 end
+#             end
+#             if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
+#                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+#                 if sol ∉ X  && dominated(ndp,PF)==false
+#                     push!(X,sol); push!(PF,ndp)
+#                     push!(Y,yr);
+#                     newsol+=1; SearchDone = true
+#                     deleteat!(glist, g);
+#                     println("rounding worked")
 
-                end
-            else
-                if yr ∈ Tabu
-                    yr = flipoper(Y,yt,yr);
-                    if yr == []
-                        SearchDone = true;
-                        deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
-                        println("flip failed")
-                    else
-                        if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
-                            sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
-                            if sol ∉ X && dominated(ndp,PF)==false
-                                push!(X,sol); push!(PF,ndp)
-                                push!(Y,yr);
-                                newsol+=1; SearchDone = true;
-                                deleteat!(glist, g);
-                                println("flip worked")
+#                 end
+#             else
+#                 if yr ∈ Tabu
+#                     yr = flipoper(Y,yt,yr);
+#                     if yr == []
+#                         SearchDone = true;
+#                         deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
+#                         println("flip failed")
+#                     else
+#                         if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
+#                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+#                             if sol ∉ X && dominated(ndp,PF)==false
+#                                 push!(X,sol); push!(PF,ndp)
+#                                 push!(Y,yr);
+#                                 newsol+=1; SearchDone = true;
+#                                 deleteat!(glist, g);
+#                                 println("flip worked")
 
-                            end
-                        end
-                    end
-                end
-                if time()-t0 >= TL
-                    break
-                end
-                if SearchDone == false
-                    push!(Tabu,yr)
-                    yt = fbsearch(yr)
-                    if yt==0  #when there's no new feasible lp sol
-                        deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
-                        println("no solution")
-                        SearchDone = true
-                    end
-                end
-            end
-			iter+=1
-        end
-    end
-    return X,PF,newsol,glist
-end
-FPtime = @CPUelapsed lx,ly,ln,glist = GFP(lp.X_E,lp.Y_N,len,round(Int,LPtime*3))
-gx,gy = Postpro(lx,ly)
-PRtime = @CPUelapsed px,py,pn,pairs = PR(lx,ly,len,round(Int,FPtime))
-prx,pry = Postpro(px,py)
+#                             end
+#                         end
+#                     end
+#                 end
+#                 if time()-t0 >= TL
+#                     break
+#                 end
+#                 if SearchDone == false
+#                     push!(Tabu,yr)
+#                     yt = fbsearch(yr)
+#                     if yt==0  #when there's no new feasible lp sol
+#                         deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
+#                         println("no solution")
+#                         SearchDone = true
+#                     end
+#                 end
+#             end
+# 			iter+=1
+#         end
+#     end
+#     return X,PF,newsol,glist
+# end
+# FPtime = @CPUelapsed lx,ly,ln,glist = GFP(lp.X_E,lp.Y_N,len,round(Int,LPtime*3))
+# gx,gy = Postpro(lx,ly)
+# PRtime = @CPUelapsed px,py,pn,pairs = PR(lx,ly,len,round(Int,FPtime))
+# prx,pry = Postpro(px,py)
 
 
 # len = [length(fbm[:yj]),length(fbm[:yk]),length(fbm[:uij]),length(fbm[:ujk]),length(fbm[:ukl]),length(fbm[:xij]),length(fbm[:xjk]),length(fbm[:xkl]),length(fbm[:h])]

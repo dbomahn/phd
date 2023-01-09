@@ -1,5 +1,4 @@
-using PlotlyJS,DataFrames,DelimitedFiles,Colors
-# using JLD2
+using PlotlyJS,DataFrames,DelimitedFiles,Colors,JLD2
 #############################        2D plot      ###########################
 
 function NDfilter2(Pobj)
@@ -139,8 +138,26 @@ for i=1:length(linesg)
     end
 end
 fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
-using JLD2
-JLD2.@load "/home/desk/Desktop/relise/mip/test03S1mipLS2.jld2" lsgdict;
+JLD2.@load "/home/ak121396/Desktop/relise/lpY/5/test02S3LS.jld2" lsgdict;
+
+
+ct = 0
+for i=1:length(lsgdict)
+    if lsgdict[i]!=[]
+        ct = ct + length(lsgdict[i])
+    end
+end
+tb = zeros(ct,2)
+iter = 1
+for i=1:length(lsgdict)
+    if lsgdict[i]!=[]
+        for j=1:length(lsgdict[i] )
+            tb[iter,:] = lsgdict[i][j]#[1],lsgdict[i][j][2]
+            iter+=1
+        end
+    end
+end
+
 
 function MIPplot(linesg)
     cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
@@ -158,7 +175,7 @@ end
 MIPplot(collect(values(lsgdict)))
 
 
-##########################     3D Visualisation       ###########################
+######################################     3D Visualisation       #################################
 # using RDatasets,GoldenSequences
 
 # struct NDpoints

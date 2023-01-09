@@ -9,20 +9,40 @@ ENV["CPLEX_STUDIO_BINARIES"] = "/opt/ibm/ILOG/CPLEX_Studio221/cplex/bin/x86-64_l
 # pr = "/home/ak121396/Desktop/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
 # prfiles = readdir(pr)
 
-function biobjHV(ep,epfiles,mat,matfiles,num)
+function biobjHV(ep,epfiles,nd,ndfiles,lsg,lsgfiles,num)
     tb = zeros(num,2);
     # for j=1:folder
-    #     matfiles = readdir(mat)
+    #     ndfiles = readdir(nd)
     for i=1:num
         epobj = readdlm(ep*epfiles[i])
-        matobj = readdlm(mat*matfiles[i]);
-        x = [epobj[1:10,1]; matobj[:,1]] 
-        y = [epobj[1:10,2]; matobj[:,2]] 
+        ndobj = readdlm(nd*ndfiles[i])
+        JLD2.@load lsg*lsgfiles[i] lsgdict
+
+        # Line dots into matrix
+        ct = 0
+        for i=1:length(lsgdict)
+            if lsgdict[i]!=[]
+                ct = ct + length(lsgdict[i])
+            end
+        end
+        ltb = zeros(ct,2)
+        iter = 1
+        for i=1:length(lsgdict)
+            if lsgdict[i]!=[]
+                for j=1:length(lsgdict[i] )
+                    ltb[iter,:] = lsgdict[i][j]#[1],lsgdict[i][j][2]
+                    iter+=1
+                end
+            end
+        end
+        
+        x = [epobj[1:10,1]; ndobj[:,1]; ltb[:,1]] 
+        y = [epobj[1:10,2]; ndobj[:,2]; ltb[:,2]] 
     
         ideal = [minimum(x),minimum(y)]
         nadir = [maximum(x),maximum(y)]
     
-        # FPBH HV calculation
+        #  HV calculation
         r = size(epobj)[1]
         norm = zeros(r,2)
         for k=1:r
@@ -36,31 +56,29 @@ function biobjHV(ep,epfiles,mat,matfiles,num)
         smetric1 =readlines( pipeline(`./hv -r "2 2" $(ep*"/hv/"*epfiles[i][1:end-8]*"normal_Y.csv")`))
         tb[i,1] = parse(Float64,smetric1[1]);
     
-        # mat HV calculation
-        u = size(matobj)[1]
+        # nd HV calculation
+        u = size(ndobj)[1]
         norm = zeros(u,2)
         # normalisting
         for k=1:u
-            norm[k,1] = (matobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
-            norm[k,2] = (matobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
+            norm[k,1] = (ndobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
+            norm[k,2] = (ndobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
         end
         Y = DataFrame(norm, :auto)
-        # CSV.write(mat[1:end-3]*"/hv/"*matfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
-        # smetric2 =readlines( pipeline(`./hv -r "2 2" $(mat[1:end-3]*"/hv/"*matfiles[i][1:11]*"_normal_Y.csv")`))
-        CSV.write(mat*"/hv/"*matfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
-        smetric2 =readlines( pipeline(`./hv -r "2 2" $(mat*"/hv/"*matfiles[i][1:11]*"_normal_Y.csv")`))
+        CSV.write(nd[1:end-3]*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
+        smetric2 =readlines( pipeline(`./hv -r "2 2" $(nd[1:end-3]*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv")`))
+        # CSV.write(nd*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
+        # smetric2 =readlines( pipeline(`./hv -r "2 2" $(nd*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv")`))
         tb[i,2] = parse(Float64,smetric2[1]);
     end
     return tb
 end
 ep = "/home/ak121396/Desktop/relise/epsilon/"
-epfiles = readdir(ep)[6:end]
-mat = "/home/ak121396/Desktop/relise/lpY/"
-matfiles = readdir(mat)[end-3:end]
+epfiles = readdir(ep)[2:end]
+nd = "/home/ak121396/Desktop/relise/lpY/5/"
+ndfiles = readdir(mat)
 
-hv2 = biobjHV(ep,epfiles,mat,matfiles,1)
-ep7pr = biobjHV(ep,epfiles,mat,matfiles,1)
-ep2pr = biobjHV(ep,epfiles,mat,matfiles,13)
+hv5 = biobjHV(ep,epfiles,mat,matfiles,15)
 
 eppr = biobjHV(ep,epfiles,mat,matfiles,10)
 1
