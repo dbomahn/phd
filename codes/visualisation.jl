@@ -88,14 +88,14 @@ m1 = mip[:,1]; m2 = mip[:,2]
 
 fpath = "/home/ak121396/Desktop/relise/epsilon/"
 eplist = readdir(fpath)[2:end]
-ep1 = readdlm(fpath*eplist[5])[1:10,:]
+ep1 = readdlm(fpath*eplist[tnum])[1:10,:]
 t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
 # e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])
 # ep = [[e1[k],e2[k]] for k=1:length(e1)]
 # epp = NDfilter2(ep)
 # ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
 
-lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test07lpy.log")
+lpY = readdlm("/home/ak121396/Desktop/relise/lpY/ndp/test02S3lpY.log")
 l1 = lpY[:,1]; l2 = lpY[:,2]
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
 plot([t1,t3],layout)
@@ -138,41 +138,8 @@ for i=1:length(linesg)
     end
 end
 fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
-JLD2.@load "/home/ak121396/Desktop/relise/lpY/5/test02S3LS.jld2" lsgdict;
 
 
-ct = 0
-for i=1:length(lsgdict)
-    if lsgdict[i]!=[]
-        ct = ct + length(lsgdict[i])
-    end
-end
-tb = zeros(ct,2)
-iter = 1
-for i=1:length(lsgdict)
-    if lsgdict[i]!=[]
-        for j=1:length(lsgdict[i] )
-            tb[iter,:] = lsgdict[i][j]#[1],lsgdict[i][j][2]
-            iter+=1
-        end
-    end
-end
-
-
-function MIPplot(linesg)
-    cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
-    plot_array = GenericTrace[]
-    push!(plot_array,t1)
-    push!(plot_array,t2)
-    for i=1:length(linesg)
-        if linesg[i]!=[]
-            tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
-            push!(plot_array,tradeoffs)
-        end
-    end
-    fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
-end
-MIPplot(collect(values(lsgdict)))
 
 
 ######################################     3D Visualisation       #################################

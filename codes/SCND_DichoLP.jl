@@ -1,5 +1,4 @@
-using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
-using CSV#,JLD2
+using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -51,9 +50,10 @@ end
 file = "/home/ak121396/Desktop/instances/scnd/test08S4"
 dt1 = Data1dim(file);
 
-# name = ARGS[1][end-7:end]
+# fname = ARGS[1][end-7:end]
 # testnum = parse(Int,name[end-3:end-2])
 # TL = dt1.N["supplier"]*10*testnum
+
 tnum = 8
 if tnum ==  1
     TL = 500
@@ -80,7 +80,7 @@ elseif tnum ==11
 elseif tnum ==12
     TL = 9000
 elseif tnum ==13
-    TL = 10000
+    TL = 11000
 elseif tnum ==14
     TL = 12000
 else
@@ -185,7 +185,9 @@ end
 scndlp = SCND_LP()
 #COMPILE
 vSolve(scndlp, 2, method=:dicho, verbose=false) 
-@show LPtime = @CPUelapsed vSolve(scndlp, 30, method=:dicho, verbose=false)
+LPtime = @CPUelapsed vSolve(scndlp, 30, method=:dicho, verbose=false)
+println("LPtime: ", LPtime)
+
 lp = getvOptData(scndlp);
 # lp.Y_N
 w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
@@ -264,7 +266,7 @@ function lexobj1()
 end
 l1 = lexobj1()
 set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", 3); optimize!(l1);
-set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*8,50));
+set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*7,60));
 l1time = @CPUelapsed optimize!(l1); lex1X = [value.(all_variables(l1))]; lex1Y = [getobjval(value.(all_variables(l1)))]
 
 function lexobj2()
@@ -342,9 +344,12 @@ function lexobj2()
 end
 l2 = lexobj2()
 set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", 3); optimize!(l2)
-set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*max(tnum*8,50));
+set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*max(tnum*7,60));
 @show l2time = @CPUelapsed optimize!(l2);
 lex2X = [value.(all_variables(l2))]; lex2Y = [getobjval(value.(all_variables(l2)))]
+
+jldsave("/home/k2g00/k2g3475/scnd/vopt/lpY/Lex/"*fname*"leX.jld2"; leX1=lex1X, leY1=lex1Y,leX2=lex2X, leY2=lex2Y)
+# load("/home/k2g00/k2g3475/scnd/vopt/lpY/Lex/"*fname*"leX.jld2")
 len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
 
 function flip(x_h,j,e)
@@ -443,7 +448,6 @@ function fbsearch2(yr,u1r,u2r,u3r) #solveLP
         return 0,0,0,0
     end
 end
-
 function dominated(x,P)
     st = false
     for k=1:length(P)
@@ -455,7 +459,6 @@ function dominated(x,P)
     end
     return st
 end
-
 function NDfilter(P,Pobj)
     copysol = Dict(); copyobj = Dict();
     for i=1:length(Pobj)
@@ -498,7 +501,6 @@ function SortingSol(P,Pobj)
     sort!(df,[order(:Y)])
     return df
 end
-
 function FP_Model()
     model = Model(CPLEX.Optimizer); set_silent(model)
     MOI.set(model, MOI.NumberOfThreads(), 1)
@@ -978,7 +980,7 @@ function PR(dX,dY,len,TL)
                         if sol ∉ nd.X && dominated(ndp,nd.Y)==false
                             push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
                             newsol+=1;
-                            println(iter, " new sol ", ndp);
+                            # println(iter, " new sol ", ndp);
                         end
                     end
                     if time()-t0 >= TL*0.7
@@ -1036,7 +1038,7 @@ function PR(dX,dY,len,TL)
                         if sol ∉ nd.X && dominated(ndp,nd.Y)==false
                             push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
                             newsol+=1; 
-                            println(iter, " new sol ", ndp);
+                            # println(iter, " new sol ", ndp);
 
                         end
                     end
@@ -1096,7 +1098,7 @@ function PR(dX,dY,len,TL)
                         if sol ∉ nd.X && dominated(ndp,nd.Y)==false
                             push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
                             newsol+=1; 
-                            println(iter, " new sol ", ndp);
+                            # println(iter, " new sol ", ndp);
 
                         end
                     end
@@ -1124,11 +1126,14 @@ function PR(dX,dY,len,TL)
     end
     return collect(values(X)),collect(values(Y))
 end
-PR(dX,dY,len,3)
+PR(dX,dY,len,3);
 PRtime = @CPUelapsed px,py = PR(dX,dY,len,TL)
 prx,pry = NDfilter(px,py);
-println("PRtime: ", PRtime, "PRsol: ", length(pry))
+# println("PRtime: ", PRtime, "PRsol: ", length(pry))
 
+py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
+t5 = scatter(x=[py1;], y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
+plot([t1,t5,t2,t3],layout)
 ########################## Saving the output file ###########################
 otable = zeros( length(pry),2)
 for i=1:length(pry)
@@ -1137,10 +1142,11 @@ for i=1:length(pry)
     end
 end
 
-CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*name*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
-println("algotime $name: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
+CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+println("algotime $fname: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
 dv = sparse(prx)
-JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*name*"X.jld2" dv
+JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2" dv
+# lexsol = load("/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2")
 
 ################################## Find Line segments  ####################################
 function FixedBinDicho(prx)
@@ -1160,6 +1166,7 @@ function FixedBinDicho(prx)
     end
     return linesg,dtime
 end
+linesg,Linetime = FixedBinDicho(prx);
 function LinesgPostpro(linesg)
     lsg1 = []
     lsg2 = collect(values(linesg))
@@ -1174,33 +1181,34 @@ function LinesgPostpro(linesg)
     for i=1:length(lsg1)-1
         for j=i+1:length(lsg1)
             if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
-                copyobj[i]=nothing; break
+                copyobj[i]=0; break
             elseif all(lsg1[j] .>= lsg1[i]) == true
-                copyobj[j]=nothing;
+                copyobj[j]=0;
             end
         end
     end
-    ndlsg = sort!(filter!(a->a!=nothing, collect(values(copyobj))))
+    ndlsg = sort!(filter!(a->a!=0, collect(values(copyobj)))) 
+    # lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
 
-    lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
-
-    finalDict = Dict( i=>[] for i=1:length(linesg) )
-    for l=1:size(lsgtb,1)
+    finalDict = Dict()
+    for l=1:length(ndlsg)
         for k in collect(keys(linesg))
-            if lsgtb[l,:] ∈ linesg[k]
-                push!(finalDict[k],lsgtb[l,:])
+            if ndlsg[l] ∈ linesg[k]
+                if haskey(finalDict,k) == true
+                    push!(finalDict[k],ndlsg[l])
+                else
+                    push!(finalDict, k => [ndlsg[l]])
+                end
             end
         end
     end
     return finalDict
 end
-linesg,Linetime = FixedBinDicho(prx);
 lsgdict = LinesgPostpro(linesg);
-println("linetime $name: ", Linetime)
+println("linetime $fname: ", Linetime)
 
-name = ARGS[1][end-7:end];
-JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*name*"LS.jld2" lsgdict
-# JLD2.@load "/home/k2g00/k2g3475/scnd/vopt/mipY/mipLS.jld2" lsgdict 
+JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
+# JLD2.@load "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/.jld2" lsgdict 
 
 ###############################
 # function Grouping(LB)
