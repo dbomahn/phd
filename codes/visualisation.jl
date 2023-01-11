@@ -66,28 +66,22 @@ end
 
 Plot_epYlpY(15)
 ########################################################################
-pr0 =  [ 
-
-]
+pr0 =  [ ]
 pr1=reshape(pr0,2,Int(length(pr0)/2))
 p11,p12 =[],[]
 for i=1:Int(length(pr1)/2)
     push!(p11,pr1[1,i])
     push!(p12,pr1[2,i])
 end
-
-
 t4 = scatter(x=p11, y=p12,  name="LP+FP+PR", mode="markers", marker=attr(color="royalblue")) #
 plot([t1,t4], layout)
-
-
 
 # mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
 m1 = mip[:,1]; m2 = mip[:,2]
 
 
-fpath = "/home/ak121396/Desktop/relise/epsilon/"
-eplist = readdir(fpath)[2:end]
+fpath = "/home/ak121396/Desktop/relise/epsilon/1/"
+eplist = readdir(fpath)#[2:end]
 ep1 = readdlm(fpath*eplist[tnum])[1:10,:]
 t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
 # e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])

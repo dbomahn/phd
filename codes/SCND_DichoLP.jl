@@ -1122,30 +1122,22 @@ function PR(dX,dY,len,TL)
         push!(IGPair,[I,G]);
 
     end
-    return collect(values(X)),collect(values(Y))
+    return X,Y #collect(values(X)),collect(values(Y))
 end
 PR(dX,dY,len,3);
 PRtime = @CPUelapsed px,py = PR(dX,dY,len,TL)
-# nd = SortingSol(px,py)
+nd = SortingSol(px,py)
+collect(values(nd.Y))
 
-
-prx,pry = NDfilter(px,py);
-xval = Dict(); yval = Dict()
-for i=1:length(pry)
-    xval[i] = prx[i]
-    # yval[i] = pry[i]
-end
-
-
-# println("PRtime: ", PRtime, "PRsol: ", length(pry))
-py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-t5 = scatter(x=[py1;], y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
+# println("PRtime: ", PRtime, "PRsol: ", length(nd.Y))
+# py1= [nd.Y[i][1] for i=1:length(nd.Y)]; py2 = [nd.Y[i][2] for i=1:length(nd.Y)]
 # plot([t1,t5,t2,t3],layout)
+# t5 = scatter(x=py1;, y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
 ########################## Saving the output file ###########################
-otable = zeros( length(pry),2)
-for i=1:length(pry)
+otable = zeros(length(nd.Y),2)
+for i=1:length(nd.Y)
     for j=1:2
-        otable[i,j] = pry[i][j]
+        otable[i,j] = nd.Y[i][j]
     end
 end
 
@@ -1153,12 +1145,14 @@ CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*fname*"lpY.log", DataFrame(otable
 CSV.write("/home/ak121396/Desktop/relise/lpY/ndp/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 println("algotime $fname: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
 
-dv = sparse.(prx)
+dv = sparse.(nd.X)
 JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2" dv
 # lexsol = load("/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2")
 # fname = file[end-7:end]
-JLD2.@save "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv = xval
+JLD2.@save "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv 
 JLD2.@load "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv
+
+dv[1]
 
 ################################## Find Line segments  ####################################
 function FixedBinDicho(prx)

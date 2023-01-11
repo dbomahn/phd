@@ -45,7 +45,7 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-file = "/home/ak121396/Desktop/instances/scnd/test01S2"
+file = "/home/ak121396/Desktop/instances/scnd/test02S3"
 fname = file[end-7:end]
 JLD2.@load "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv
 dt1 = Data1dim(file);
@@ -194,33 +194,32 @@ unique(collect(values(linesg)))
 #     end
 #     return finalDict
 # end
-# function LinesgPostpro(lsgfile)
 
-#     JLD2.@load lsgfile linesg;
+#OG
+# function LinesgPostpro(linesg)
+#     lsg1 = []
+#     lsg2 = collect(values(linesg))
+#     for i=1:length(lsg2)
+#         lsg1 = vcat(lsg1,lsg2[i])
+#     end
 
-#     # lsg1 = []
-#     # lsg2 = collect(values(linesg))
-#     # for i=1:length(lsg2)
-#     #     lsg1 = vcat(lsg1,lsg2[i])
-#     # end
+#     copyobj = Dict();
+#     for i=1:length(lsg1)
+#         copyobj[i] = lsg1[i]
+#     end
+#     for i=1:length(lsg1)-1
+#         for j=i+1:length(lsg1)
+#             if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
+#                 copyobj[i]=nothing; break
+#             elseif all(lsg1[j] .>= lsg1[i]) == true
+#                 copyobj[j]=nothing;
+#             end
+#         end
+#     end
+#     ndlsg = sort!(filter!(a->a!=nothing, collect(values(copyobj))))
 
-#     # copyobj = Dict();
-#     # for i=1:length(lsg1)
-#     #     copyobj[i] = lsg1[i]
-#     # end
-#     # for i=1:length(lsg1)-1
-#     #     for j=i+1:length(lsg1)
-#     #         if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
-#     #             copyobj[i]=nothing; break
-#     #         elseif all(lsg1[j] .>= lsg1[i]) == true
-#     #             copyobj[j]=nothing;
-#     #         end
-#     #     end
-#     # end
-#     # ndlsg = sort!(filter!(a->a!=nothing, collect(values(copyobj))))
-
-#     ndlsg = sort!(filter!(a->a!=nothing, lsg1))    
 #     lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
+
 #     finalDict = Dict( i=>[] for i=1:length(linesg) )
 #     for l=1:size(lsgtb,1)
 #         for k in collect(keys(linesg))
@@ -231,7 +230,7 @@ unique(collect(values(linesg)))
 #     end
 #     return finalDict
 # end
-# lsg = LinesgPostpro("/home/ak121396/Desktop/relise/lpY/linesg/test01S2LS.jld2")
+# lsgdict = LinesgPostpro(linesg);
 # JLD2.@save "/home/ak121396/Desktop/relise/lpY/linesg/test01S2LS.jld2" lsgdict=linesg;
 # JLD2.@load "/home/ak121396/Desktop/relise/lpY/linesg/test01S2LS.jld2" lsgdict;
 
@@ -246,10 +245,10 @@ layout = Layout(
         size=18
     )
 )
-ef = "/home/ak121396/Desktop/relise/epsilon/1/test01S2epY.log" 
-nf = "/home/ak121396/Desktop/relise/lpY/ndp/test01S2lpY.log"
-
-function MIPplot(epfile,ndfile,lsgdict)#lsgfile)
+ef = "/home/ak121396/Desktop/relise/epsilon/1/test02S3epY.log" 
+nf = "/home/ak121396/Desktop/relise/lpY/ndp/test02S3lpY.log"
+lf = "/home/ak121396/Desktop/relise/lpY/linesg/test02S3LS.jld2"
+function MIPplot(epfile,ndfile,lsgfile) #lsgdict)#
     plot_array = GenericTrace[]
     epY = readdlm(epfile)
     e1 = epY[:,1]; e2 = epY[:,2]
@@ -257,25 +256,34 @@ function MIPplot(epfile,ndfile,lsgdict)#lsgfile)
     l1 = lpY[:,1]; l2 = lpY[:,2]
     ep = scatter(x=e1,y=e2,name="epsilon", mode="markers", marker=attr(color="black"))
     ndp = scatter(x=l1,y=l2,name="LP+FP+FPP+PR", mode="markers", marker=attr(color="green"))
-    # JLD2.@load lsgfile lsgdict
+    JLD2.@load lsgfile lsgdict
 
-    push!(plot_array,ep,ndp) # push!(plot_array,t2)
+    push!(plot_array,ep,ndp) 
     
-    # ct = count(i->lsgdict[i]!=[],1:length(lsgdict)); cols = distinguishable_colors(ct, [RGB(1,1,1), RGB(0,0,0)], dropseed=true)  
-
-    cols = distinguishable_colors(length(lsgdict), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)  
+    ct = count(i->lsgdict[i]!=[],1:length(lsgdict)); cols = distinguishable_colors(ct, [RGB(1,1,1), RGB(0,0,0)], dropseed=true)  
+    # cols = distinguishable_colors(length(lsgdict), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)  
     
-    for i=1:length(lsgdict)
-        if lsgdict[i]!=[]
-            # push!(lsgdict[i],[l1[i],l2[i]]); 
-            sort!(lsgdict[i])
-            tradeoffs = scatter(x=[lsgdict[i][j][1] for j=1:length(lsgdict[i])],y=[lsgdict[i][j][2] for j=1:length(lsgdict[i])], mode="markers+lines", color=cols[i])
+    for i = 1:ct
+        k = collect(keys(lsgdict))[i]
+        if lsgdict[k]!=[]
+            push!(lsgdict[k],[l1[k],l2[k]]); 
+            sort!(lsgdict[k])
+            tradeoffs = scatter(x=[lsgdict[k][j][1] for j=1:length(lsgdict[k])],y=[lsgdict[k][j][2] for j=1:length(lsgdict[k])], mode="markers+lines", color=cols[i])
             push!(plot_array,tradeoffs)
         end
     end
     fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
 end
-MIPplot(ef,nf,linesg)#"/home/ak121396/Desktop/relise/lpY/linesg/test01S2LS.jld2")
+MIPplot(ef,nf,lf) #linesg)#
+
+
+lpY = readdlm(nf)
+
+JLD2.@load lf lsgdict
+lsgdict
+ct = count(i->lsgdict[i]!=[],1:length(lsgdict)); cols = distinguishable_colors(ct, [RGB(1,1,1), RGB(0,0,0)], dropseed=true)  
+
+###
 lpY = readdlm(nf)
 l1 = lpY[:,1]; l2 = lpY[:,2]
 push!(linesg[1],[l1[1],l2[1]])
