@@ -47,14 +47,14 @@ struct Data1dim
     end
 end
 # @show file = ARGS[1]
-file = "/home/ak121396/Desktop/instances/scnd/test08S4"
+file = "/home/ak121396/Desktop/instances/scnd/test01S2"
 dt1 = Data1dim(file);
 
 # fname = ARGS[1][end-7:end]
 # testnum = parse(Int,name[end-3:end-2])
 # TL = dt1.N["supplier"]*10*testnum
 
-tnum = 8
+tnum = 1
 if tnum ==  1
     TL = 500
 elseif tnum == 2
@@ -187,9 +187,7 @@ scndlp = SCND_LP()
 vSolve(scndlp, 2, method=:dicho, verbose=false) 
 LPtime = @CPUelapsed vSolve(scndlp, 30, method=:dicho, verbose=false)
 println("LPtime: ", LPtime)
-
 lp = getvOptData(scndlp);
-# lp.Y_N
 w1 = round(Int,mean([lp.Y_N[i][1]/lp.Y_N[i][2] for i=1:length(lp.Y_N)]))
 len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
 
@@ -348,7 +346,7 @@ set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*max(tnum*7,60));
 @show l2time = @CPUelapsed optimize!(l2);
 lex2X = [value.(all_variables(l2))]; lex2Y = [getobjval(value.(all_variables(l2)))]
 
-jldsave("/home/k2g00/k2g3475/scnd/vopt/lpY/Lex/"*fname*"leX.jld2"; leX1=lex1X, leY1=lex1Y,leX2=lex2X, leY2=lex2Y)
+# jldsave("/home/k2g00/k2g3475/scnd/vopt/lpY/Lex/"*fname*"leX.jld2"; leX1=lex1X, leY1=lex1Y,leX2=lex2X, leY2=lex2Y)
 # load("/home/k2g00/k2g3475/scnd/vopt/lpY/Lex/"*fname*"leX.jld2")
 len = [length(scndlp[:y]),length(scndlp[:uij]),length(scndlp[:ujk]),length(scndlp[:ukl]),length(scndlp[:xij]),length(scndlp[:xjk]),length(scndlp[:xkl]),length(scndlp[:h])]
 
@@ -1128,12 +1126,21 @@ function PR(dX,dY,len,TL)
 end
 PR(dX,dY,len,3);
 PRtime = @CPUelapsed px,py = PR(dX,dY,len,TL)
-prx,pry = NDfilter(px,py);
-# println("PRtime: ", PRtime, "PRsol: ", length(pry))
+# nd = SortingSol(px,py)
 
+
+prx,pry = NDfilter(px,py);
+xval = Dict(); yval = Dict()
+for i=1:length(pry)
+    xval[i] = prx[i]
+    # yval[i] = pry[i]
+end
+
+
+# println("PRtime: ", PRtime, "PRsol: ", length(pry))
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 t5 = scatter(x=[py1;], y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
-plot([t1,t5,t2,t3],layout)
+# plot([t1,t5,t2,t3],layout)
 ########################## Saving the output file ###########################
 otable = zeros( length(pry),2)
 for i=1:length(pry)
@@ -1143,10 +1150,15 @@ for i=1:length(pry)
 end
 
 CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+CSV.write("/home/ak121396/Desktop/relise/lpY/ndp/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
 println("algotime $fname: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
-dv = sparse(prx)
+
+dv = sparse.(prx)
 JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2" dv
 # lexsol = load("/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2")
+# fname = file[end-7:end]
+JLD2.@save "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv = xval
+JLD2.@load "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv
 
 ################################## Find Line segments  ####################################
 function FixedBinDicho(prx)
@@ -1166,7 +1178,8 @@ function FixedBinDicho(prx)
     end
     return linesg,dtime
 end
-linesg,Linetime = FixedBinDicho(prx);
+
+linesg,Linetime = FixedBinDicho(dv);
 function LinesgPostpro(linesg)
     lsg1 = []
     lsg2 = collect(values(linesg))
