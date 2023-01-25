@@ -47,14 +47,14 @@ struct Data1dim
     end
 end
 # @show file = ARGS[1]
-file = "/home/ak121396/Desktop/instances/scnd/test01S2"
+file = "/home/ak121396/Desktop/instances/scnd/test03S1"
 dt1 = Data1dim(file);
 
 # fname = ARGS[1][end-7:end]
 # testnum = parse(Int,name[end-3:end-2])
 # TL = dt1.N["supplier"]*10*testnum
 
-tnum = 1
+tnum = 3
 if tnum ==  1
     TL = 500
 elseif tnum == 2
@@ -264,7 +264,7 @@ function lexobj1()
 end
 l1 = lexobj1()
 set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", 3); optimize!(l1);
-set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*7,60));
+set_optimizer_attribute(l1, "CPXPARAM_TimeLimit", LPtime*max(tnum*8,50));
 l1time = @CPUelapsed optimize!(l1); lex1X = [value.(all_variables(l1))]; lex1Y = [getobjval(value.(all_variables(l1)))]
 
 function lexobj2()
@@ -342,7 +342,7 @@ function lexobj2()
 end
 l2 = lexobj2()
 set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", 3); optimize!(l2)
-set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*max(tnum*7,60));
+set_optimizer_attribute(l2, "CPXPARAM_TimeLimit", LPtime*max(tnum*8,50));
 @show l2time = @CPUelapsed optimize!(l2);
 lex2X = [value.(all_variables(l2))]; lex2Y = [getobjval(value.(all_variables(l2)))]
 
@@ -390,6 +390,19 @@ function flipoper(Tabu,x_t,x_r)
 end
 
 function FP_FBcheck(model,yr,iter)
+
+    if sum(yr[1:dt1.N["plant"]*2])>dt1.upl || sum(yr[1+dt1.N["plant"]*2:len[1]])>dt1.udc 
+        return false
+    else
+        for j=1:dt1.N["plant"]+dt1.N["distribution"]
+            if sum(yr[2*(j-1)+1:2*(j-1)+2]) <= 1
+                continue
+            else
+                return false
+            end
+        end
+    end
+        
     if isodd(iter)==true
         @objective(model, Min, sum(dt1.c.*model[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*model[:xij][1:sum(dt1.Mij[1,:])*5])+
         sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*model[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
@@ -410,6 +423,7 @@ function FP_FBcheck(model,yr,iter)
         return false
     end
 end
+
 function fbsearch(yr)#,u1r,u2r,u3r) #solveLP
     idy_0 = findall(k->k==0, yr)
     idy_1 = findall(k->k==1, yr)
@@ -529,7 +543,7 @@ function FP_Model()
     ########### constraint 8 #############
     @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"], t=1:2], sum(h[5*2*(j-1)+((p-1)*2)+t] for p=1:5) <= [dt1.N["cap"];dt1.N["cad"]][j]*y[2*(j-1)+t]);
     ########### constraint 9 #############
-    @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
+    # @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
     @constraints(model,begin
         sum(uij[1:dt1.Mij[1,1]]) <= 1
@@ -558,8 +572,8 @@ function FP_Model()
             # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
     end);
     ########### constraint 13-14 #############
-    @constraint(model, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
-    @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
+    # @constraint(model, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
+    # @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
 function LP_Model()
@@ -654,7 +668,7 @@ function PR_Model()
     ########### constraint 8 #############
     @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"], t=1:2], sum(h[5*2*(j-1)+((p-1)*2)+t] for p=1:5) <= [dt1.N["cap"];dt1.N["cad"]][j]*y[2*(j-1)+t]);
     ########### constraint 9 #############
-    @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
+    # @constraint(model,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
     @constraints(model,begin
         sum(uij[1:dt1.Mij[1,1]]) <= 1
@@ -683,8 +697,8 @@ function PR_Model()
             # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
     end);
     ########### constraint 13-14 #############
-    @constraint(model, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
-    @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
+    # @constraint(model, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
+    # @constraint(model, sum(y[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return model
 end
 function createAllNB(SI,dif,exploredSI)
@@ -755,6 +769,17 @@ function nextSI(neibour,SI)
         end
     end
 end
+
+function PR_preFBcheck(neibour)
+    #constraint 13 & 14
+    neibour2 = filter!(y->(sum(y[1:dt1.N["plant"]*2])<=dt1.upl && sum(y[1:dt1.N["plant"]*2])>0) || (sum(y[1+dt1.N["plant"]*2:len[1]])<=dt1.udc && sum(y[1+dt1.N["plant"]*2:len[1]])>0), neibour)
+    #constraint 9
+    for j=1:dt1.N["plant"]+dt1.N["distribution"]
+        filter!(y-> sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1, neibour2)
+    end
+    return neibour2
+end
+
 function PR_FBcheck_w(model,weight,yr)
     @objective(model, Min, sum(dt1.c.*model[:y]) +sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*model[:xij][1:sum(dt1.Mij[1,:])*5])+
     sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*model[:xij][sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
@@ -792,8 +817,8 @@ function PR_FBcheck(model,iter,yr)
     end
 end
 
-fbmodel = FP_Model(); optimize!(fbmodel);
-set_optimizer_attribute(fbmodel, "CPXPARAM_TimeLimit", 10)
+fpmodel = FP_Model(); optimize!(fpmodel);
+set_optimizer_attribute(fpmodel, "CPXPARAM_TimeLimit", 10)
 dist = LP_Model(); optimize!(dist);
 set_optimizer_attribute(dist, "CPXPARAM_TimeLimit", 10)
 prmodel = PR_Model(); optimize!(prmodel);
@@ -817,8 +842,8 @@ function FP(candX,len,TL)
                     yr[j]=0
                 end
             end
-            if FP_FBcheck(fbmodel,yr,iter) == true #,u1r,u2r,u3r)
-                sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+            if FP_FBcheck(fpmodel,yr,iter) == true #,u1r,u2r,u3r)
+                sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
                 if sol ∉ X  && dominated(ndp,collect(values(PF)))==false
                     push!(X,sol); push!(PF,ndp) #PF[k] = ndp
                     push!(Y,yr);
@@ -833,8 +858,8 @@ function FP(candX,len,TL)
                         # deleteat!(candlist, k);
                        
                     else
-                        if FP_FBcheck(fbmodel,yr,iter) == true #,u1r,u2r,u3r)
-                            sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+                        if FP_FBcheck(fpmodel,yr,iter) == true #,u1r,u2r,u3r)
+                            sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
                             if sol ∉ X && dominated(ndp,collect(values(PF)))==false
                                 push!(X,sol); push!(Y,yr); push!(PF,ndp) #PF[k] = ndp
                                 newsol+=1; SearchDone = true;
@@ -887,8 +912,8 @@ function FPplus(dvar,Y_N,len,TL)
             yr = round.(Int, yt); u1r = round.(Int, u1t);
             u2r = round.(Int, u2t); u3r = round.(Int, u3t);
 
-            if FP_FBcheck(fbmodel,yr,iter) == true
-                sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+            if FP_FBcheck(fpmodel,yr,iter) == true
+                sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
                 if sol ∉ X  && dominated(ndp,PF)==false
                     push!(X,sol); push!(PF,ndp)
                     # push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
@@ -904,8 +929,8 @@ function FPplus(dvar,Y_N,len,TL)
                         SearchDone = true;
                         # println("flip failed")
                     else
-                        if FP_FBcheck(fbmodel,yr,iter) == true
-                            sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+                        if FP_FBcheck(fpmodel,yr,iter) == true
+                            sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
                             if sol ∉ X && dominated(ndp,PF)==false
                                 push!(X,sol); push!(PF,ndp)
                                 # newsol+=1; push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
@@ -944,9 +969,12 @@ dX = Dict(i=>dfpp.X[i] for i=1:length(dfpp.Y)); dY = Dict(i=>dfpp.Y[i] for i=1:l
 
 function PR(dX,dY,len,TL)
     X = copy(dX); Y = copy(dY); 
-    IGPair=[]; exploredSI = copy(collect(values(X))); t0=time();    
+    IGPair=[]; t0=time();    
+
     println("now randomly choose IG pairs")
-    while time()-t0 < TL*0.7
+    main_iter = 0; main_infeasi = 0;
+    pc1 = 0.7
+    while time()-t0 < TL*pc1
         nd = SortingSol(X,Y)
         if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
             return nd
@@ -958,8 +986,8 @@ function PR(dX,dY,len,TL)
         #     @goto NewIter1
         # end
         SI = X[I]; SG = X[G];
-        iter=0; nosol = 0
-        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*0.7
+        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc1
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
             new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
@@ -969,19 +997,24 @@ function PR(dX,dY,len,TL)
                 @goto NewIter1
             else
                 candSI =[]
-                for l=1:length(neibour)
-                    # st = PR_FBcheck( prmodel, iter, neibour[l])
-                    st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    main_iter+=1
+                    # st = PR_FBcheck( prmodel, main_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
                     if st==true
                         sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
                         push!(candSI,sol)
                         if sol ∉ nd.X && dominated(ndp,nd.Y)==false
                             push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
                             newsol+=1;
-                            # println(iter, " new sol ", ndp);
+                            # println(main_iter, " new sol ", ndp);
                         end
+                    else
+                        main_infeasi+=1
                     end
-                    if time()-t0 >= TL*0.7
+                    if time()-t0 >= TL*pc1
                         println("__breaking point__!")
                         break
                     end
@@ -999,13 +1032,14 @@ function PR(dX,dY,len,TL)
             if newsol==0;
                 nosol+=1
             end
-            iter+=1
         end
         push!(IGPair,[I,G]);
     end
 
     println("____1st Left____")
-    while time()-t0 < TL*0.8
+    left1_iter = 0; left1_infeasi = 0;
+    pc2 =0.8
+    while time()-t0 < TL*pc2
         nd = SortingSol(X,Y)
         if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
             return nd
@@ -1017,8 +1051,8 @@ function PR(dX,dY,len,TL)
         #     @goto NewIter2
         # end
         SI = X[I]; SG = X[G];
-        iter=0; nosol = 0
-        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*0.8
+        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc2
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
             neibour = createNB(SI[1:len[1]],dif,exploredSI)
@@ -1027,9 +1061,12 @@ function PR(dX,dY,len,TL)
                 @goto NewIter2
             else
                 candSI =[]
-                for l=1:length(neibour)
-                    # st = PR_FBcheck( prmodel, iter, neibour[l])
-                    st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    left1_iter+=1
+                    # st = PR_FBcheck( prmodel, left1_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
                     if st==true
                         sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
                         push!(candSI,sol)
@@ -1039,14 +1076,17 @@ function PR(dX,dY,len,TL)
                             # println(iter, " new sol ", ndp);
 
                         end
+                    else
+                        left1_infeasi+=1
                     end
-                    if time()-t0 >= TL*0.8
+                    if time()-t0 >= TL*pc2
                         println("__breaking point__!")
                         break
                     end
                 end
             end  
             if candSI == []
+                push!(IGPair,[I,G]); 
                 @goto NewIter2
             else
                 SI = nextSI(candSI,SI)
@@ -1057,12 +1097,12 @@ function PR(dX,dY,len,TL)
             if newsol == 0
                 nosol+=1
             end
-            iter+=1
         end
         push!(IGPair,[I,G]);
     end
 
     println("____2nd Left____")
+    left2_iter = 0; left2_infeasi = 0;
     while time()-t0 < TL
         nd = SortingSol(X,Y)
         if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
@@ -1076,7 +1116,7 @@ function PR(dX,dY,len,TL)
         #     @goto NewIter3
         # end
         SI = X[I]; SG = X[G];
-        iter=0; nosol = 0
+        nosol = 0; exploredSI = []#copy(collect(values(X)));
         while nosol < 5 && all.(SI != SG)&& time()-t0 < TL
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
@@ -1087,9 +1127,12 @@ function PR(dX,dY,len,TL)
                 @goto NewIter3
             else
                 candSI =[]
-                for l=1:length(neibour)
-                    # st = PR_FBcheck( prmodel, iter, neibour[l])
-                    st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    left2_iter+=1
+                    # st = PR_FBcheck( prmodel, left1_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
                     if st==true
                         sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
                         push!(candSI,sol)
@@ -1099,6 +1142,8 @@ function PR(dX,dY,len,TL)
                             # println(iter, " new sol ", ndp);
 
                         end
+                    else
+                        left2_infeasi+=1
                     end
                     if time()-t0 >= TL
                         println("__breaking point__!")
@@ -1107,6 +1152,7 @@ function PR(dX,dY,len,TL)
                 end
             end  
             if candSI == []
+                push!(IGPair,[I,G]); 
                 @goto NewIter3
             else
                 SI = nextSI(candSI,SI)
@@ -1117,22 +1163,301 @@ function PR(dX,dY,len,TL)
             if newsol == 0
                 nosol+=1
             end
-            iter+=1
         end
         push!(IGPair,[I,G]);
-
     end
-    return X,Y #collect(values(X)),collect(values(Y))
+    return X,Y,main_iter,main_infeasi,left1_iter,left1_infeasi,left2_iter,left2_infeasi     #collect(values(X)),collect(values(Y))
 end
 PR(dX,dY,len,3);
-PRtime = @CPUelapsed px,py = PR(dX,dY,len,TL)
+PRtime = @CPUelapsed px,py,miter,minf,l1iter,l1inf,l2iter,l2inf = PR(dX,dY,len,TL)
+minf/miter,l1inf/l1iter,l2inf/l2iter
 nd = SortingSol(px,py)
-collect(values(nd.Y))
-
 # println("PRtime: ", PRtime, "PRsol: ", length(nd.Y))
-# py1= [nd.Y[i][1] for i=1:length(nd.Y)]; py2 = [nd.Y[i][2] for i=1:length(nd.Y)]
-# plot([t1,t5,t2,t3],layout)
-# t5 = scatter(x=py1;, y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
+py1= [nd.Y[i][1] for i=1:length(nd.Y)]; py2 = [nd.Y[i][2] for i=1:length(nd.Y)]
+t5 = scatter(x=py1, y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
+plot([t1,t5],layout)
+
+function SelectIG(ndlist)
+    dist = []
+    for i=1:length(ndlist)-1 
+        if i==1 || i==length(ndlist)-1
+            d = sqrt(sum((ndlist[i].-ndlist[i+1]).^2))
+            push!(dist,d)
+        else
+            d1 = sqrt(sum((ndlist[i].-ndlist[i-1]).^2))
+            d2 = sqrt(sum((ndlist[i].-ndlist[i+1]).^2))
+            push!(dist, max(d1,d2))
+        end
+    end
+    id = findmax(dist)[2]
+    I0 = ndlist[id]; #G0 = ndlist[id+1]
+    
+    return I0#,G0
+    
+end
+
+function PR2(dX,dY,len,TL)
+    X = copy(dX); Y = copy(dY); 
+    IGPair=[]; t0=time(); 
+    println("randomly choose IG pairs")
+    pc1 =0.5; iter1 = 0; infeasi1 = 0;
+    while time()-t0 < TL*pc1
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return nd
+        end
+        @label NewIter1
+        I0,G0 = StatsBase.sample(nd.Y, 2, replace=false);
+        I = findall(i->i==I0,Y)[1]; G = findall(i->i==G0,Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^4|| abs(Y[I][2]-Y[G][2]) < 10^4 
+        #     @goto NewIter1
+        # end
+        SI = X[I]; SG = X[G];; exploredSI = []; nosol = 0
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc1
+            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+            # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            newsol = 0; 
+            if (length(neibour)==0) #(time()-t0 >= TL)
+                @goto NewIter1
+            else
+                candSI =[]
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    iter1+=1
+                    # st = PR_FBcheck( prmodel, main_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                    if st==true
+                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                        push!(candSI,sol)
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                            newsol+=1;
+                            # println(main_iter, " new sol ", ndp);
+                        end
+                    else
+                        infeasi1+=1
+                    end
+                    if time()-t0 >= TL*pc1
+                        println("__breaking point__!")
+                        break
+                    end
+                end
+            end
+            if candSI == []
+                push!(IGPair,[I,G]);
+                @goto NewIter1
+            else
+                SI = nextSI(candSI,SI)
+                if SI∉collect(values(X))
+                    push!(exploredSI,SI);
+                end
+            end
+            if newsol==0;
+                nosol+=1
+            end
+        end
+        push!(IGPair,[I,G]);
+    end
+
+    println("Choose I & G based on distance")
+    pc = 1; iter2 = 0; infeasi2 = 0;
+
+    while time()-t0 < TL*pc
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return X,Y
+        end
+        @label NewIter2
+        I0 = SelectIG(nd.Y)
+        I = findall(i->i==I0,Y)[1]; G = I+1 #findall(i->i==G0,Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^4|| abs(Y[I][2]-Y[G][2]) < 10^4 
+        #     @goto NewIter1
+        # end
+        SI = X[I]; SG = X[G];
+        nosol = 0; exploredSI = [] #copy(collect(values(X)));
+
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc
+            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+            # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+            neibour = createAllNB(SI[1:len[1]],dif,exploredSI)
+            newsol = 0; 
+            if (length(neibour)==0) #(time()-t0 >= TL)
+                @goto NewIter2
+            else
+                candSI =[]
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    iter2+=1
+                    # st = PR_FBcheck( prmodel, main_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                    if st==true
+                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                        push!(candSI,sol)
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                            newsol+=1;
+                            # println(main_iter, " new sol ", ndp);
+                        end
+                    else
+                        infeasi2+=1
+                    end
+                    if time()-t0 >= TL*pc
+                        println("__breaking point__!")
+                        break
+                    end
+                end
+            end
+            if candSI == []
+                push!(IGPair,[I,G]);
+                @goto NewIter2
+            else
+                SI = nextSI(candSI,SI)
+                if SI∉collect(values(X))
+                    push!(exploredSI,SI);
+                end
+            end
+            if newsol==0;
+                nosol+=1
+            end
+        end
+        push!(IGPair,[I,G]);
+    end
+
+    # println("____1st Left____")
+    # pc2 = 0.8
+    # while time()-t0 < TL*pc2
+    #     nd = SortingSol(X,Y)
+    #     if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+    #         return nd
+    #     end
+    #     @label NewIter2
+    #     I0,G0 = StatsBase.sample(1:round(Int,length(nd.Y)*0.2), 2, replace=false);
+    #     I = findall(i->i==nd.Y[I0],Y)[1]; G = findall(i->i==nd.Y[G0],Y)[1]
+    #     # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^5|| abs(Y[I][2]-Y[G][2]) < 10^5
+    #     #     @goto NewIter2
+    #     # end
+    #     SI = X[I]; SG = X[G];
+    #     iter=0; nosol = 0
+    #     while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc2
+    #         dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+    #         new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+    #         neibour = createNB(SI[1:len[1]],dif,exploredSI)
+    #         newsol = 0;
+    #         if (length(neibour)==0) 
+    #             @goto NewIter2
+    #         else
+    #             candSI =[]
+    #             for l=1:length(neibour)
+    #                 # st = PR_FBcheck( prmodel, iter, neibour[l])
+    #                 st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+    #                 if st==true
+    #                     sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+    #                     push!(candSI,sol)
+    #                     if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+    #                         push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+    #                         newsol+=1; 
+    #                         # println(iter, " new sol ", ndp);
+
+    #                     end
+    #                 end
+    #                 if time()-t0 >= TL*pc2
+    #                     println("__breaking point__!")
+    #                     break
+    #                 end
+    #             end
+    #         end  
+    #         if candSI == []
+    #             @goto NewIter2
+    #         else
+    #             SI = nextSI(candSI,SI)
+    #             if SI∉collect(values(X))
+    #                 push!(exploredSI,SI);
+    #             end
+    #         end
+    #         if newsol == 0
+    #             nosol+=1
+    #         end
+    #         iter+=1
+    #     end
+    #     push!(IGPair,[I,G]);
+    # end
+
+    # println("____2nd Left____")
+    # while time()-t0 < TL
+    #     nd = SortingSol(X,Y)
+    #     if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+    #         return nd
+    #     end
+    #     @label NewIter3
+    #     buffer = round(Int,length(nd.Y)*0.15)
+    #     I0,G0 = StatsBase.sample(buffer:round(Int,length(nd.Y)*0.3), 2, replace=false);
+    #     I = findall(i->i==nd.Y[I0],Y)[1]; G = findall(i->i==nd.Y[G0],Y)[1]
+    #     # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^5|| abs(Y[I][2]-Y[G][2]) < 10^5 
+    #     #     @goto NewIter3
+    #     # end
+    #     SI = X[I]; SG = X[G];
+    #     iter=0; nosol = 0
+    #     while nosol < 5 && all.(SI != SG)&& time()-t0 < TL
+    #         dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+    #         # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
+    #         new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+    #         neibour = createNB(SI[1:len[1]],dif,exploredSI)
+    #         newsol = 0;
+    #         if (length(neibour)==0) 
+    #             @goto NewIter3
+    #         else
+    #             candSI =[]
+    #             for l=1:length(neibour)
+    #                 # st = PR_FBcheck( prmodel, iter, neibour[l])
+    #                 st = PR_FBcheck_w( prmodel, new_weight, neibour[l])
+    #                 if st==true
+    #                     sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+    #                     push!(candSI,sol)
+    #                     if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+    #                         push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+    #                         newsol+=1; 
+    #                         # println(iter, " new sol ", ndp);
+
+    #                     end
+    #                 end
+    #                 if time()-t0 >= TL
+    #                     println("__breaking point__!")
+    #                     break
+    #                 end
+    #             end
+    #         end  
+    #         if candSI == []
+    #             @goto NewIter3
+    #         else
+    #             SI = nextSI(candSI,SI)
+    #             if SI∉collect(values(X))
+    #                 push!(exploredSI,SI);
+    #             end
+    #         end
+    #         if newsol == 0
+    #             nosol+=1
+    #         end
+    #         iter+=1
+    #     end
+    #     push!(IGPair,[I,G]);
+
+    # end
+    return X,Y,iter1,infeasi1,iter2,infeasi2 #collect(values(X)),collect(values(Y))
+end
+
+######################
+PR2(dX,dY,len,3);
+PPtime = @CPUelapsed tx,ty,it1,infi1,it2,infi2 = PR2(dX,dY,len,TL)
+nd2 = SortingSol(tx,ty)
+py21= [nd2.Y[i][1] for i=1:length(nd2.Y)]; py22 = [nd2.Y[i][2] for i=1:length(nd2.Y)]
+t6 = scatter(x=py21, y=py22, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="green"))
+plot([t1,t6],layout)
+
 ########################## Saving the output file ###########################
 otable = zeros(length(nd.Y),2)
 for i=1:length(nd.Y)
@@ -1151,9 +1476,6 @@ JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2" dv
 # fname = file[end-7:end]
 JLD2.@save "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv 
 JLD2.@load "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv
-
-dv[1]
-
 ################################## Find Line segments  ####################################
 function FixedBinDicho(prx)
     linesg = Dict(); dtime = 0
@@ -1163,7 +1485,7 @@ function FixedBinDicho(prx)
         JuMP.fix.(model[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
         JuMP.fix.(model[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
         JuMP.fix.(model[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-        t = @CPUelapsed vSolve(model, 10, method=:dicho, verbose=false)
+        t = @CPUelapsed vSolve(model, Inf, method=:dicho, verbose=false)
         res = getvOptData(model);
         if res!= []
             linesg[k]=res.Y_N
@@ -1258,8 +1580,8 @@ JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
 #                     yr[j]=0
 #                 end
 #             end
-#             if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
-#                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+#             if FP_FBcheck(fpmodel,yr) == true #,u1r,u2r,u3r)
+#                 sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
 #                 if sol ∉ X  && dominated(ndp,PF)==false
 #                     push!(X,sol); push!(PF,ndp)
 #                     push!(Y,yr);
@@ -1276,8 +1598,8 @@ JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
 #                         deleteat!(cubes[glist[g]], cubes[glist[g]] .== k);
 #                         println("flip failed")
 #                     else
-#                         if FP_FBcheck(fbmodel,yr) == true #,u1r,u2r,u3r)
-#                             sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+#                         if FP_FBcheck(fpmodel,yr) == true #,u1r,u2r,u3r)
+#                             sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
 #                             if sol ∉ X && dominated(ndp,PF)==false
 #                                 push!(X,sol); push!(PF,ndp)
 #                                 push!(Y,yr);
@@ -1354,8 +1676,8 @@ JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
 #                 end
 #                 yr = [yjt;ykt]
 #                 u1r = round.(Int, u1t); u2r = round.(Int, u2t); u3r = round.(Int, u3t);
-#                 if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true #,u1r,u2r,u3r)
-#                     sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+#                 if FP_FBcheck(fpmodel,yr,u1r,u2r,u3r) == true #,u1r,u2r,u3r)
+#                     sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
 #                     if sol ∉ X  && dominated(ndp,collect(values(PF)))==false
 #                         push!(X,sol);PF[k]=ndp
 #                         push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);
@@ -1371,8 +1693,8 @@ JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
 #                         if yr == []
 #                             SearchDone = true;
 #                         else
-#                             if FP_FBcheck(fbmodel,yr,u1r,u2r,u3r) == true #,u1r,u2r,u3r)
-#                                 sol = value.(all_variables(fbmodel)); ndp = getobjval(sol)
+#                             if FP_FBcheck(fpmodel,yr,u1r,u2r,u3r) == true #,u1r,u2r,u3r)
+#                                 sol = value.(all_variables(fpmodel)); ndp = getobjval(sol)
 #                                 if sol ∉ X && dominated(ndp,collect(values(PF)))==false
 #                                     push!(X,sol); PF[k]=ndp #push!(PF,ndp)
 #                                     push!(Y,yr); push!(U1,u1r); push!(U2,u2r); push!(U3,u3r);

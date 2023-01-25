@@ -1,5 +1,15 @@
 using PlotlyJS,DataFrames,DelimitedFiles,Colors,JLD2
 #############################        2D plot      ###########################
+layout = Layout(
+    title="Test",
+    xaxis_title="Cost",
+    yaxis_title="CO2 emission",
+    legend_title="Legend Title",
+    font=attr(
+        family="Courier New, monospace",
+        size=18
+    )
+)
 
 function NDfilter2(Pobj)
     copyobj = Dict();
@@ -21,16 +31,6 @@ end
 # benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
 
 
-layout = Layout(
-    title="Test",
-    xaxis_title="Cost",
-    yaxis_title="CO2 emission",
-    legend_title="Legend Title",
-    font=attr(
-        family="Courier New, monospace",
-        size=18
-    )
-)
 function Plot_epYlpY(num)
     eplist = readdir("/home/ak121396/Desktop/relise/epsilon/")
     lplist = readdir("/home/ak121396/Desktop/relise/lpY/2/")
@@ -62,8 +62,6 @@ function Plot_epYlpY(num)
         savefig(fig,"/home/ak121396/Dropbox/5_w/$i.png")
     end
 end
-
-
 Plot_epYlpY(15)
 ########################################################################
 pr0 =  [ ]
@@ -79,7 +77,7 @@ plot([t1,t4], layout)
 # mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
 m1 = mip[:,1]; m2 = mip[:,2]
 
-
+# tnum = 12
 fpath = "/home/ak121396/Desktop/relise/epsilon/1/"
 eplist = readdir(fpath)#[2:end]
 ep1 = readdlm(fpath*eplist[tnum])[1:10,:]
@@ -89,7 +87,7 @@ t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=att
 # epp = NDfilter2(ep)
 # ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
 
-lpY = readdlm("/home/ak121396/Desktop/relise/lpY/ndp/test02S3lpY.log")
+lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test12S4largeTL.log")
 l1 = lpY[:,1]; l2 = lpY[:,2]
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
 plot([t1,t3],layout)
