@@ -1,4 +1,4 @@
-using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2
+using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2,AbstractTrees,GeometryTypes
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -1200,7 +1200,7 @@ function PR2(dX,dY,len,TL)
     X = copy(dX); Y = copy(dY); 
     IGPair=[]; t0=time(); 
     println("randomly choose IG pairs")
-    pc1 =0.5; iter1 = 0; infeasi1 = 0;
+    pc1 =0.3; iter1 = 0; infeasi1 = 0;
     while time()-t0 < TL*pc1
         nd = SortingSol(X,Y)
         if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
@@ -1217,7 +1217,7 @@ function PR2(dX,dY,len,TL)
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
             new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
-            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            neibour = createAllNB(SI[1:len[1]],dif,exploredSI)
             newsol = 0; 
             if (length(neibour)==0) #(time()-t0 >= TL)
                 @goto NewIter1
@@ -1263,7 +1263,7 @@ function PR2(dX,dY,len,TL)
     end
 
     println("Choose I & G based on distance")
-    pc = 1; iter2 = 0; infeasi2 = 0;
+    pc = 0.8; iter2 = 0; infeasi2 = 0;
 
     while time()-t0 < TL*pc
         nd = SortingSol(X,Y)
@@ -1327,8 +1327,297 @@ function PR2(dX,dY,len,TL)
         end
         push!(IGPair,[I,G]);
     end
+    println("____1st Left____")
+    left1_iter = 0; left1_infeasi = 0;
+    pc2 =0.9
+    while time()-t0 < TL*pc2
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return nd
+        end
+        @label Newiter3
+        I0,G0 = StatsBase.sample(1:round(Int,length(nd.Y)*0.2), 2, replace=false);
+        I = findall(i->i==nd.Y[I0],Y)[1]; G = findall(i->i==nd.Y[G0],Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^5|| abs(Y[I][2]-Y[G][2]) < 10^5
+        #     @goto Newiter3
+        # end
+        SI = X[I]; SG = X[G];
+        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc2
+            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            newsol = 0;
+            if (length(neibour)==0) 
+                @goto Newiter3
+            else
+                candSI =[]
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    left1_iter+=1
+                    # st = PR_FBcheck( prmodel, left1_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                    if st==true
+                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                        push!(candSI,sol)
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                            newsol+=1; 
+                            # println(iter, " new sol ", ndp);
 
-    # println("____1st Left____")
+                        end
+                    else
+                        left1_infeasi+=1
+                    end
+                    if time()-t0 >= TL*pc2
+                        println("__breaking point__!")
+                        break
+                    end
+                end
+            end  
+            if candSI == []
+                push!(IGPair,[I,G]); 
+                @goto Newiter3
+            else
+                SI = nextSI(candSI,SI)
+                if SI∉collect(values(X))
+                    push!(exploredSI,SI);
+                end
+            end
+            if newsol == 0
+                nosol+=1
+            end
+        end
+        push!(IGPair,[I,G]);
+    end
+
+    println("____2nd Left____")
+    left2_iter = 0; left2_infeasi = 0;
+    while time()-t0 < TL
+        nd = SortingSol(X,Y)
+        if length(IGPair)>=(length(nd.Y)*(length(nd.Y)-1))
+            return nd
+        end
+        @label Newiter4
+        buffer = round(Int,length(nd.Y)*0.15)
+        I0,G0 = StatsBase.sample(buffer:round(Int,length(nd.Y)*0.3), 2, replace=false);
+        I = findall(i->i==nd.Y[I0],Y)[1]; G = findall(i->i==nd.Y[G0],Y)[1]
+        # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^5|| abs(Y[I][2]-Y[G][2]) < 10^5 
+        #     @goto Newiter4
+        # end
+        SI = X[I]; SG = X[G];
+        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        while nosol < 5 && all.(SI != SG)&& time()-t0 < TL
+            dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
+            # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
+            new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
+            neibour = createNB(SI[1:len[1]],dif,exploredSI)
+            newsol = 0;
+            if (length(neibour)==0) 
+                @goto Newiter4
+            else
+                candSI =[]
+                neibour2 = PR_preFBcheck(neibour)
+                # println("removed neighbour: ", length(neibour)-length(neibour2))
+                for l=1:length(neibour2)
+                    left2_iter+=1
+                    # st = PR_FBcheck( prmodel, left1_iter, neibour[l])
+                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                    if st==true
+                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                        push!(candSI,sol)
+                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                            newsol+=1; 
+                            # println(iter, " new sol ", ndp);
+
+                        end
+                    else
+                        left2_infeasi+=1
+                    end
+                    if time()-t0 >= TL
+                        println("__breaking point__!")
+                        break
+                    end
+                end
+            end  
+            if candSI == []
+                push!(IGPair,[I,G]); 
+                @goto Newiter4
+            else
+                SI = nextSI(candSI,SI)
+                if SI∉collect(values(X))
+                    push!(exploredSI,SI);
+                end
+            end
+            if newsol == 0
+                nosol+=1
+            end
+        end
+        push!(IGPair,[I,G]);
+    end
+  
+    return X,Y,iter1,infeasi1,iter2,infeasi2 #collect(values(X)),collect(values(Y))
+end
+############################################################################## 
+PR2(dX,dY,len,3);
+PPtime = @CPUelapsed tx,ty,it1,infi1,it2,infi2 = PR2(dX,dY,len,TL)
+nd2 = SortingSol(tx,ty)
+py21= [nd2.Y[i][1] for i=1:length(nd2.Y)]; py22 = [nd2.Y[i][2] for i=1:length(nd2.Y)]
+t6 = scatter(x=py21, y=py22, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="green"))
+plot([t1,t6],layout)
+
+######################
+
+LPdicho = SCND_LP()
+
+
+sol = nd.X[10]; 
+ndp = getobjval(sol)
+JuMP.fix.(LPdicho[:y], sol[1:len[1]]; force = true)
+JuMP.fix.(LPdicho[:uij], sol[1+len[1]:sum(len[i] for i=1:2)]; force = true)
+JuMP.fix.(LPdicho[:ujk], sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
+JuMP.fix.(LPdicho[:ukl], sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
+t = @CPUelapsed vSolve(LPdicho, 5, method=:dicho, verbose=false)
+res = getvOptData(LPdicho);
+lsg = sort([res.Y_N; [ndp]])
+[lsg[1],lsg[end]]
+if res!= []
+    return ndp
+else
+
+function solveLPdicho(sol,ndp)
+    linesg = Dict(); dtime = 0
+
+    JuMP.fix.(LPdicho[:y], sol[1:len[1]]; force = true)
+    JuMP.fix.(LPdicho[:uij], sol[1+len[1]:sum(len[i] for i=1:2)]; force = true)
+    JuMP.fix.(LPdicho[:ujk], sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
+    JuMP.fix.(LPdicho[:ukl], sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
+    t = @CPUelapsed vSolve(LPdicho, Inf, method=:dicho, verbose=false)
+    res = getvOptData(LPdicho);
+    if res!= []
+        linesg[k]=res.Y_N
+    end
+    dtime = dtime + t;
+end
+###################################
+if st==true
+    sol = value.(all_variables(prmodel)); #ndp = getobjval(sol)
+    
+    push!(candSI,sol)
+    if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+        push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+        newsol+=1; 
+        # println(iter, " new sol ", ndp);
+
+    end
+else
+    left2_infeasi+=1
+end
+ 
+function Insert(πs,π)
+    if isempty(πs) == true
+        return
+    end
+    if isempty(π)
+    end
+end
+############################# Calculating cross point ###########################
+t = [[1,1],[0,0]]
+a = LineSegment(Point2f0(t[1]),Point2f0(t[2]))
+b = LineSegment(Point2f0(0,2),Point2f0(2,0))
+intersects(a,b)[2]
+using GeometryTypes
+
+children(t)
+getdescendant(t,(2,1))
+
+
+########################## Saving the output file ###########################
+otable = zeros(length(nd.Y),2)
+for i=1:length(nd.Y)
+    for j=1:2
+        otable[i,j] = nd.Y[i][j]
+    end
+end
+
+CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+CSV.write("/home/ak121396/Desktop/relise/lpY/ndp/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
+println("algotime $fname: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
+
+dv = sparse.(nd.X)
+JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2" dv
+# lexsol = load("/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2")
+# fname = file[end-7:end]
+JLD2.@save "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv 
+JLD2.@load "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv
+################################## Find Line segments  ####################################
+function FixedBinDicho(prx)
+    linesg = Dict(); dtime = 0
+    model = SCND_LP()
+    for k=1:length(prx)
+        JuMP.fix.(model[:y], prx[k][1:len[1]]; force = true)
+        JuMP.fix.(model[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
+        JuMP.fix.(model[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
+        JuMP.fix.(model[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
+        t = @CPUelapsed vSolve(model, Inf, method=:dicho, verbose=false)
+        res = getvOptData(model);
+        if res!= []
+            linesg[k]=res.Y_N
+        end
+        dtime = dtime + t;
+    end
+    return linesg,dtime
+end
+
+linesg,Linetime = FixedBinDicho(dv);
+function LinesgPostpro(linesg)
+    lsg1 = []
+    lsg2 = collect(values(linesg))
+    for i=1:length(lsg2)
+        lsg1 = vcat(lsg1,lsg2[i])
+    end
+
+    copyobj = Dict();
+    for i=1:length(lsg1)
+        copyobj[i] = lsg1[i]
+    end
+    for i=1:length(lsg1)-1
+        for j=i+1:length(lsg1)
+            if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
+                copyobj[i]=0; break
+            elseif all(lsg1[j] .>= lsg1[i]) == true
+                copyobj[j]=0;
+            end
+        end
+    end
+    ndlsg = sort!(filter!(a->a!=0, collect(values(copyobj)))) 
+    # lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
+
+    finalDict = Dict()
+    for l=1:length(ndlsg)
+        for k in collect(keys(linesg))
+            if ndlsg[l] ∈ linesg[k]
+                if haskey(finalDict,k) == true
+                    push!(finalDict[k],ndlsg[l])
+                else
+                    push!(finalDict, k => [ndlsg[l]])
+                end
+            end
+        end
+    end
+    return finalDict
+end
+lsgdict = LinesgPostpro(linesg);
+println("linetime $fname: ", Linetime)
+
+JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
+# JLD2.@load "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/.jld2" lsgdict 
+
+
+###############################
+  # println("____1st Left____")
     # pc2 = 0.8
     # while time()-t0 < TL*pc2
     #     nd = SortingSol(X,Y)
@@ -1447,98 +1736,6 @@ function PR2(dX,dY,len,TL)
     #     push!(IGPair,[I,G]);
 
     # end
-    return X,Y,iter1,infeasi1,iter2,infeasi2 #collect(values(X)),collect(values(Y))
-end
-
-######################
-PR2(dX,dY,len,3);
-PPtime = @CPUelapsed tx,ty,it1,infi1,it2,infi2 = PR2(dX,dY,len,TL)
-nd2 = SortingSol(tx,ty)
-py21= [nd2.Y[i][1] for i=1:length(nd2.Y)]; py22 = [nd2.Y[i][2] for i=1:length(nd2.Y)]
-t6 = scatter(x=py21, y=py22, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="green"))
-plot([t1,t6],layout)
-
-########################## Saving the output file ###########################
-otable = zeros(length(nd.Y),2)
-for i=1:length(nd.Y)
-    for j=1:2
-        otable[i,j] = nd.Y[i][j]
-    end
-end
-
-CSV.write("/home/k2g00/k2g3475/scnd/vopt/lpY/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
-CSV.write("/home/ak121396/Desktop/relise/lpY/ndp/"*fname*"lpY.log", DataFrame(otable, :auto), append=false, header=false,delim=' ')
-println("algotime $fname: ", LPtime+FPtime+FPPtime+PRtime+l1time+l2time," #sol: ", length(pry))
-
-dv = sparse.(nd.X)
-JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2" dv
-# lexsol = load("/home/k2g00/k2g3475/scnd/vopt/lpY/X/"*fname*"X.jld2")
-# fname = file[end-7:end]
-JLD2.@save "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv 
-JLD2.@load "/home/ak121396/Desktop/relise/lpY/X/"*fname*"X.jld2" dv
-################################## Find Line segments  ####################################
-function FixedBinDicho(prx)
-    linesg = Dict(); dtime = 0
-    model = SCND_LP()
-    for k=1:length(prx)
-        JuMP.fix.(model[:y], prx[k][1:len[1]]; force = true)
-        JuMP.fix.(model[:uij], prx[k][1+len[1]:sum(len[i] for i=1:2)]; force = true)
-        JuMP.fix.(model[:ujk], prx[k][1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
-        JuMP.fix.(model[:ukl], prx[k][1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-        t = @CPUelapsed vSolve(model, Inf, method=:dicho, verbose=false)
-        res = getvOptData(model);
-        if res!= []
-            linesg[k]=res.Y_N
-        end
-        dtime = dtime + t;
-    end
-    return linesg,dtime
-end
-
-linesg,Linetime = FixedBinDicho(dv);
-function LinesgPostpro(linesg)
-    lsg1 = []
-    lsg2 = collect(values(linesg))
-    for i=1:length(lsg2)
-        lsg1 = vcat(lsg1,lsg2[i])
-    end
-
-    copyobj = Dict();
-    for i=1:length(lsg1)
-        copyobj[i] = lsg1[i]
-    end
-    for i=1:length(lsg1)-1
-        for j=i+1:length(lsg1)
-            if all(lsg1[i] .>= lsg1[j]) == true #dominated by PF[j]
-                copyobj[i]=0; break
-            elseif all(lsg1[j] .>= lsg1[i]) == true
-                copyobj[j]=0;
-            end
-        end
-    end
-    ndlsg = sort!(filter!(a->a!=0, collect(values(copyobj)))) 
-    # lsgtb = hcat([ndlsg[i][1] for i=1:length(ndlsg)],[ndlsg[i][2] for i=1:length(ndlsg)])
-
-    finalDict = Dict()
-    for l=1:length(ndlsg)
-        for k in collect(keys(linesg))
-            if ndlsg[l] ∈ linesg[k]
-                if haskey(finalDict,k) == true
-                    push!(finalDict[k],ndlsg[l])
-                else
-                    push!(finalDict, k => [ndlsg[l]])
-                end
-            end
-        end
-    end
-    return finalDict
-end
-lsgdict = LinesgPostpro(linesg);
-println("linetime $fname: ", Linetime)
-
-JLD2.@save "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/"*fname*"LS.jld2" lsgdict
-# JLD2.@load "/home/k2g00/k2g3475/scnd/vopt/lpY/lsg/.jld2" lsgdict 
-
 ###############################
 # function Grouping(LB)
 #     fmin = minimum([LB[i][1] for i=1:length(LB)]),minimum([LB[i][2] for i=1:length(LB)])
