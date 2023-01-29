@@ -1,4 +1,4 @@
-using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2,AbstractTrees,GeometryTypes
+using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2,GeometryTypes
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -47,14 +47,14 @@ struct Data1dim
     end
 end
 # @show file = ARGS[1]
-file = "/home/ak121396/Desktop/instances/scnd/test03S1"
+file = "/home/ak121396/Desktop/instances/scnd/test01S2"
 dt1 = Data1dim(file);
 
 # fname = ARGS[1][end-7:end]
 # testnum = parse(Int,name[end-3:end-2])
 # TL = dt1.N["supplier"]*10*testnum
 
-tnum = 3
+tnum = 1
 if tnum ==  1
     TL = 500
 elseif tnum == 2
@@ -1471,9 +1471,7 @@ plot([t1,t6],layout)
 ######################
 
 LPdicho = SCND_LP()
-
-
-sol = nd.X[10]; 
+sol = nd.X[1]; 
 ndp = getobjval(sol)
 JuMP.fix.(LPdicho[:y], sol[1:len[1]]; force = true)
 JuMP.fix.(LPdicho[:uij], sol[1+len[1]:sum(len[i] for i=1:2)]; force = true)
@@ -1482,10 +1480,54 @@ JuMP.fix.(LPdicho[:ukl], sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; for
 t = @CPUelapsed vSolve(LPdicho, 5, method=:dicho, verbose=false)
 res = getvOptData(LPdicho);
 lsg = sort([res.Y_N; [ndp]])
-[lsg[1],lsg[end]]
+lsg
 if res!= []
     return ndp
 else
+    return lsg
+end
+
+struct node
+    type::Int; x::Float64; y::Float64; arm::String
+end
+function Newnodes(lsg)
+    nodes = []
+    for i=1:length(lsg)
+        if i == 1
+            connect = "R" 
+        elseif i == length(lsg)
+            connect = "L" 
+        else
+            connect = "LR" 
+        end
+        push!(nodes, node(1, lsg[i][1], lsg[i][2], connect))
+    end
+    return nodes
+end
+
+nw = Newnodes(lsg)
+
+ndset = Newnodes(dfpp.Y)
+
+que = Matrix(undef,length(nw),length(ndset)) 
+for i=1:length(nw)
+    for j=1:length(ndset)
+        if nw[i].x >= ndset[j].x && nw[i].y >= ndset[j].y 
+            que[i,j] = "u"
+        elseif nw[i].x <= ndset[j].x && nw[i].y <= ndset[j].y 
+            que[i,j] = "d"
+        elseif nw[i].x >= ndset[j].x && nw[i].y <= ndset[j].y 
+            que[i,j] = "r"
+        else
+            que[i,j] = "l"
+        end
+    end
+end
+
+function FindSection(ndset,nw)
+    que = []
+end
+
 
 function solveLPdicho(sol,ndp)
     linesg = Dict(); dtime = 0
@@ -1516,22 +1558,18 @@ else
     left2_infeasi+=1
 end
  
-function Insert(πs,π)
-    if isempty(πs) == true
-        return
-    end
-    if isempty(π)
-    end
+function Findcrosspt()
 end
+
+
+
 ############################# Calculating cross point ###########################
 t = [[1,1],[0,0]]
 a = LineSegment(Point2f0(t[1]),Point2f0(t[2]))
 b = LineSegment(Point2f0(0,2),Point2f0(2,0))
 intersects(a,b)[2]
-using GeometryTypes
 
-children(t)
-getdescendant(t,(2,1))
+
 
 
 ########################## Saving the output file ###########################
