@@ -712,17 +712,9 @@ function createAllNB(SI,dif,exploredSI)
             cpSI[i] = 1
         end
         push!(neibour, cpSI);# push!(neiobj, binobj(cpSI,bvar))
-        # else #if vari is fractional
-        #     cpSI[i] = 1; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
-        #     cpSI = copy(SI)
-        #     cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
-        # end
     end
-    idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
-    neibour1 = setdiff(neibour,exploredSI)
-    # neibour2 = StatsBase.sample(neibour1, round(Int,length(neibour1)) , replace=false)
-    # neiobj = neiobj[setdiff(1:end, idx),:]
-    return neibour1#,neiobj
+    # idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
+    return neibour
 end
 function createNB(SI,dif,exploredSI)
     neibour = []; #neiobj = [];
@@ -741,9 +733,9 @@ function createNB(SI,dif,exploredSI)
         #     cpSI[i] = 0; push!(neibour, cpSI); push!( neiobj, binobj(cpSI,bvar) )
         # end
     end
-    idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
-    neibour1 = setdiff(neibour,exploredSI)
-    neibour2 = StatsBase.sample(neibour1, round(Int,length(neibour1)*0.1) , replace=false)
+    # idx = findall(i-> neibour[i] in exploredSI, 1:length(neibour))
+    # neibour1 = setdiff(neibour,exploredSI)
+    neibour2 = StatsBase.sample(neibour, round(Int,length(neibour)*0.1) , replace=false)
     # neiobj = neiobj[setdiff(1:end, idx),:]
     return neibour2#,neiobj
 end
@@ -967,9 +959,11 @@ dfpp = DataFrame(X=fpp2x,Y=fpp2y);
 sort!(dfpp,[order(:Y)])
 dX = Dict(i=>dfpp.X[i] for i=1:length(dfpp.Y)); dY = Dict(i=>dfpp.Y[i] for i=1:length(dfpp.Y));
 
+
+1
 function PR(dX,dY,len,TL)
-    X = copy(dX); Y = copy(dY); 
-    IGPair=[]; t0=time();    
+    X = copy(dX); Y = copy(dY); IGPair=[]; 
+    exploredSI = Dict(i=>dX[i] for i=1:length(dX)); exploredval = Dict(i=>dY[i] for i=1:length(dY)); t0=time();    
 
     println("now randomly choose IG pairs")
     main_iter = 0; main_infeasi = 0;
@@ -986,7 +980,7 @@ function PR(dX,dY,len,TL)
         #     @goto NewIter1
         # end
         SI = X[I]; SG = X[G];
-        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        nosol = 0; #exploredSI = [] #copy(collect(values(X)));
         while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc1
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
@@ -1001,22 +995,28 @@ function PR(dX,dY,len,TL)
                 # println("removed neighbour: ", length(neibour)-length(neibour2))
                 for l=1:length(neibour2)
                     main_iter+=1
-                    # st = PR_FBcheck( prmodel, main_iter, neibour[l])
-                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
-                    if st==true
-                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
-                        push!(candSI,sol)
-                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
-                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
-                            newsol+=1;
-                            # println(main_iter, " new sol ", ndp);
-                        end
+                    if neibour2[l] ∈ collect(values(exploredSI))
+                        # keyy = findall(k-> exploredSI[k] == neibour2[l], 1:length(exploredSI))[1]; ndp = exploredval[keyy]; 
+                        push!(candSI,sol) 
                     else
-                        main_infeasi+=1
-                    end
-                    if time()-t0 >= TL*pc1
-                        println("__breaking point__!")
-                        break
+                        # st = PR_FBcheck( prmodel, main_iter, neibour[l])
+                        st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                        if st==true
+                            sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                            push!(candSI,sol); 
+                            push!(exploredSI,length(exploredSI)+1 => sol); push!(exploredval, length(exploredval)+1 => ndp)
+                            if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                                push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                                newsol+=1;
+                                # println(main_iter, " new sol ", ndp);
+                            end
+                        else
+                            main_infeasi+=1
+                        end
+                        if time()-t0 >= TL*pc1
+                            println("__breaking point__!")
+                            break
+                        end 
                     end
                 end
             end
@@ -1025,9 +1025,9 @@ function PR(dX,dY,len,TL)
                 @goto NewIter1
             else
                 SI = nextSI(candSI,SI)
-                if SI∉collect(values(X))
-                    push!(exploredSI,SI);
-                end
+                # if SI∉collect(values(exploredSI))
+                #     push!(exploredSI,length(exploredSI)+1 => SI); push!(exploredval, length(exploredval)+1 => SIobj)
+                # end
             end
             if newsol==0;
                 nosol+=1
@@ -1051,7 +1051,7 @@ function PR(dX,dY,len,TL)
         #     @goto NewIter2
         # end
         SI = X[I]; SG = X[G];
-        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        nosol = 0; #exploredSI = []#copy(collect(values(X)));
         while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc2
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             new_weight = round(Int, (Y[I][1]+Y[G][1])/(Y[I][2]+Y[G][2]))
@@ -1065,23 +1065,27 @@ function PR(dX,dY,len,TL)
                 # println("removed neighbour: ", length(neibour)-length(neibour2))
                 for l=1:length(neibour2)
                     left1_iter+=1
-                    # st = PR_FBcheck( prmodel, left1_iter, neibour[l])
-                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
-                    if st==true
-                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
-                        push!(candSI,sol)
-                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
-                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
-                            newsol+=1; 
-                            # println(iter, " new sol ", ndp);
-
-                        end
+                    if neibour2[l] ∈ collect(values(exploredSI))
+                        # keyy = findall(k-> exploredSI[k] == neibour2[l], 1:length(exploredSI))[1]; ndp = exploredval[keyy]; 
+                        push!(candSI,sol) 
                     else
-                        left1_infeasi+=1
-                    end
-                    if time()-t0 >= TL*pc2
-                        println("__breaking point__!")
-                        break
+                        st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                        if st==true
+                            sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                            push!(candSI,sol); 
+                            push!(exploredSI,length(exploredSI)+1 => sol); push!(exploredval, length(exploredval)+1 => ndp)
+                            if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                                push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                                newsol+=1;
+                                # println(main_iter, " new sol ", ndp);
+                            end
+                        else
+                            left1_infeasi+=1
+                        end
+                        if time()-t0 >= TL*pc2
+                            println("__breaking point__!")
+                            break
+                        end 
                     end
                 end
             end  
@@ -1090,9 +1094,9 @@ function PR(dX,dY,len,TL)
                 @goto NewIter2
             else
                 SI = nextSI(candSI,SI)
-                if SI∉collect(values(X))
-                    push!(exploredSI,SI);
-                end
+                # if SI∉collect(values(X))
+                #     push!(exploredSI,SI);
+                # end
             end
             if newsol == 0
                 nosol+=1
@@ -1116,7 +1120,7 @@ function PR(dX,dY,len,TL)
         #     @goto NewIter3
         # end
         SI = X[I]; SG = X[G];
-        nosol = 0; exploredSI = []#copy(collect(values(X)));
+        nosol = 0; #exploredSI = []#copy(collect(values(X)));
         while nosol < 5 && all.(SI != SG)&& time()-t0 < TL
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
@@ -1131,23 +1135,28 @@ function PR(dX,dY,len,TL)
                 # println("removed neighbour: ", length(neibour)-length(neibour2))
                 for l=1:length(neibour2)
                     left2_iter+=1
-                    # st = PR_FBcheck( prmodel, left1_iter, neibour[l])
-                    st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
-                    if st==true
-                        sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
-                        push!(candSI,sol)
-                        if sol ∉ nd.X && dominated(ndp,nd.Y)==false
-                            push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
-                            newsol+=1; 
-                            # println(iter, " new sol ", ndp);
-
-                        end
+                    if neibour2[l] ∈ collect(values(exploredSI))
+                        # keyy = findall(k-> exploredSI[k] == neibour2[l], 1:length(exploredSI))[1]; ndp = exploredval[keyy]; 
+                        push!(candSI,sol) 
                     else
-                        left2_infeasi+=1
-                    end
-                    if time()-t0 >= TL
-                        println("__breaking point__!")
-                        break
+                        st = PR_FBcheck_w( prmodel, new_weight, neibour2[l])
+                        
+                        if st==true
+                            sol = value.(all_variables(prmodel)); ndp = getobjval(sol)
+                            push!(candSI,sol); 
+                            push!(exploredSI,length(exploredSI)+1 => sol); push!(exploredval, length(exploredval)+1 => ndp)
+                            if sol ∉ nd.X && dominated(ndp,nd.Y)==false
+                                push!(X, length(X)+1 => sol); push!(Y, length(Y)+1 => ndp)                            
+                                newsol+=1;
+                                # println(main_iter, " new sol ", ndp);
+                            end 
+                        else
+                            left2_infeasi+=1
+                        end
+                        if time()-t0 >= TL
+                            println("__breaking point__!")
+                            break
+                        end 
                     end
                 end
             end  
@@ -1156,9 +1165,9 @@ function PR(dX,dY,len,TL)
                 @goto NewIter3
             else
                 SI = nextSI(candSI,SI)
-                if SI∉collect(values(X))
-                    push!(exploredSI,SI);
-                end
+                # if SI∉collect(values(X))
+                #     push!(exploredSI,SI);
+                # end
             end
             if newsol == 0
                 nosol+=1
@@ -1174,7 +1183,7 @@ minf/miter,l1inf/l1iter,l2inf/l2iter
 nd = SortingSol(px,py)
 # println("PRtime: ", PRtime, "PRsol: ", length(nd.Y))
 py1= [nd.Y[i][1] for i=1:length(nd.Y)]; py2 = [nd.Y[i][2] for i=1:length(nd.Y)]
-t5 = scatter(x=py1, y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="royalblue"))
+t5 = scatter(x=py1, y=py2, fname="LP+FP+FPP+PR", mode="markers", marker=attr(color="blue"))
 plot([t1,t5],layout)
 
 function SelectIG(ndlist)
@@ -1212,7 +1221,7 @@ function PR2(dX,dY,len,TL)
         # if [I,G] ∈ IGPair || abs(Y[I][1]-Y[G][1]) < 10^4|| abs(Y[I][2]-Y[G][2]) < 10^4 
         #     @goto NewIter1
         # end
-        SI = X[I]; SG = X[G];; exploredSI = []; nosol = 0
+        SI = X[I]; SG = X[G]; exploredSI = []; nosol = 0
         while nosol < 5 && all.(SI != SG) && time()-t0 < TL*pc1
             dif = findall(i-> SI[1:len[1]][i]!=SG[1:len[1]][i], 1:len[1])
             # weight = round(Int,mean([nd.Y[i][1]/nd.Y[i][2] for i=1:length(nd.Y)]))
@@ -1469,24 +1478,6 @@ t6 = scatter(x=py21, y=py22, fname="LP+FP+FPP+PR", mode="markers", marker=attr(c
 plot([t1,t6],layout)
 
 ######################
-
-LPdicho = SCND_LP()
-sol = nd.X[1]; 
-ndp = getobjval(sol)
-JuMP.fix.(LPdicho[:y], sol[1:len[1]]; force = true)
-JuMP.fix.(LPdicho[:uij], sol[1+len[1]:sum(len[i] for i=1:2)]; force = true)
-JuMP.fix.(LPdicho[:ujk], sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
-JuMP.fix.(LPdicho[:ukl], sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-t = @CPUelapsed vSolve(LPdicho, 5, method=:dicho, verbose=false)
-res = getvOptData(LPdicho);
-lsg = sort([res.Y_N; [ndp]])
-lsg
-if res!= []
-    return ndp
-else
-    return lsg
-end
-
 struct node
     type::Int; x::Float64; y::Float64; arm::String
 end
@@ -1504,45 +1495,105 @@ function Newnodes(lsg)
     end
     return nodes
 end
+LPdicho = SCND_LP()
 
-nw = Newnodes(lsg)
-
-ndset = Newnodes(dfpp.Y)
-
-que = Matrix(undef,length(nw),length(ndset)) 
-for i=1:length(nw)
-    for j=1:length(ndset)
-        if nw[i].x >= ndset[j].x && nw[i].y >= ndset[j].y 
-            que[i,j] = "u"
-        elseif nw[i].x <= ndset[j].x && nw[i].y <= ndset[j].y 
-            que[i,j] = "d"
-        elseif nw[i].x >= ndset[j].x && nw[i].y <= ndset[j].y 
-            que[i,j] = "r"
-        else
-            que[i,j] = "l"
-        end
-    end
-end
-
-function FindSection(ndset,nw)
-    que = []
-end
-
-
-function solveLPdicho(sol,ndp)
-    linesg = Dict(); dtime = 0
-
+function SolveLPdicho(sol,ndp)
+    dtime = 0; #linesg = Dict();
     JuMP.fix.(LPdicho[:y], sol[1:len[1]]; force = true)
     JuMP.fix.(LPdicho[:uij], sol[1+len[1]:sum(len[i] for i=1:2)]; force = true)
     JuMP.fix.(LPdicho[:ujk], sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
     JuMP.fix.(LPdicho[:ukl], sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-    t = @CPUelapsed vSolve(LPdicho, Inf, method=:dicho, verbose=false)
+    t = @CPUelapsed vSolve(LPdicho, 5, method=:dicho, verbose=false)
     res = getvOptData(LPdicho);
-    if res!= []
-        linesg[k]=res.Y_N
+    if res == []
+        dichosol = [ndp]
+    else
+        lsg = sort([res.Y_N; [ndp]])
+        dichosol = lsg
     end
     dtime = dtime + t;
+    
+    
+    return dichosol,dtime
 end
+# sol = nd.X[12]; ndset = Newnodes(dfpp.Y); ndp = getobjval(sol)
+dsol,dtime = SolveLPdicho(nd.X[12],ndp)
+
+
+if length(nw) == 1                                   # new solution is a point
+    nw = node(2, nw[1], nw[2], "null")
+    if "u" ∈ que                                     # new solution is dominated
+        return ndset
+    elseif "d" ∈ que 
+        case = []                                # new solution is dominating some solutions
+        d_id = findall(x->x =="d", que)
+        if ndset[d_id[1]].arm  != "null"             # 1st dominated node is connected to the other node
+            push!(case,1)
+            seg = [[ndset[d_id[1]-1].x,ndset[d_id[1]-1].y],[ndset[d_id[1]].x,ndset[d_id[1]].y]]
+            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+            p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(nw.x,seg[1][2]))
+            interpt1 = intersect(p1,p2)[2]
+        else
+            push!(case,2)
+            # node[d_id[1]].x = nw[1]; node[d_id[1]].y = nw[2]
+        end
+
+        if ndset[d_id[end]].arm  != "null"             # last dominated node is connected to the other node
+            push!(case,1)
+            seg = [[ndset[d_id[end]-1].x,ndset[d_id[end]-1].y],[ndset[d_id[end]].x,ndset[d_id[end]].y]]
+            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+            p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(seg[2][1],nw.y))
+            interpt2 = intersect(p1,p2)[2]
+            # node[d_id[end]].x = interpt2[1]; node[d_id[end]].y = interpt2[2] 
+        else
+            push!(case,2)
+            # node[d_id[end]].x = nw[1]; node[d_id[end]].y = nw[2]
+        end
+
+        deleteat!(ndset, d_id)
+        # rearranging depending on the case
+        if case == [1,1]
+            insert!( ndset, d_id[1], node(1, interpt1[1], interpt1[2], "L") )
+            insert!( ndset, d_id[1]+1, node(1, nw.x, nw.y, "null") )
+            insert!( ndset, d_id[1]+2, node(1, interpt2[1], interpt2[2], "R") )
+        elseif case == [1,2]
+            insert!( ndset, d_id[1], node(1, interpt1[1], interpt1[2], "L") )
+            insert!( ndset, d_id[1]+1, node(1, nw.x, nw.y, "null") )
+        elseif case == [2,1]
+            insert!( ndset, d_id[1], node(1, nw.x, nw.y, "null") )
+            insert!( ndset, d_id[1]+1, node(1, interpt2[1], interpt2[2], "R") )
+        else
+            insert!( ndset, d_id[1], node(1, nw.x, nw.y, "null") )
+        end
+
+    else #if "r,l"∈ que 
+        rl = findall( x->que[x]=="r" && que[x+1] == "l"  ,1:length(que))
+        
+    end
+else
+    nw = Newnodes(lsg)
+end
+
+function UpdateNodeset(ndset,dsol)
+    nw = Newnodes(dsol)
+    que = Matrix(undef,length(nw),length(ndset)) 
+    for i=1:length(nw)
+        for j=1:length(ndset)
+            if nw[i].x >= ndset[j].x && nw[i].y >= ndset[j].y 
+                que[i,j] = "u"
+            elseif nw[i].x <= ndset[j].x && nw[i].y <= ndset[j].y 
+                que[i,j] = "d"
+            elseif nw[i].x >= ndset[j].x && nw[i].y <= ndset[j].y 
+                que[i,j] = "r"
+            else
+                que[i,j] = "l"
+            end
+        end
+    end
+end
+
+
+
 ###################################
 if st==true
     sol = value.(all_variables(prmodel)); #ndp = getobjval(sol)
@@ -1558,18 +1609,6 @@ else
     left2_infeasi+=1
 end
  
-function Findcrosspt()
-end
-
-
-
-############################# Calculating cross point ###########################
-t = [[1,1],[0,0]]
-a = LineSegment(Point2f0(t[1]),Point2f0(t[2]))
-b = LineSegment(Point2f0(0,2),Point2f0(2,0))
-intersects(a,b)[2]
-
-
 
 
 ########################## Saving the output file ###########################
