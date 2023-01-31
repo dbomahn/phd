@@ -1512,69 +1512,9 @@ function SolveLPdicho(sol,ndp)
         dichosol = lsg
     end
     dtime = dtime + t;
-    
-    
     return dichosol,dtime
 end
-# sol = nd.X[12]; ndset = Newnodes(dfpp.Y); ndp = getobjval(sol)
-dsol,dtime = SolveLPdicho(nd.X[12],ndp)
-
-
-if length(nw) == 1                                   # new solution is a point
-    nw = node(2, nw[1], nw[2], "null")
-    if "u" ∈ que                                     # new solution is dominated
-        return ndset
-    elseif "d" ∈ que 
-        case = []                                # new solution is dominating some solutions
-        d_id = findall(x->x =="d", que)
-        if ndset[d_id[1]].arm  != "null"             # 1st dominated node is connected to the other node
-            push!(case,1)
-            seg = [[ndset[d_id[1]-1].x,ndset[d_id[1]-1].y],[ndset[d_id[1]].x,ndset[d_id[1]].y]]
-            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-            p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(nw.x,seg[1][2]))
-            interpt1 = intersect(p1,p2)[2]
-        else
-            push!(case,2)
-            # node[d_id[1]].x = nw[1]; node[d_id[1]].y = nw[2]
-        end
-
-        if ndset[d_id[end]].arm  != "null"             # last dominated node is connected to the other node
-            push!(case,1)
-            seg = [[ndset[d_id[end]-1].x,ndset[d_id[end]-1].y],[ndset[d_id[end]].x,ndset[d_id[end]].y]]
-            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-            p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(seg[2][1],nw.y))
-            interpt2 = intersect(p1,p2)[2]
-            # node[d_id[end]].x = interpt2[1]; node[d_id[end]].y = interpt2[2] 
-        else
-            push!(case,2)
-            # node[d_id[end]].x = nw[1]; node[d_id[end]].y = nw[2]
-        end
-
-        deleteat!(ndset, d_id)
-        # rearranging depending on the case
-        if case == [1,1]
-            insert!( ndset, d_id[1], node(1, interpt1[1], interpt1[2], "L") )
-            insert!( ndset, d_id[1]+1, node(1, nw.x, nw.y, "null") )
-            insert!( ndset, d_id[1]+2, node(1, interpt2[1], interpt2[2], "R") )
-        elseif case == [1,2]
-            insert!( ndset, d_id[1], node(1, interpt1[1], interpt1[2], "L") )
-            insert!( ndset, d_id[1]+1, node(1, nw.x, nw.y, "null") )
-        elseif case == [2,1]
-            insert!( ndset, d_id[1], node(1, nw.x, nw.y, "null") )
-            insert!( ndset, d_id[1]+1, node(1, interpt2[1], interpt2[2], "R") )
-        else
-            insert!( ndset, d_id[1], node(1, nw.x, nw.y, "null") )
-        end
-
-    else #if "r,l"∈ que 
-        rl = findall( x->que[x]=="r" && que[x+1] == "l"  ,1:length(que))
-        
-    end
-else
-    nw = Newnodes(lsg)
-end
-
-function UpdateNodeset(ndset,dsol)
+function SectionQueue(ndset,dsol)
     nw = Newnodes(dsol)
     que = Matrix(undef,length(nw),length(ndset)) 
     for i=1:length(nw)
@@ -1590,8 +1530,147 @@ function UpdateNodeset(ndset,dsol)
             end
         end
     end
+    return que
 end
+# sol = nd.X[12]; ndset = Newnodes(dfpp.Y); ndp = getobjval(sol)
+dsol,dtime = SolveLPdicho(dfpp.X[4],getobjval(dfpp.X[4]))
 
+que = SectionQueue(ndset,dsol)
+
+if length(nw) == 1                                   # new solution is a point
+    nw = node(2, nw[1], nw[2], "null")
+    if "u" ∈ que                                     # new solution is dominated
+        # return ndset
+    elseif "d" ∈ que 
+        case = []                                # new solution is dominating some solutions
+        d_id = findall(x->x =="d", que)
+        if ndset[d_id[1]].arm != "null"             # 1st dominated node is connected to the other node
+            
+            seg = [[ndset[d_id[1]-1].x,ndset[d_id[1]-1].y],[ndset[d_id[1]].x,ndset[d_id[1]].y]]
+            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+            p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(nw.x,seg[1][2]))
+            interpt1 = intersect(p1,p2)
+            if interpt1 != [] 
+                push!(case,1)
+            else
+                push!(case,2)
+            end    
+        else
+            push!(case,2)
+            # node[d_id[1]].x = nw[1]; node[d_id[1]].y = nw[2]
+        end
+
+        if ndset[d_id[end]].arm  != "null"             # last dominated node is connected to the other node
+            
+            seg = [[ndset[d_id[end]-1].x,ndset[d_id[end]-1].y],[ndset[d_id[end]].x,ndset[d_id[end]].y]]
+            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+            p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(seg[2][1],nw.y))
+            interpt2 = intersect(p1,p2)[2]
+            if interpt2 != [] 
+                push!(case,1)
+            else
+                push!(case,2)
+            end    
+            # node[d_id[end]].x = interpt2[1]; node[d_id[end]].y = interpt2[2] 
+        else
+            push!(case,2)
+            # node[d_id[end]].x = nw[1]; node[d_id[end]].y = nw[2]
+        end
+
+        deleteat!(ndset, d_id)
+        # rearranging depending on the case
+        if case == [1,1]
+            insert!( ndset, d_id[1], node(1, interpt1[1], interpt1[2], "L") )
+            insert!( ndset, d_id[1]+1, node(2, nw.x, nw.y, "null") )
+            insert!( ndset, d_id[1]+2, node(1, interpt2[1], interpt2[2], "R") )
+        elseif case == [1,2]
+            insert!( ndset, d_id[1], node(1, interpt1[1], interpt1[2], "L") )
+            insert!( ndset, d_id[1]+1, node(2, nw.x, nw.y, "null") )
+        elseif case == [2,1]
+            insert!( ndset, d_id[1], node(2, nw.x, nw.y, "null") )
+            insert!( ndset, d_id[1]+1, node(1, interpt2[1], interpt2[2], "R") )
+        else
+            insert!( ndset, d_id[1], node(2, nw.x, nw.y, "null") )
+        end
+
+    else #if "r,l"∈ que 
+        rl = findall( x->que[x]=="r" && que[x+1] == "l"  ,1:length(que))[1]
+        if ndset[rl].arm == "R" # connected linesegment
+            if abs((ndset[rl].y-ndset[rl+1].y)/(ndset[rl].x-ndset[rl+1].x)) > abs((ndset[rl].y-nw.y)/(ndset[rl].x-nw.x)) #new sol is nondominated
+                if ndset[rl].arm != "null"  # divide the lsg into two parts and insert the new sol
+                    seg = [[ndset[rl].x,ndset[rl].y],[ndset[rl+1].x,ndset[rl+1].y]]
+                    p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+                    p2 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(nw.x,seg[1][2]))
+                    interpt1 = intersect(p1,p2)[2]
+                    p3 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(seg[2][1],nw.y))
+                    interpt2 = intersect(p1,p3)[2]
+
+                    #insert interpt1,nw,interpt2
+                    insert!( ndset, rl+1, node(1, interpt1[1], interpt1[2], "L") )
+                    insert!( ndset, rl+2, node(2, nw.x, nw.y, "null") )
+                    insert!( ndset, rl+3, node(1, interpt2[1], interpt2[2], "R") )
+                else
+                    insert!( ndset, rl+1, node(2, nw.x, nw.y, "null") ) #insert the new sol btw two points
+                end
+            end
+        else                # new solution between two points
+            if dominated([nw.x,nw.y],[[ndset[rl].x,ndset[rl].y],[ndset[rl+1].x,ndset[rl+1].y]]) == false
+                insert!( ndset, rl+1, node(2, nw.x, nw.y, "null") )  # add new sol only if it's nondominated
+            end
+        end
+    end
+else
+    nw = Newnodes(dsol)         # new solution is a line segment
+
+end
+# if "u" ∈ que
+
+# uque = [ "u" ∈ que[i,:] for i=1:length(nw)]
+uset = Dict()
+uq = findall(i->"u" ∈ que[i,:], 1:length(nw))
+s = 1
+for i=1:length(nw) 
+    if i in uq
+        if haskey(uset,s) == false
+            uset[s] = [i]
+        else
+            push!(uset[s],i)            
+        end
+    else
+        s+=1    
+    end
+end
+for i in collect(keys(uset))
+    u = uset[i][end]
+    # if nw[u].arm != "L"
+
+end
+# u = uset[1][end]
+u_id = findall(i->i=="u",que[u,:])[end]
+seg = [[ndset[u_id-1].x,ndset[u_id-1].y], [ndset[u_id].x,ndset[u_id].y]]
+
+p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+p2 = LineSegment(Point2f0(nw[u_id-1].x,nw[u_id-1].y),Point2f0(nw[u_id].x,nw[u_id].y))
+interpt1 = intersect(p1,p2)
+if interpt1 == []
+
+if ndset[u_id].arm == "L"               #linesegment is disconnected
+    seg = [[ndset[u_id-1].x,ndset[u_id-1].y], [ndset[u_id].x,ndset[u_id].y]]
+    p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+    p2 = LineSegment(Point2f0(nw[u_id-1].x,nw[u_id-1].y),Point2f0(nw[u_id].x,nw[u_id].y))
+    interpt1 = intersect(p1,p2)
+    if interpt1 == []
+        deleteat!(u_id[1:end-1])
+
+elseif ndset[u_id].arm == "LR" || ndset[u_id].arm =="R"
+    seg = [[ndset[u_id].x,ndset[u_id].y], [ndset[u_id+1].x,ndset[u_id+1].y]]
+else #ndset[u_id].arm =="null"
+    seg = [ndset[u_id].x,ndset[u_id].y]
+1
+rl = findall( x->que[1,:][x]=="r" && que[1,:][x+1] == "l"  ,1:length(que[1,:]))[1]
+abs((ndset[rl].y-ndset[rl+1].y)/(ndset[rl].x-ndset[rl+1].x)) > abs((ndset[rl].y-nw.y)/(ndset[rl].x-nw.x))
+
+1
 
 
 ###################################
