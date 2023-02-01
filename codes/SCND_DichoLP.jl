@@ -1479,19 +1479,19 @@ plot([t1,t6],layout)
 
 ######################
 struct node
-    type::Int; x::Float64; y::Float64; arm::String
+    type::Int; x::Float64; y::Float64; arm::String; #dom::String
 end
 function Newnodes(lsg)
     nodes = []
     for i=1:length(lsg)
-        if i == 1
-            connect = "R" 
+        if i == "R"
+            connect = [1] 
         elseif i == length(lsg)
             connect = "L" 
         else
             connect = "LR" 
         end
-        push!(nodes, node(1, lsg[i][1], lsg[i][2], connect))
+        push!(nodes, node(1, lsg[i][1], lsg[i][2], connect) #, "null"))
     end
     return nodes
 end
@@ -1532,7 +1532,7 @@ function SectionQueue(ndset,dsol)
     end
     return que
 end
-# sol = nd.X[12]; ndset = Newnodes(dfpp.Y); ndp = getobjval(sol)
+ndset = Newnodes(dfpp.Y); 
 dsol,dtime = SolveLPdicho(dfpp.X[4],getobjval(dfpp.X[4]))
 
 que = SectionQueue(ndset,dsol)
@@ -1596,6 +1596,7 @@ if length(nw) == 1                                   # new solution is a point
     else #if "r,l"∈ que 
         rl = findall( x->que[x]=="r" && que[x+1] == "l"  ,1:length(que))[1]
         if ndset[rl].arm == "R" # connected linesegment
+            
             if abs((ndset[rl].y-ndset[rl+1].y)/(ndset[rl].x-ndset[rl+1].x)) > abs((ndset[rl].y-nw.y)/(ndset[rl].x-nw.x)) #new sol is nondominated
                 if ndset[rl].arm != "null"  # divide the lsg into two parts and insert the new sol
                     seg = [[ndset[rl].x,ndset[rl].y],[ndset[rl+1].x,ndset[rl+1].y]]
@@ -1605,6 +1606,9 @@ if length(nw) == 1                                   # new solution is a point
                     p3 = LineSegment(Point2f0(nw.x,nw.y),Point2f0(seg[2][1],nw.y))
                     interpt2 = intersect(p1,p3)[2]
 
+                    p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
+                    p2 = LineSegment(Point2f0(nw[u_id-1].x,nw[u_id-1].y),Point2f0(nw[u_id].x,nw[u_id].y))
+                
                     #insert interpt1,nw,interpt2
                     insert!( ndset, rl+1, node(1, interpt1[1], interpt1[2], "L") )
                     insert!( ndset, rl+2, node(2, nw.x, nw.y, "null") )
@@ -1621,11 +1625,45 @@ if length(nw) == 1                                   # new solution is a point
     end
 else
     nw = Newnodes(dsol)         # new solution is a line segment
+    for i=1:length(nw)
+        q1 = que[i,:]
+        stid = findall(i-> q1[i]!=q1[i+1], 1:length(q1)-1)
+        for i in stid
+            if (q1[i],q1[i+1]) == ("r","l") #changing state 
+                if nw[i].arm = "L" # newsol has a left arm
+                    ndseg = [[ndset[i].x,ndset[i].y],[ndset[i-1].x,ndset[i-1].y]] 
+                    nwseg = [[nw[i].x,nw[i].y],[nw[i+warm].x,nw[i+warm].y]] 
+                    p1 = LineSegment(Point2f0(ndseg[1]),Point2f0(ndseg[2]))
+                    p2 = LineSegment(Point2f0(nwseg[1]),Point2f0(nwseg[2]))
+                    intsect = intersect(p1,p2)
+                    if length(intsect) != [] # two seg intersects
+                        if abs((ndseg[1][2]-ndseg[2][2])/(ndseg[1][1]-ndseg[2][1])) > abs((nwseg[1][2]-nwseg[2][2])/(nwseg[1][1]-nwseg[2][1]))
+                            # left part of the existing segment dominated
 
+                        end
+                    end
+                else #new sol has both left and right arms
+                end
+
+            elseif 
+
+            end
+        end
+    end
 end
-# if "u" ∈ que
+q1 = que[1,:]
+stid = findall(i-> q1[i]!=q1[i+1], 1:length(q1)-1)
+warm = nw[i].arm[1]; sarm = ndset[i].arm[1]
+ndseg = [[ndset[i].x,ndset[i].y],[ndset[i+sarm].x,ndset[i+sarm].y]] 
+nwseg = [[nw[i].x,nw[i].y],[nw[i+warm].x,nw[i+warm].y]] 
+p1 = LineSegment(Point2f0(ndseg[1]),Point2f0(ndseg[2]))
+p2 = LineSegment(Point2f0(nwseg[1]),Point2f0(nwseg[2]))
+intsect = intersect(p1,p2)
+abs((ndseg[1][2]-ndseg[2][2])/(ndseg[1][1]-ndseg[2][1])) > abs((nwseg[1][2]-nwseg[2][2])/(nwseg[1][1]-nwseg[2][1]))
 
-# uque = [ "u" ∈ que[i,:] for i=1:length(nw)]
+    
+
+####################### discard below
 uset = Dict()
 uq = findall(i->"u" ∈ que[i,:], 1:length(nw))
 s = 1
@@ -1646,7 +1684,7 @@ for i in collect(keys(uset))
 
 end
 # u = uset[1][end]
-u_id = findall(i->i=="u",que[u,:])[end]
+u_id = findall(i->i=="u",que[2,:])[end]
 seg = [[ndset[u_id-1].x,ndset[u_id-1].y], [ndset[u_id].x,ndset[u_id].y]]
 
 p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
