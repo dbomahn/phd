@@ -1,4 +1,4 @@
-using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2,GeometryTypes
+using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase,CSV,JLD2,LazySets
 #########################  1dim model  ############################
 struct Data1dim
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
@@ -959,8 +959,6 @@ dfpp = DataFrame(X=fpp2x,Y=fpp2y);
 sort!(dfpp,[order(:Y)])
 dX = Dict(i=>dfpp.X[i] for i=1:length(dfpp.Y)); dY = Dict(i=>dfpp.Y[i] for i=1:length(dfpp.Y));
 
-
-1
 function PR(dX,dY,len,TL)
     X = copy(dX); Y = copy(dY); IGPair=[]; 
     exploredSI = Dict(i=>dX[i] for i=1:length(dX)); exploredval = Dict(i=>dY[i] for i=1:length(dY)); t0=time();    
@@ -1503,7 +1501,7 @@ function SolveLPdicho(sol,ndp)
     JuMP.fix.(LPdicho[:uij], sol[1+len[1]:sum(len[i] for i=1:2)]; force = true)
     JuMP.fix.(LPdicho[:ujk], sol[1+sum(len[i] for i=1:2):sum(len[i] for i=1:3)]; force = true)
     JuMP.fix.(LPdicho[:ukl], sol[1+sum(len[i] for i=1:3):sum(len[i] for i=1:4)]; force = true)
-    t = @CPUelapsed vSolve(LPdicho, 5, method=:dicho, verbose=false)
+    t = @CPUelapsed vSolve(LPdicho, 4, method=:dicho, verbose=false)
     res = getvOptData(LPdicho);
     if res == []
         dichosol = [ndp]
@@ -1546,8 +1544,8 @@ if length(nw) == 1                                   # new solution is a point
         if ndset[d_id[1]].arm != "null"             # 1st dominated node0 is connected to the other node0
             
             seg = [ndset[d_id[1]-1].val,ndset[d_id[1]].val]
-            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-            p2 = LineSegment(Point2f0(nw.val),Point2f0(nw.val))
+            p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
+            p2 = LineSegment(id[end](nw.val),id[end](nw.val))
             interpt1 = intersect(p1,p2)
             if interpt1 != [] 
                 push!(case,1)
@@ -1562,8 +1560,8 @@ if length(nw) == 1                                   # new solution is a point
         if ndset[d_id[end]].arm  != "null"             # last dominated node0 is connected to the other node0
             
             seg = [[ndset[d_id[end]-1].val[1],ndset[d_id[end]-1].val[2]],[ndset[d_id[end]].val[1],ndset[d_id[end]].val[2]]]
-            p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-            p2 = LineSegment(Point2f0(nw.val[1],nw.val[2]),Point2f0(seg[2][1],nw.val[2]))
+            p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
+            p2 = LineSegment(id[end](nw.val[1],nw.val[2]),id[end](seg[2][1],nw.val[2]))
             interpt2 = intersect(p1,p2)[2]
             if interpt2 != [] 
                 push!(case,1)
@@ -1599,14 +1597,14 @@ if length(nw) == 1                                   # new solution is a point
             if abs((ndset[rl].val[2]-ndset[rl+1].val[2])/(ndset[rl].val[1]-ndset[rl+1].val[1])) > abs((ndset[rl].val[2]-nw.val[2])/(ndset[rl].val[1]-nw.val[1])) #new sol is nondominated
                 if ndset[rl].arm != "null"  # divide the lsg into two parts and insert the new sol
                     seg = [ndset[rl].val,ndset[rl+1].val]
-                    p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-                    p2 = LineSegment(Point2f0(nw.val),Point2f0(nw.val[1],seg[1][2]))
+                    p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
+                    p2 = LineSegment(id[end](nw.val),id[end](nw.val[1],seg[1][2]))
                     interpt1 = intersect(p1,p2)[2]
-                    p3 = LineSegment(Point2f0(nw.val),Point2f0(seg[2][1],nw.val[2]))
+                    p3 = LineSegment(id[end](nw.val),id[end](seg[2][1],nw.val[2]))
                     interpt2 = intersect(p1,p3)[2]
 
-                    p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-                    p2 = LineSegment(Point2f0(nw[u_id-1].val),Point2f0(nw[u_id].val))
+                    p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
+                    p2 = LineSegment(id[end](nw[u_id-1].val),id[end](nw[u_id].val))
                 
                     #insert interpt1,nw,interpt2
                     insert!( ndset, rl+1, node0(interpt1[1], interpt1[2], "L") )
@@ -1625,56 +1623,73 @@ if length(nw) == 1                                   # new solution is a point
 else
     newsg = Newnodes(dsol)         # new solution is a line segment
     nwpairs = [[i,i+1] for i=1:length(newsg)-1]
+    ndset0 = copy(ndset)
     for nw in nwpairs
         if "u" ∈ que[nw[1],:] && "u" ∈ que[nw[2],:]
             deleteat!(nwpairs, findall(x->x==nw, nwpairs))
             @goto NextPair
         end
-        
+        lct =1; 
+        if all(x->x == "l", que[nw[1],:]) & all(x->x == "l", que[nw[2],:]) #insert the seg to the front
+            insert!(ndset, lct, newsg[nw[1]]); insert!(ndset, lct+1, newsg[nw[2]]);
+            lct+=2
+            deleteat!(nwpairs, findall(x->x==nw, nwpairs));
+        elseif all(x->x == "r", que[nw[1],:]) & all(x->x == "r", que[nw[2],:])  #insert the seg to the end
+            insert!(ndset, length(ndset), newsg[nw[1]]); insert!(ndset, length(ndset)+1, newsg[nw[2]]);
+            deleteat!(nwpairs, findall(x->x==nw, nwpairs));
+        elseif all(x->x == "d", que[nw[1],:]) | all(x->x == "d", que[nw[2],:]) 
+            ndset = newsg
+        end
+        @label NextPair
     end
-    
+    for nw in nwpairs
+        for i=1:length(ndset0)
+            if ndset0[i].arm == "R" || ndset0[i].arm =="LR"
 
+            elseif ndset0[i].arm =="L"
+                @goto Nextnd
+            else # nondominated "point"
+            end
+            @label Nextnd
+        end
+    end
 end
 newsg = Newnodes(dsol)  
 nwpairs = [[i,i+1] for i=1:length(newsg)-1]
-if "u" ∈ que[nw[1],:] && "u" ∈ que[nw[2],:]
-    deleteat!(nwpairs, findall(x->x==nw,nwpairs))
-    @goto NextPair
+# nw = [4,5]
+# if ndset0[i].arm == "R" || ndset0[i].arm =="LR"
+l1 = LazySets.LineSegment(newsg[nw[1]].val,newsg[nw[2]].val)
+l2 = LazySets.LineSegment(ndset0[i].val,ndset0[i+1].val)
+inter = isdisjoint(l1,l2,true)
+
+fourpt = sort!([newsg[nw[1]].val,newsg[nw[2]].val,ndset0[i].val,ndset0[i+1].val]) #sort by 1st objvalue
+if fourpt[2] ∈ l1
+    l3 = l2
+else
+    l3 = l1
 end
-nw = [5,6]
-
-if all(x->x == "l", que[nw[1],:]) && all(x->x == "l", que[nw[2],:]) 
-    println("dggg") 
-elseif (all(x->x == "r", que[nw[1],:]) && all(x->x == "r", que[nw[2],:])) 
-    println("d")
-end
-
-all(x->x == "l", que[nw[2],:])
-
-if all(x->x == "l", que[nw[1],:]) & all(x->x == "l", que[nw[2],:]) #insert the seg to the front
-    insert!(ndset, 1, newsg[nw[1]]); 
-    insert!(ndset, 2, newsg[nw[2]]);
-    deleteat!(nwpairs, findall(x->x==nw, nwpairs));
-elseif all(x->x == "r", que[nw[1],:]) & all(x->x == "r", que[nw[2],:])  #insert the seg to the end
-    insert!(ndset, length(ndset)-1, newsg[nw[1]]); 
-    insert!(ndset, length(ndset), newsg[nw[2]]);
-    deleteat!(nwpairs, findall(x->x==nw, nwpairs));
-elseif all(x->x == "d", que[nw[1],:]) | all(x->x == "d", que[nw[2],:]) 
-    ndset = newsg
+pj2y = isdisjoint(Line(fourpt[2],[0,1.]), l3, true)
+if pj2y[1] == true 
+    @goto Nextnd
+elseif pj2y[2][2] > fourpt[2][2]
+    insert!(fourpt, 2, pj2y[2])
+    
 end
 
+pj2x = [fourpt[2][1],fourpt[1][2]]
+pj3y = [fourpt[4][1],fourpt[3][2]]
+pj3x = [fourpt[4][1],fourpt[3][2]]
 ####################### discard below
-
 for i=1:length(nw)
     q1 = que[i,:]
     stid = findall(i-> q1[i]!=q1[i+1], 1:length(q1)-1)
     for i in stid
         if (q1[i],q1[i+1]) == ("r","l") #changing state 
-            if nw[i].arm = "L" # newsol has a left arm
+            if nw[i].arm == "L" # newsol has a left arm
                 ndseg = [ndset[i].val,ndset[i-1].val] 
                 nwseg = [nw[i].val,nw[i+warm].val] 
-                p1 = LineSegment(Point2f0(ndseg[1]),Point2f0(ndseg[2]))
-                p2 = LineSegment(Point2f0(nwseg[1]),Point2f0(nwseg[2]))
+                p1 = LineSegment(id[end](ndseg[1]),id[end](ndseg[2]))
+                p2 = LineSegment(id[end](nwseg[1]),id[end](nwseg[2]))
                 intsect = intersect(p1,p2)
                 if length(intsect) != [] # two seg intersects
                     if abs((ndseg[1][2]-ndseg[2][2])/(ndseg[1][1]-ndseg[2][1])) > abs((nwseg[1][2]-nwseg[2][2])/(nwseg[1][1]-nwseg[2][1]))
@@ -1684,21 +1699,15 @@ for i=1:length(nw)
                 end
             else #new sol has both left and right arms
             end
-
-        elseif 
-
         end
     end
 end
-
-
 q1 = que[1,:]
 stid = findall(i-> q1[i]!=q1[i+1], 1:length(q1)-1)
 warm = nw[i].arm[1]; sarm = ndset[i].arm[1]
 ndseg = [ndset.val,[ndset[i+sarm].val[1],ndset[i+sarm].val[2]]] 
 nwseg = [nw[i].val,[nw[i+warm].val[1],nw[i+warm].val[2]]] 
-p1 = LineSegment(Point2f0(ndseg[1]),Point2f0(ndseg[2]))
-p2 = LineSegment(Point2f0(nwseg[1]),Point2f0(nwseg[2]))
+
 intsect = intersect(p1,p2)
 abs((ndseg[1][2]-ndseg[2][2])/(ndseg[1][1]-ndseg[2][1])) > abs((nwseg[1][2]-nwseg[2][2])/(nwseg[1][1]-nwseg[2][1]))
 
@@ -1725,15 +1734,15 @@ end
 u_id = findall(i->i=="u",que[2,:])[end]
 seg = [[ndset[u_id-1].val[1],ndset[u_id-1].val[2]], [ndset[u_id].val[1],ndset[u_id].val[2]]]
 
-p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-p2 = LineSegment(Point2f0(nw[u_id-1].val[1],nw[u_id-1].val[2]),Point2f0(nw[u_id].val[1],nw[u_id].val[2]))
+p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
+p2 = LineSegment(id[end](nw[u_id-1].val[1],nw[u_id-1].val[2]),id[end](nw[u_id].val[1],nw[u_id].val[2]))
 interpt1 = intersect(p1,p2)
 if interpt1 == []
 
 if ndset[u_id].arm == "L"               #linesegment is disconnected
     seg = [[ndset[u_id-1].val[1],ndset[u_id-1].val[2]], [ndset[u_id].val[1],ndset[u_id].val[2]]]
-    p1 = LineSegment(Point2f0(seg[1]),Point2f0(seg[2]))
-    p2 = LineSegment(Point2f0(nw[u_id-1].val[1],nw[u_id-1].val[2]),Point2f0(nw[u_id].val[1],nw[u_id].val[2]))
+    p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
+    p2 = LineSegment(id[end](nw[u_id-1].val[1],nw[u_id-1].val[2]),id[end](nw[u_id].val[1],nw[u_id].val[2]))
     interpt1 = intersect(p1,p2)
     if interpt1 == []
         deleteat!(u_id[1:end-1])
