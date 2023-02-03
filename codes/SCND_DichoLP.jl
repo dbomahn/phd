@@ -1624,6 +1624,7 @@ else
     newsg = Newnodes(dsol)         # new solution is a line segment
     nwpairs = [[i,i+1] for i=1:length(newsg)-1]
     ndset0 = copy(ndset)
+    #pre processing
     for nw in nwpairs
         if "u" ∈ que[nw[1],:] && "u" ∈ que[nw[2],:]
             deleteat!(nwpairs, findall(x->x==nw, nwpairs))
@@ -1642,102 +1643,115 @@ else
         end
         @label NextPair
     end
+    #iteratively sorting the lsg
     for nw in nwpairs
         for i=1:length(ndset0)
             if ndset0[i].arm == "R" || ndset0[i].arm =="LR"
 
+                l1 = LazySets.LineSegment(newsg[nw[1]].val,newsg[nw[2]].val)
+                l2 = LazySets.LineSegment(ndset0[i].val,ndset0[i+1].val)
+                inter = isdisjoint(l1,l2,true)
+                fourpt0 = sort!([newsg[nw[1]],newsg[nw[2]],ndset0[i],ndset0[i+1]], by = x-> x.val[1]) 
+                fourpt = copy(fourpt0)
+                if isempty(inter[2]) # two line segments are disjoint
+
+                    # 2nd point projected to xaxis
+                    if fourpt0[2].val ∈ l1
+                        l3 = l2
+                    else
+                        l3 = l1
+                    end
+                    pj2y = isdisjoint(Line(fourpt0[2].val,[0,1.]), l3, true)
+                    if isempty(pj2y[2]) # no intersection
+                        @goto Nextnd 
+                    elseif pj2y[2][2] > fourpt0[2].val[2]
+                        insert!(fourpt, 2, node0(pj2y[2], "L"))
+                    elseif pj2y[2][2] < fourpt0[2].val[2]
+                        deleteat!(fourpt,2)
+                    end
+                    # 3rd point projected to xaxis
+                    if fourpt0[3].val[2] > fourpt0[4].val[2] && fourpt0[2].val[2] > fourpt0[3].val[2]
+                        if fourpt0[3].val ∈ l1
+                            l3 = l2
+                        else
+                            l3 = l1
+                        end
+                        pj3x = isdisjoint(Line(fourpt0[3].val,[1,0.]), l3, true)
+                        if isempty(pj3x[2]) # no intersection
+                            @goto Nextnd
+                        else 
+                            deleteat!(fourpt, findall(x->x == fourpt0[3], fourpt) ); 
+                            insert!(fourpt, length(fourpt)-1, node0(pj3x[2], "R"))
+                        end
+                    else
+                        deleteat!(fourpt,3)
+                    end
+
+                else #line segments intersect
+                    if fourpt0[2].val ∈ l1
+                        l3 = l2
+                    else
+                        l3 = l1
+                    end
+                    # 2nd point projected to yaxis
+                    if fourpt0[2].val[2] < fourpt0[1].val[2] 
+                        if fourpt0[2].val ∈ l1
+                            l3 = l2
+                        else
+                            l3 = l1
+                        end
+                        pj2x = isdisjoint(Line(fourpt0[2].val,[0.,1.]), l3, true)
+                        insert!(fourpt, 2, node0(pj2x[2], "L"))
+                        insert!(fourpt, 3, node0(inter[2], "LR"))
+                    else
+                        insert!(fourpt, 2, node0(inter[2], "LR"))
+                    end
+                    
+                    #3rd point projected to xaxis
+                    #slope calculation
+                    abnewsg = abs.(newsg[nw[1]].val-newsg[nw[2]].val)
+                    slop_newsg = abnewsg[2]/abnewsg[1]
+                    abndset = abs.(ndset0[i].val-ndset0[i+1].val)
+                    slop_ndset = abndset[2]/abndset[1]
+                    if fourpt0[3].val ∈ l1
+                        l3 = l2
+                        pjslop = slop_newsg; theother_slop = slop_ndset
+                    else
+                        l3 = l1
+                        pjslop = slop_ndset; theother_slop = slop_newsg
+                    end
+                    if fourpt0[3].val[2] > fourpt0[4].val[2] && pjslop > theother_slop  
+                        pj3x = isdisjoint(Line(fourpt0[3].val,[1,0.]), l3, true)
+                        insert!(fourpt, length(fourpt)-1, node0(pj3x[2], "R"))
+                        end
+                    end
+                end
             elseif ndset0[i].arm =="L"
                 @goto Nextnd
             else # nondominated "point"
             end
             @label Nextnd
+
         end
+        deleteat!(nwpairs, findall(x->x==nw), nwpairs)
     end
 end
+ndset = Newnodes(dfpp.Y)
 newsg = Newnodes(dsol)  
 nwpairs = [[i,i+1] for i=1:length(newsg)-1]
-# nw = [4,5]
-# if ndset0[i].arm == "R" || ndset0[i].arm =="LR"
-l1 = LazySets.LineSegment(newsg[nw[1]].val,newsg[nw[2]].val)
-l2 = LazySets.LineSegment(ndset0[i].val,ndset0[i+1].val)
+nw = [4,5]
 inter = isdisjoint(l1,l2,true)
+fourpt0 = sort!([newsg[nw[1]],newsg[nw[2]],ndset0[i],ndset0[i+1]], by = x-> x.val[1]) 
+fourpt = copy(fourpt0)
 
-fourpt = sort!([newsg[nw[1]].val,newsg[nw[2]].val,ndset0[i].val,ndset0[i+1].val]) #sort by 1st objvalue
-if fourpt[2] ∈ l1
-    l3 = l2
-else
-    l3 = l1
-end
-pj2y = isdisjoint(Line(fourpt[2],[0,1.]), l3, true)
-if pj2y[1] == true 
-    @goto Nextnd
-elseif pj2y[2][2] > fourpt[2][2]
-    insert!(fourpt, 2, pj2y[2])
-    
-end
+# if ndset0[i].arm == "R" || ndset0[i].arm =="LR"
+# intersecting linesegments
+i=4
 
-pj2x = [fourpt[2][1],fourpt[1][2]]
-pj3y = [fourpt[4][1],fourpt[3][2]]
-pj3x = [fourpt[4][1],fourpt[3][2]]
+
+
+
 ####################### discard below
-for i=1:length(nw)
-    q1 = que[i,:]
-    stid = findall(i-> q1[i]!=q1[i+1], 1:length(q1)-1)
-    for i in stid
-        if (q1[i],q1[i+1]) == ("r","l") #changing state 
-            if nw[i].arm == "L" # newsol has a left arm
-                ndseg = [ndset[i].val,ndset[i-1].val] 
-                nwseg = [nw[i].val,nw[i+warm].val] 
-                p1 = LineSegment(id[end](ndseg[1]),id[end](ndseg[2]))
-                p2 = LineSegment(id[end](nwseg[1]),id[end](nwseg[2]))
-                intsect = intersect(p1,p2)
-                if length(intsect) != [] # two seg intersects
-                    if abs((ndseg[1][2]-ndseg[2][2])/(ndseg[1][1]-ndseg[2][1])) > abs((nwseg[1][2]-nwseg[2][2])/(nwseg[1][1]-nwseg[2][1]))
-                        # left part of the existing segment dominated
-
-                    end
-                end
-            else #new sol has both left and right arms
-            end
-        end
-    end
-end
-q1 = que[1,:]
-stid = findall(i-> q1[i]!=q1[i+1], 1:length(q1)-1)
-warm = nw[i].arm[1]; sarm = ndset[i].arm[1]
-ndseg = [ndset.val,[ndset[i+sarm].val[1],ndset[i+sarm].val[2]]] 
-nwseg = [nw[i].val,[nw[i+warm].val[1],nw[i+warm].val[2]]] 
-
-intsect = intersect(p1,p2)
-abs((ndseg[1][2]-ndseg[2][2])/(ndseg[1][1]-ndseg[2][1])) > abs((nwseg[1][2]-nwseg[2][2])/(nwseg[1][1]-nwseg[2][1]))
-
-uset = Dict()
-uq = findall(i->"u" ∈ que[i,:], 1:length(nw))
-s = 1
-for i=1:length(nw) 
-    if i in uq
-        if haskey(uset,s) == false
-            uset[s] = [i]
-        else
-            push!(uset[s],i)            
-        end
-    else
-        s+=1    
-    end
-end
-for i in collect(keys(uset))
-    u = uset[i][end]
-    # if nw[u].arm != "L"
-
-end
-# u = uset[1][end]
-u_id = findall(i->i=="u",que[2,:])[end]
-seg = [[ndset[u_id-1].val[1],ndset[u_id-1].val[2]], [ndset[u_id].val[1],ndset[u_id].val[2]]]
-
-p1 = LineSegment(id[end](seg[1]),id[end](seg[2]))
-p2 = LineSegment(id[end](nw[u_id-1].val[1],nw[u_id-1].val[2]),id[end](nw[u_id].val[1],nw[u_id].val[2]))
-interpt1 = intersect(p1,p2)
-if interpt1 == []
 
 if ndset[u_id].arm == "L"               #linesegment is disconnected
     seg = [[ndset[u_id-1].val[1],ndset[u_id-1].val[2]], [ndset[u_id].val[1],ndset[u_id].val[2]]]
@@ -1753,9 +1767,7 @@ else #ndset[u_id].arm =="null"
     seg = [ndset[u_id].val[1],ndset[u_id].val[2]]
 1
 rl = findall( x->que[1,:][x]=="r" && que[1,:][x+1] == "l"  ,1:length(que[1,:]))[1]
-abs((ndset[rl].val[2]-ndset[rl+1].val[2])/(ndset[rl].val[1]-ndset[rl+1].val[1])) > abs((ndset[rl].val[2]-nw.val[2])/(ndset[rl].val[1]-nw.val[1]))
 
-1
 
 
 ###################################
