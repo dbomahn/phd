@@ -105,17 +105,23 @@ plot([t1,t3],layout)
 # mode="markers+text"
 # trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
 t1 = scatter(x=ep1[1:10,1], y=ep1[1:10,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-# t2 = scatter(x=m1, y=m2,  name="MIP+FFP+PR", mode="markers", marker=attr(color = "lime"))
-# t4 = scatter(x=py1, y=py2,  name="MIP+FFP+PR", mode="markers", marker=attr(color="orange")) #royalblue
-fy1= [df.Y[i][1] for i=1:length(df.Y)]; fy2 = [df.Y[i][2] for i=1:length(df.Y)]
-t4 = scatter(x=fy1, y=fy2,  name="LP+FP", mode="markers", marker=attr(color="orange")) #Turquios
+t2 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-t5 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
+t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
 # lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
-# t6 = scatter(x=lp1, y=lp2, name="LB with TL", mode="lines", market=attr(color="Turquios"))
-# plot([t4,trace6,trace5,t7,t8],layout)
-plot([t1,t5],layout)
+dicho1 = [dsol[i][1] for i=1:length(dsol)]; dicho2 = [dsol[i][2] for i=1:length(dsol)]
+dcho = scatter(x=dicho1, y=dicho2, name="dicho", mode="markers+lines", market=attr(color="blue"))
+
+fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
+t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
+nset1 = [set3[i].val[1] for i=1:length(set3)]; nset2 = [set3[i].val[2] for i=1:length(set3)];
+t3 = scatter(x=nset1, y=nset2, name="ndset3", mode="markers", market=attr(color="blue"))
+
+nd12x = [ndset[i].val[1] for i=1:length(ndset)]; nd12y = [ndset[i].val[2] for i=1:length(ndset)];
+t12 = scatter(x=nd12x, y=nd12y, name="ndset2", mode="markers", market=attr(color="orange"))
+ndog1 = [ndsetog[i].val[1] for i=1:length(ndsetog)]; ndog2 = [ndsetog[i].val[2] for i=1:length(ndsetog)];
+t0 = scatter(x=ndog1, y=ndog2, name="ndset1", mode="markers+lines", market=attr(color="black"))
+plot([t0,t12,dcho,t3],layout)
 
 1
 plot([trace2,trace3,trace1,trace5], layout)
