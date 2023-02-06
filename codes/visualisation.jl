@@ -114,13 +114,15 @@ dcho = scatter(x=dicho1, y=dicho2, name="dicho", mode="markers+lines", market=at
 
 fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
 t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
-nset1 = [set3[i].val[1] for i=1:length(set3)]; nset2 = [set3[i].val[2] for i=1:length(set3)];
-t3 = scatter(x=nset1, y=nset2, name="ndset3", mode="markers", market=attr(color="blue"))
 
-nd12x = [ndset[i].val[1] for i=1:length(ndset)]; nd12y = [ndset[i].val[2] for i=1:length(ndset)];
-t12 = scatter(x=nd12x, y=nd12y, name="ndset2", mode="markers", market=attr(color="orange"))
 ndog1 = [ndsetog[i].val[1] for i=1:length(ndsetog)]; ndog2 = [ndsetog[i].val[2] for i=1:length(ndsetog)];
 t0 = scatter(x=ndog1, y=ndog2, name="ndset1", mode="markers+lines", market=attr(color="black"))
+nd12x = [set2[i].val[1] for i=1:length(set2)]; nd12y = [set2[i].val[2] for i=1:length(set2)];
+t12 = scatter(x=nd12x, y=nd12y, name="ndset2", mode="markers", market=attr(color="orange"))
+
+nset3x = [set3[i].val[1] for i=1:length(set3)]; nset3y = [set3[i].val[2] for i=1:length(set3)];
+t3 = scatter(x=nset3x, y=nset3y, name="ndset3", mode="markers", market=attr(color="terquios"))
+
 plot([t0,t12,dcho,t3],layout)
 
 1

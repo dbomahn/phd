@@ -959,6 +959,7 @@ dfpp = DataFrame(X=fpp2x,Y=fpp2y);
 sort!(dfpp,[order(:Y)])
 dX = Dict(i=>dfpp.X[i] for i=1:length(dfpp.Y)); dY = Dict(i=>dfpp.Y[i] for i=1:length(dfpp.Y));
 
+
 function PR(dX,dY,len,TL)
     X = copy(dX); Y = copy(dY); IGPair=[]; 
     exploredSI = Dict(i=>dX[i] for i=1:length(dX)); exploredval = Dict(i=>dY[i] for i=1:length(dY)); t0=time();    
@@ -1561,13 +1562,15 @@ function UpdateNDset(dsol,ndset_og,que)
                 replace!(ndset, ndset[d_id[1]] => nw)
             else  # one dominated point with an arm
                 if d_id[1] == 1                 # 1st ndset point is dominated
-                    pjx = LazySets.isdisjoint(LineSegment(ndset[1].val,ndset[2].val), Line(nw.val,[0,1.]))
+                    lsgx = LineSegment(nw.val,[nw.val[1],ndset[2].val[2]])
+                    pjx = LazySets.isdisjoint(LineSegment(ndset[1].val,ndset[2].val), lsgx, true)
                     case = 1
                 elseif d_id[1] == length(ndset) # last ndset point is dominated
                     pjy = LazySets.isdisjoint(LineSegment(ndset[end-1].val,ndset[end].val), Line(nw.val,[1,0.]))
                     case = 2
                 else                            # midle ndset point is dominated
-                    pjx = LazySets.isdisjoint(LineSegment(ndset[d_id[1]-1].val,ndset[d_id[1]].val), Line(nw.val,[0,1.]))
+                    lsgx = LineSegment(nw.val,[ndset[d_id[1]-1].val[1],nw.val[2]])
+                    pjx = LazySets.is_intersection_empty(LineSegment(ndset[d_id[1]-1].val,ndset[d_id[1]].val), lsgx, true)
                     pjy = LazySets.isdisjoint(LineSegment(ndset[end-1].val,ndset[end].val), Line(nw.val,[1,0.]))
                     case = 3
                 end
@@ -1610,9 +1613,11 @@ function UpdateNDset(dsol,ndset_og,que)
                 return ndset
             elseif case ==1 
                 if d_id[1] == 1
-                    pjx = LazySets.isdisjoint(LineSegment(ndset[1].val,ndset[2].val), Line(nw.val,[0,1.]))
+                    lsgx = LineSegment(nw.val,[nw.val[1],ndset[2].val[2]])
+                    pjx = LazySets.is_intersection_empty(LineSegment(ndset[1].val,ndset[2].val), lsgx, true)
                 else
-                    pjx = LazySets.isdisjoint(LineSegment(ndset[d_id[1]-1].val,ndset[d_id[1]].val), Line(nw.val,[0.,1.]))
+                    lsgx = LineSegment(nw.val,[ndset[d_id[1]-1].val[1],nw.val[2]])
+                    pjx = LazySets.is_intersection_empty(LineSegment(ndset[d_id[1]-1].val,ndset[d_id[1]].val), lsgx, true)
                 end
                 insert!(ndset, d_id[1], nw); insert!(ndset, d_id[1]+1, node(pjx[2], "R"))
             elseif case == 2
@@ -1658,7 +1663,7 @@ function UpdateNDset(dsol,ndset_og,que)
     else
         newsg = Newnodes(dsol)         # new solution is a line segment
         nwpairs = [[i,i+1] for i=1:length(newsg)-1]
-        ndset0 = copy(ndset)
+        # ndset0 = copy(ndset)
         #pre inserting
         lct = 1; gone = [];
         for nw in nwpairs
@@ -1677,37 +1682,52 @@ function UpdateNDset(dsol,ndset_og,que)
                 return ndset
             end
         end
-        
+        setdiff!(nwpairs,gone); unique!(ndset); 
+        ndstart = 1
         for nw in nwpairs
             @show nw
-            dsol = dsol[nw[1]:end]
-            println(length(dsol))
-            que = SectionQueue(ndset,dsol)
-            
+            # dsol = dsol[nw[1]:end]
+            # que = SectionQueue(ndset,dsol)         
             
             #iteratively sorting the lsg
-            for i=1:length(ndset0)
-                if ndset0[i].arm == "R" || ndset0[i].arm =="LR"
+            for i=ndstart:length(ndset)
+                added = 0
+                if ndset[i].arm == "R" || ndset[i].arm =="LR"
+
                     l1 = LazySets.LineSegment(newsg[nw[1]].val,newsg[nw[2]].val)
-                    l2 = LazySets.LineSegment(ndset0[i].val,ndset0[i+1].val)
+                    l2 = LazySets.LineSegment(ndset[i].val,ndset[i+1].val)
                     inter = LazySets.isdisjoint(l1,l2,true)                    
-                    fourpt0 = sort!([newsg[nw[1]],newsg[nw[2]],ndset0[i],ndset0[i+1]], by = x-> x.val[1]) 
+                    fourpt0 = sort!([newsg[nw[1]],newsg[nw[2]],ndset[i],ndset[i+1]], by = x-> x.val[1]) 
                     fourpt = copy(fourpt0)
 
                     if isempty(inter[2]) # two line segments are disjoint
-                        # 2nd point projected to xaxis
+                        # 2nd point projected to yaxis
                         if fourpt0[2].val ∈ l1
                             l3 = l2
                         else
                             l3 = l1
                         end
-                        pj2y = LazySets.isdisjoint(Line(fourpt0[2].val,[1.,0.]), l3, true)
+                        pj2y = LazySets.isdisjoint(Line(fourpt0[2].val,[0.,1]), l3, true)
                         if isempty(pj2y[2]) # no intersection
-                            deleteat!(fourpt, 3); 
-                            # BEFORE @goto Nextnd 
+                            if  fourpt0[2].val[2] <= fourpt0[4].val[2]
+                                @goto NextPair
+                            else
+                                if fourpt0[2].val[2] <= fourpt0[3].val[2]
+                                    lsg2x = LazySets.LineSegment(fourpt0[2].val,[fourpt0[4].val[1],fourpt0[2].val[2]])
+                                    pj2x = is_intersection_empty(lsg2x,l3,true)
+                                    replace!(fourpt, fourpt[2] => node(fourpt[2].val, "L"))
+                                    replace!(fourpt, fourpt[3] => node(pj2x[2], "R"))
+                                else
+                                    @goto Nextnd
+                                end
+                            end
                         elseif pj2y[2][2] > fourpt0[2].val[2]
+                            println((nw,i),"added from projection 2")
+                            replace!(fourpt, fourpt[2] => node(fourpt[2].val, "R"))
                             insert!(fourpt, 2, node(pj2y[2], "L"))
+                            added +=1
                         elseif pj2y[2][2] < fourpt0[2].val[2]
+                            println((nw,i),"delete from projection 2")
                             deleteat!(fourpt,2)
                         end
                         # 3rd point projected to xaxis
@@ -1717,12 +1737,16 @@ function UpdateNDset(dsol,ndset_og,que)
                             else
                                 l3 = l1
                             end
-                            pj3x = LazySets.isdisjoint(Line(fourpt0[3].val,[0,1.]), l3, true)
+                            lsg3x = LazySets.LineSegment([fourpt0[1].val[1],fourpt0[3].val[2]],[fourpt0[4].val[1],fourpt0[3].val[2]])
+                            pj3x = is_intersection_empty(lsg3x,l3,true)
                             if isempty(pj3x[2]) # no intersection
                                 @goto Nextnd
                             else 
+                                println((nw,i),"delete from projection 3")
+
                                 deleteat!(fourpt, findall(x->x == fourpt0[3], fourpt) ); 
-                                insert!(fourpt, length(fourpt)-1, node(pj3x[2], "R"))
+                                insert!(fourpt, length(fourpt), node(pj3x[2], "R"))
+                                added +=1
                             end
                         else
                             deleteat!(fourpt,3)
@@ -1732,11 +1756,13 @@ function UpdateNDset(dsol,ndset_og,que)
                         for f=length(fourpt):-1:1
                             insert!(ndset,i,fourpt[f])
                         end
+                        ndstart = i+added
+
                         @goto NextPair
     
                     else 
                         # line segments share the intersecting point => calculate with three points
-                        if inter[2] ∈ [newsg[nw[1]].val,newsg[nw[2]].val,ndset0[i].val,ndset0[i+1].val]
+                        if inter[2] ∈ [newsg[nw[1]].val,newsg[nw[2]].val,ndset[i].val,ndset[i+1].val]
                             threept0 = copy(fourpt0)
                             interid = findall(x->x.val==inter[2],threept0)[1]
                             deleteat!(threept0, interid)
@@ -1749,8 +1775,10 @@ function UpdateNDset(dsol,ndset_og,que)
                                     slop13 = abs( (threept0[1].val[2]-threept0[3].val[2])/(threept0[1].val[1]-threept0[3].val[1]) )
                                     slop23 = abs( (threept0[2].val[2]-threept0[3].val[2])/(threept0[2].val[1]-threept0[3].val[1]) )
                                     if slop23 < slop13
-                                        pj2x = LazySets.isdisjoint(Line(threept0[2].val, [0.,1.]), Line(threept0[1].val,threept0[3].val), true)
+                                        lsg2x = LazySets.LineSegment([threept0[1].val[1],threept0[2].val[2]],[threept0[3].val[1],threept0[2].val[2]])
+                                        pj2x = LazySets.isdisjoint(lsg2x, LineSegment(threept0[1].val,threept0[3].val), true)
                                         insert!(threept, 3, node(round.(pj2x[2]), "R"))
+                                        added+=1
                                     else
                                         deleteat!(threept,2)
                                     end
@@ -1761,6 +1789,7 @@ function UpdateNDset(dsol,ndset_og,que)
                                 if slop23 < slop13
                                     pj2y = LazySets.isdisjoint(Line(threept0[2].val, [1.,0.]), Line(threept0[1].val,threept0[3].val), true)
                                     insert!(threept, 2, node(round.(pj2y[2]), "L"))
+                                    added+=1
                                 else
                                     deleteat!(threept,2)
                                 end
@@ -1772,6 +1801,7 @@ function UpdateNDset(dsol,ndset_og,que)
                             for t=length(threept):-1:1
                                 insert!(ndset,i,threept[t])
                             end
+                            ndstart = i+added
                             @goto NextPair
                         # calculate with four points
                         else
@@ -1781,24 +1811,26 @@ function UpdateNDset(dsol,ndset_og,que)
                                 l3 = l1
                             end
                             # 2nd point projected to yaxis
-                            if fourpt0[2].val[2] < fourpt0[1].val[2] 
-                                if fourpt0[2].val ∈ l1
-                                    l3 = l2
-                                else
-                                    l3 = l1
-                                end
-                                pj2x = LazySets.isdisjoint(Line(fourpt0[2].val,[0.,1.]), l3, true)
-                                insert!(fourpt, 2, node(pj2x[2], "L"))
-                                insert!(fourpt, 3, node(inter[2], "LR"))
+                            
+                            pj2y = LazySets.isdisjoint(Line(fourpt0[2].val,[0.,1.]), l3, true)
+                            if pj2y[2][2] > fourpt0[2].val[2]
+                                println(i," new pj2y and inter")
+                                # fourpt[2].arm changed from "LR" to "R"
+                                replace!(fourpt, fourpt[2] => node(fourpt[2].val, "R"))
+                                insert!(fourpt, 2, node(pj2y[2], "L"))
+                                insert!(fourpt, length(fourpt), node(inter[2], "LR"))                                
+                                added +=2
                             else
-                                insert!(fourpt, 2, node(inter[2], "LR"))
+                                println(i, " replace fourpt[2] with inter")
+                                replace!(fourpt, fourpt[2] => node(inter[2], "LR"))
+                                added+=1
                             end
                             
                             #3rd point projected to xaxis
                             #slope calculation
                             abnewsg = abs.(newsg[nw[1]].val-newsg[nw[2]].val)
                             slop_newsg = abnewsg[2]/abnewsg[1]
-                            abndset = abs.(ndset0[i].val-ndset0[i+1].val)
+                            abndset = abs.(ndset[i].val-ndset[i+1].val)
                             slop_ndset = abndset[2]/abndset[1]
                             if fourpt0[3].val ∈ l1
                                 l3 = l2
@@ -1809,19 +1841,27 @@ function UpdateNDset(dsol,ndset_og,que)
                             end
                             if fourpt0[3].val[2] > fourpt0[4].val[2] && pjslop > theother_slop  
                                 pj3x = LazySets.isdisjoint(Line(fourpt0[3].val,[0.,1.]), l3, true)
-                                insert!(fourpt, length(fourpt)-1, node(pj3x[2], "R"))
+                                #change the arm status of the 3rd point
+                                replace!(fourpt, fourpt[3] => node(fourpt[3].val, "L"))
+                                println(i," new pj3x and inter")
+                                insert!(fourpt, length(fourpt), node(pj3x[2], "R"))
+                                added+=1
+                            else
+                                println(i, " delete fourpt[3]")
+                                deleteat!(fourpt, findall(x->x == fourpt0[3], fourpt))
                             end
                             #intermediate ndset update with fourpt 
                             setdiff!(ndset,fourpt0)
                             for f=length(fourpt):-1:1
                                 insert!(ndset,i,fourpt[f])
                             end
+                            ndstart = i+added
                             @goto NextPair
                         end
                     end
 
                 
-                elseif ndset0[i].arm =="L"
+                elseif ndset[i].arm =="L"
                     @goto Nextnd
                 else # ndset[i] is a "point"
                     if ndset[i].val[1] < newsg[nw[1]].val[1]
@@ -1830,7 +1870,8 @@ function UpdateNDset(dsol,ndset_og,que)
                             insert!(ndset, i+1, newsg[nw[1]])
                             insert!(ndset, i+2, newsg[nw[2]])
                         elseif dc == 1
-                            pjx = LazySets.isdisjoint( Line(ndset[i].val,[0.,1.]), LineSegment(newsg[nw[1]].val,newsg[nw[2]].val), true)
+                            lsgx = LineSegment(ndset[i].val,[newsg[nw[2].val[1]],ndset[i].val[2]])
+                            pjx = LazySets.is_intersection_empty( lsgx, LineSegment(newsg[nw[1]].val,newsg[nw[2]].val), true)
                             insert(ndset, i+1 , node(pjx[2], "LR")); insert(ndset, i+2 , newsg[nw[2]])
                         end
                     elseif ndset[i].val[1] > newsg[nw[2]].val[1] && ndset[i].val[2] < newsg[nw[2]].val[2]
@@ -1840,7 +1881,8 @@ function UpdateNDset(dsol,ndset_og,que)
                         segslop = (newsg[nw[2]].val[2] - newsg[nw[1]].val[2])/(newsg[nw[1]].val[1] - newsg[nw[2]].val[1])
                         if ndslop < 0 && ndslop > segslop
                             pjy = LazySets.isdisjoint( Line(ndset[i].val,[1.,0.]), LineSegment(newsg[nw[1]].val,newsg[nw[2]].val), true)
-                            pjx = LazySets.isdisjoint( Line(ndset[i].val,[0.,1.]), LineSegment(newsg[nw[1]].val,newsg[nw[2]].val), true)
+                            lsgx = LineSegment(ndset[i].val,[newsg[nw[2]].val[1],ndset[i].val[2]])
+                            pjx = LazySets.is_intersection_empty( lsgx, LineSegment(newsg[nw[1]].val,newsg[nw[2]].val), true)
                             insert!(ndset, i, newsg[nw[1]]); insert!(ndset, i+1, node(pjy[2], "L")); 
                             insert!(ndset, i+3, node(pjx[2], "R")); insert!(ndset, i+4, newsg[nw[1]])
                         elseif ndslop > 0
@@ -1857,6 +1899,14 @@ function UpdateNDset(dsol,ndset_og,que)
     return ndset
 end
 LPdicho = SCND_LP()
+l=3
+dsol,dtime = SolveLPdicho(dfpp.X[l],dfpp.Y[l])
+for i=1:length(dsol)
+    dsol[i] = round.(dsol[i])
+end
+que = SectionQueue(set2,dsol)
+set3 = UpdateNDset(dsol,set2,que)
+
 ########### Initialise the first nondominated set with the first FPP solution 
 dfpp1,ditime = SolveLPdicho(dfpp.X[1],dfpp.Y[1])
 for i=1:length(dfpp1)
@@ -1878,13 +1928,6 @@ end
 que = SectionQueue(set1,dsol)
 set2 = UpdateNDset(dsol,set1,que)
 
-l=3
-dsol,dtime = SolveLPdicho(dfpp.X[l],dfpp.Y[l])
-for i=1:length(dsol)
-    dsol[i] = round.(dsol[i])
-end
-que = SectionQueue(set2,dsol)
-set3 = UpdateNDset(dsol,set2,que)
 
 
 
