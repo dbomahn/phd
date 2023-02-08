@@ -109,23 +109,26 @@ t2 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
 # lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
-dicho1 = [dsol[i][1] for i=1:length(dsol)]; dicho2 = [dsol[i][2] for i=1:length(dsol)]
-dcho = scatter(x=dicho1, y=dicho2, name="dicho", mode="markers+lines", market=attr(color="blue"))
+
 
 fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
 t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
+############### merging nd segments
 
 ndog1 = [ndsetog[i].val[1] for i=1:length(ndsetog)]; ndog2 = [ndsetog[i].val[2] for i=1:length(ndsetog)];
 t0 = scatter(x=ndog1, y=ndog2, name="ndset1", mode="markers+lines", market=attr(color="black"))
 nd12x = [set2[i].val[1] for i=1:length(set2)]; nd12y = [set2[i].val[2] for i=1:length(set2)];
 t12 = scatter(x=nd12x, y=nd12y, name="ndset2", mode="markers", market=attr(color="orange"))
-
 nset3x = [set3[i].val[1] for i=1:length(set3)]; nset3y = [set3[i].val[2] for i=1:length(set3)];
-t3 = scatter(x=nset3x, y=nset3y, name="ndset3", mode="markers", market=attr(color="terquios"))
+t3 = scatter(x=nset3x, y=nset3y, name="ndset3", mode="markers", market=attr(color="red"))
+nset4x = [set4[i].val[1] for i=1:length(set4)]; nset4y = [set4[i].val[2] for i=1:length(set4)];
+t4 = scatter(x=nset4x, y=nset4y, name="ndset4", mode="markers", market=attr(color="Terquios"))
+dicho1 = [dsol[i][1] for i=1:length(dsol)]; dicho2 = [dsol[i][2] for i=1:length(dsol)]
+dcho = scatter(x=dicho1, y=dicho2, name="dicho", mode="markers+lines", market=attr(color="green"))
+plot([dcho,t0,t12,t3],layout)
 
-plot([t0,t12,dcho,t3],layout)
-
-1
+iid =findall( x-> x.val[2] < 892500 && x.val[2] > 892300, set3 )[1]
+set3[iid]
 plot([trace2,trace3,trace1,trace5], layout)
 
 cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
