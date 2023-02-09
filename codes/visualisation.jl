@@ -123,9 +123,10 @@ nset3x = [set3[i].val[1] for i=1:length(set3)]; nset3y = [set3[i].val[2] for i=1
 t3 = scatter(x=nset3x, y=nset3y, name="ndset3", mode="markers", market=attr(color="red"))
 nset4x = [set4[i].val[1] for i=1:length(set4)]; nset4y = [set4[i].val[2] for i=1:length(set4)];
 t4 = scatter(x=nset4x, y=nset4y, name="ndset4", mode="markers", market=attr(color="Terquios"))
+dsol = dsol2
 dicho1 = [dsol[i][1] for i=1:length(dsol)]; dicho2 = [dsol[i][2] for i=1:length(dsol)]
 dcho = scatter(x=dicho1, y=dicho2, name="dicho", mode="markers+lines", market=attr(color="green"))
-plot([dcho,t0,t12,t3],layout)
+plot([dcho,t0,t12],layout)
 
 iid =findall( x-> x.val[2] < 892500 && x.val[2] > 892300, set3 )[1]
 set3[iid]
