@@ -1166,11 +1166,20 @@ function UpdateNDset(dsol,ndset_og,que)
             end
         end
         setdiff!(nwpairs,gone); unique!(ndset); 
-        ndstart = 1
+        Larm = findall(x -> ndset[x].arm == "LR" && ndset[x+1].arm == "R", 1:length(ndset)-1)
+        Rarm = findall(x -> ndset[x-1].arm == "L" && ndset[x].arm == "LR", 2:length(ndset))
+        for l in Larm
+            replace!(ndset, ndset[l] => node(ndset[l].val,"L") )
+        end
+        for r in Rarm
+            replace!(ndset, ndset[r] => node(ndset[r].val,"R") )
+        end
+        ndstart = 1; domnd = []
         for nw in nwpairs    
             #iteratively sorting the lsg
             for i=ndstart:length(ndset)
-                @show (nw, i)
+                @show (newsg[nw])
+                @show (ndset[i], ndset[i+1])
                 added = 0; 
                 if ndset[i].arm == "R" || ndset[i].arm =="LR"
 
@@ -1194,16 +1203,22 @@ function UpdateNDset(dsol,ndset_og,que)
                                 if fourpt0[3].val ∈ nwline
                                     @goto NextPair
                                 else
-                                    println("dom(1,1), delete 3,4")
-                                    # if fourpt0[4].arm == "L"
-                                    deleteat!(fourpt, [3,4])
-                                    # replace!(fourpt, fourpt[2] => node(fourpt[2].val, "L"))
-                                    # else
-                                    #     @goto Nextnd
-                                    # end
+                                    if fourpt0[4].arm == "L" 
+                                        println("dom(1,1), delete 3,4")
+                                        deleteat!(fourpt, [3,4])
+                                        replace!(fourpt, fourpt[2] => node(fourpt[2].val, "L"))
+                                        added+=2
+                                    else
+                                        println("dom(1,1), keep dom nd")
+                                        if ndset[i] ∉ domnd
+                                            push!(domnd, ndset[i],ndset[i+1])
+                                        end
+                                        # ndstart =i+1 
+                                        @goto Nextnd
+                                        
+                                    end
                                 end
                             elseif (dom3,dom4) == (1,0)  #pt3 dominated
-                                
                                 lsg2x = LazySets.LineSegment(fourpt0[2].val,[fourpt0[4].val[1],fourpt0[2].val[2]])
                                 pj2x = is_intersection_empty(lsg2x,l3,true)
                                 if fourpt0[3].val ∈ nwline    
@@ -1211,32 +1226,38 @@ function UpdateNDset(dsol,ndset_og,que)
                                         replace!(fourpt, fourpt[2] => node(fourpt[2].val, "L"))
                                         replace!(fourpt, fourpt[3] => node(pj2x[2], "R"))
                                         added+=2
-
                                     else
-
                                         @goto Nextnd
                                     end
                                 else
-                                    if nw == nwpairs[end]
-                                        replace!(fourpt, fourpt[2] => node(fourpt[2].val, "L"))
-                                        replace!(fourpt, fourpt[3] => node(pj2x[2], "R"))
-                                        added+=2
-                                    else
-                                        println("dom(1,0), next Pair")
-                                        for f=2:-1:1
-                                            if fourpt[f] ∉ ndset
-                                                insert!(ndset,i,fourpt[f])
-                                                added+=1
-                                            end
-                                        end
-                                        ndstart = i+added
-                                        @goto NextPair
+                                    # if nw == nwpairs[end]
+                                    replace!(fourpt, fourpt[2] => node(fourpt[2].val, "L"))
+                                    replace!(fourpt, fourpt[3] => node(pj2x[2], "R"))
+                                    added+=2
+                                    # else
+                                    println("dom(1,0), insert f1 &f2 and pj2x")
+                                    # for f=2:-1:1
+                                    #     if fourpt[f] ∉ ndset
+                                    #         insert!(ndset,i,fourpt[f])
+                                    #         added+=1
+                                    #     end
+                                    # end
+                                     #intermediate ndset update with fourpt 
+                                    setdiff!(ndset,fourpt0)
+                                    for f=length(fourpt):-1:1
+                                        insert!(ndset,i,fourpt[f])
                                     end
+                                    ndstart = i+added
+                                    @goto NextPair
+                                    # end
                                 end
                             else #(0,0) none dominated
+                                
                                 if i != length(ndset) && fourpt0[3].val ∈ nwline
+                                    println("dom(1,0) next nd")
                                     @goto Nextnd
                                 else
+                                    println("dom(1,0) next pair")
                                     for f=2:-1:1
                                         if fourpt[f] ∉ ndset
                                             insert!(ndset,i,fourpt[f])
@@ -1263,7 +1284,10 @@ function UpdateNDset(dsol,ndset_og,que)
                             added+=1
                         elseif pj2y[2][2] < fourpt0[2].val[2]
                             println((nw,i)," delete from projection 2y")
-                            deleteat!(fourpt,2)
+                            if fourpt0[2] ∉ domnd
+                                push!(domnd, fourpt0[2])
+                            end
+                            # deleteat!(fourpt,2)
 
                         end
                         # 3rd point projected to xaxis
@@ -1278,7 +1302,11 @@ function UpdateNDset(dsol,ndset_og,que)
                             
                             if isempty(pj3x[2]) || pj3x[2][1] < fourpt0[3].val[1] # no intersection
                                 println((nw,i),"delete from projection 3")
-                                deleteat!(fourpt, findall(x->x== fourpt0[3],fourpt)); 
+                                if fourpt0[3] ∉ domnd
+                                    push!(domnd, fourpt0[3])
+                                end
+                                @goto Nextnd
+                                # deleteat!(fourpt, findall(x->x== fourpt0[3],fourpt)); 
                             elseif pj3x[2][1] > fourpt0[3].val[1]
                                 println((nw,i),"added from projection 3")
                                 replace!(fourpt, fourpt[3] => node(fourpt[3].val, "L"))
@@ -1289,29 +1317,31 @@ function UpdateNDset(dsol,ndset_og,que)
                             deleteat!(fourpt,findall(x->x== fourpt0[4],fourpt));
                         end
                         
-                        #intermediate ndset update with fourpt 
+                        # intermediate ndset update with fourpt 
                         setdiff!(ndset,fourpt0)
                         for f=length(fourpt):-1:1
-                            insert!(ndset,i,fourpt[f])
+                            if fourpt[f] ∉ ndset
+                                insert!(ndset,i,fourpt[f])
+                            end
                         end
                         ndstart = i+added
-                        # @goto NextPair
-                        if fourpt0[2].val ∈ nwline
-                            @goto Nextnd
-                        else
-                            @goto NextPair
-                        end
+                        @goto Nextnd
+                        # if fourpt0[2].val ∈ nwline
+                        #     @goto Nextnd
+                        # else
+                        #     @goto NextPair
+                        # end
     
                     else 
-                        println("intersect")
                         # line segments share the point => calculate with three points
                         if inter[2] ∈ [newsg[nw[1]].val,newsg[nw[2]].val,ndset[i].val,ndset[i+1].val]
-                            println("sharing a point")
                             threept0 = copy(fourpt0)
                             interid = findall(x->x.val==inter[2],threept0)[1]
                             deleteat!(threept0, interid)
                             threept = copy(threept0)
                             if interid == 1
+                                println("sharing point 1")
+
                                 if threept0[2].val[2] < threept0[3].val[2]
                                     deleteat!(threept,3)
                                 else
@@ -1328,6 +1358,7 @@ function UpdateNDset(dsol,ndset_og,que)
                                     end
                                 end
                             elseif interid == 3
+                                println("sharing point 3")
                                 slop13 = abs( (threept0[1].val[2]-threept0[3].val[2])/(threept0[1].val[1]-threept0[3].val[1]) )
                                 slop23 = abs( (threept0[2].val[2]-threept0[3].val[2])/(threept0[2].val[1]-threept0[3].val[1]) )
                                 if slop23 < slop13
@@ -1338,6 +1369,8 @@ function UpdateNDset(dsol,ndset_og,que)
                                     deleteat!(threept,2)
                                 end
                             elseif interid == 2
+                                println("sharing point 2")
+                                ndstart = i+1
                                 @goto Nextnd
                             end
                             #intermediate ndset update with threept 
@@ -1364,7 +1397,7 @@ function UpdateNDset(dsol,ndset_og,que)
                                 insert!(fourpt, length(fourpt), node(inter[2], "LR"))                                
                                 added+=2
                             else
-                                println(i, " replace fourpt[2] with inter")
+                                println(i, " replace fourpt[2] with inter: ", pj2y[2])
                                 replace!(fourpt, fourpt[2] => node(inter[2], "LR"))
                                 added+=1
                             end
@@ -1377,17 +1410,19 @@ function UpdateNDset(dsol,ndset_og,que)
                             slop_ndseg = abs(nddif[2]/nddif[1])
                             if fourpt0[3].val ∈ nwline
                                 l3 = ndline
-                                pjslop = slop_newsg; theother_slop = slop_ndset
+                                pjslop = slop_newseg; theother_slop = slop_ndseg
                             else
                                 l3 = nwline
-                                pjslop = slop_ndset; theother_slop = slop_newsg
+                                pjslop = slop_ndseg; theother_slop = slop_newseg
                             end
                             
                             if fourpt0[3].val[2] > fourpt0[4].val[2] && abs(pjslop) > abs(theother_slop)  
-                                pj3x = LazySets.isdisjoint(Line(fourpt0[3].val,[0.,1.]), l3, true)
+                                lsg3x = LazySets.LineSegment([fourpt0[1].val[1],fourpt0[3].val[2]],[fourpt0[4].val[1],fourpt0[3].val[2]])
+                                pj3x = is_intersection_empty(lsg3x,l3,true)
+    
                                 #change the arm status of the 3rd point
                                 # replace!(fourpt, fourpt[3] => node(fourpt[3].val, "L"))
-                                println(i," new pj3x and inter")
+                                println(i," new pj3x: ", pj3x[2])
                                 insert!(fourpt, length(fourpt), node(pj3x[2], "R"))
                                 added+=1
                             else
@@ -1395,7 +1430,8 @@ function UpdateNDset(dsol,ndset_og,que)
                                 deleteat!(fourpt, findall(x->x == fourpt0[3], fourpt))
                             end
                             #intermediate ndset update with fourpt 
-                            setdiff!(ndset,fourpt0)
+                            
+                            setdiff!(ndset,fourpt0)                            
                             for f=length(fourpt):-1:1
                                 insert!(ndset,i,fourpt[f])
                             end
@@ -1405,11 +1441,10 @@ function UpdateNDset(dsol,ndset_og,que)
                     end
                 elseif ndset[i].arm =="L"
                     if i != length(ndset) 
-                        ndstart+=1
-                        println("only Left arm => nextnode", ndstart)
+                        println("only Left arm => nextnode ")
                         @goto Nextnd
-                    else #last node
-                        return ndset
+                    # else #last node
+                    #     return ndset
                     end
 
                 else # ndset[i] is a "point"
@@ -1445,20 +1480,36 @@ function UpdateNDset(dsol,ndset_og,que)
             @label NextPair
         end
     end
+    # Post processing: filter domindated 
+    # pf = [ndset[i].val for i=1:length(ndset)]
+    # domind = []
+    # for i=1:length(ndset)-1
+    #     for j=1:length(ndset)
+    #         if all( ndset[i] .> pf[j])
+    #             push!(domind, ndset[i])
+    #         end
+    #     end
+    # end
+    # setdiff!(ndset,domind)
+    setdiff!(ndset,domnd); 
     return ndset
 end
 
-#######################
-# l=4
-# dsol,dtime = SolveLPdicho(dfpp.X[l],dfpp.Y[l])
-# for i=1:length(dsol)
-#     dsol[i] = round.(dsol[i])
-# end
-# que = SectionQueue(set3,dsol)
 set34time = @CPUelapsed set4 = UpdateNDset(dsol,set3,que)
+nset4x = [set4[i].val[1] for i=1:length(set4)]; nset4y = [set4[i].val[2] for i=1:length(set4)];
+t4 = scatter(x=nset4x, y=nset4y, name="ndset4", mode="markers", market=attr(color="Terquios"))
+plot([dcho,t0,t12,t3,t4],layout)
 
+# domind = []
+# for i=1:length(set4)-1
+#     for j=1:length(set4)
+#         if all( set4[i].val .> set4[j].val)
+#             push!(domind, set4[i])
+#         end
+#     end
+# end
 ########### Initialise the first nondominated set with the first FPP solution 
-dfpp1,ditime = SolveLPdicho(dfpp.X[1],dfpp.Y[1])
+dfpp1,ditime = SolveLPdicho(dfpp.X[2],dfpp.Y[2])
 for i=1:length(dfpp1)
     dfpp1[i] = round.(dfpp1[i])
 end
@@ -1469,8 +1520,9 @@ else
 end
 set1= copy(ndsetog)
 
+
 ########### adding the rest FPP solutions into the ndset
-l=2
+l=1
 dsol2,dtime2 = SolveLPdicho(dfpp.X[l],dfpp.Y[l])
 for i=1:length(dsol2)
     dsol2[i] = round.(dsol2[i])
@@ -1478,6 +1530,7 @@ end
 que = SectionQueue(set1,dsol2)
 set12time = @CPUelapsed set2 = UpdateNDset(dsol2,set1,que)
 
+#######################
 l=3
 dsol,dtime = SolveLPdicho(dfpp.X[l],dfpp.Y[l])
 for i=1:length(dsol)
@@ -1485,6 +1538,15 @@ for i=1:length(dsol)
 end
 que = SectionQueue(set2,dsol)
 set23time = @CPUelapsed set3 = UpdateNDset(dsol,set2,que)
+
+l=4
+dsol,dtime = SolveLPdicho(dfpp.X[l],dfpp.Y[l])
+for i=1:length(dsol)
+    dsol[i] = round.(dsol[i])
+end
+que = SectionQueue(set3,dsol)
+
+
 
 
 ###################### adding at once
