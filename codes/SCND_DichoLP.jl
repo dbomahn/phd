@@ -1023,38 +1023,6 @@ function dominance_count(x,P)
     end
     return st
 end
-function ClassifyND(ndset,dsol)
-    Larms = findall(x-> ndset[x].arm == "L", 1:length(ndset))
-    start = 0;  ndom = []; dom = [];
-
-    for l in Larms 
-        refset = ndset[1+start:l]
-        polygon = [refset[i].val for i=1:length(refset)]
-        push!(polygon, [99^30, refset[end].val[2]],[99^30, refset[1].val[2]])
-        edges = zeros(Int,length(polygon),2)
-        for i=1:length(polygon)-1
-            edges[i,1] = i; edges[i,2] = i+1
-        end
-        edges[end,1] = length(polygon); edges[end,2] = 1
-        stat = inpoly2(dsol, polygon, edges, atol = 1e-1)
-        tmpnd = findall(x-> stat[x,:] == [0,0], 1:length(dsol))
-        push!(ndom, tmpnd)
-        union!(dom, filter( x-> x ∉ tmpnd, 1:length(dsol)))
-        start = l
-    end
-    
-    ndom2 = nothing
-    if length(ndom)>1
-        ndom2 = ndom[1]
-        for i=2:length(ndom)
-            ndom2 = intersect(ndom2, ndom[i])
-        end
-    elseif length(ndom)==1 
-        ndom2 = ndom[1]
-    end
-
-    return ndom2,dom
-end
 function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
     ndset = copy(ndset_og)
     if length(newsg_og) == 1                                   # new solution is a point
@@ -1176,7 +1144,15 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
             end
         end
 
-    else    
+    else
+        Larm = findall(x -> ndset[x].arm == "LR" && ndset[x+1].arm == "R", 1:length(ndset)-1)
+        Rarm = findall(x -> ndset[x-1].arm == "L" && ndset[x].arm == "LR", 2:length(ndset))
+        for l in Larm
+            replace!(ndset, ndset[l] => node(ndset[l].val,"L") )
+        end
+        for r in Rarm
+            replace!(ndset, ndset[r] => node(ndset[r].val,"R") )
+        end    
         newsg = copy(newsg_og)    
         removal = []; addnw = []; ndstart = 1;
         for k =1:length(newsg)-1
@@ -1184,12 +1160,12 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
             else
                 for i=ndstart:length(ndset)-1
                     @show (k,i)
-                    if i ∈ ndomset && i+1 ∈ ndomset  
-                        println("all nd nondominated. next: ", ndstart)
+                    if i ∈ ndomset && i+1 ∈ ndomset && k+1 ∉ ndicho
                         ndstart = i+1
+                        println("all nd nondominated. next: ", ndstart)
                     elseif i ∈ domset && i+1 ∈ domset
                         println("all nd domset")
-                        push!(removal,ndset[i,i+1]) 
+                        push!(removal,ndset[i],ndset[i+1]) 
                     else
                         
                         @show (newsg[k], ndset[i])
@@ -1229,6 +1205,8 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
                                             push!(addnw, newsg[k], newsg[k+1])
                                             @goto NextPair
                                         end
+                                    elseif (dom3,dom4) == (0,1) 
+                                        println("dom = 0,1")
                                     else # (dom3,dom4) == (1,0)  #pt3 dominated
                                         println("dom = 1,0")
                                         lsg2x = LazySets.LineSegment(fourpt0[2].val,[fourpt0[4].val[1],fourpt0[2].val[2]])
@@ -1251,9 +1229,8 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
                                     println((k,i),"add from pj 2y")
                                     if fourpt0[2].val ∈ nwline
                                         # replace!(ndset, ndset[i+1] => node(ndset[i+1].val, "R"))
-                                        push!(ndset, node(pj2y[2], "L"), node(newsg[i].val, "R"))
+                                        push!(ndset, node(pj2y[2], "L"), node(newsg[k].val, "R"))
                                     else
-                                        
                                         push!(addnw, newsg[k], node(pj2y[2], "L"))
                                     end
                                 elseif pj2y[2][2] < fourpt0[2].val[2]
@@ -1282,7 +1259,9 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
                                     elseif pj3x[2][1] < fourpt0[3].val[1] # no intersection
                                         println("no add from proj 3")
                                         if fourpt0[3].val ∈ nwline
-                                            push!(removal, newsg[k])
+                                            if k+1 != length(newsg)
+                                                push!(removal, newsg[k])
+                                            end
                                         else
                                             push!(addnw, newsg[k+1]); push!(removal, ndset[i+1])
                                         end
@@ -1290,7 +1269,7 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
                                     elseif pj3x[2][1] > fourpt0[3].val[1]
                                         println("added from proj 3")
                                         if fourpt0[3].val ∈ nwline
-                                            push!(addnw, node(newsg[k+1], "L"))
+                                            push!(addnw, node(newsg[k+1].val, "L"))
                                             insert!(ndset, i+1, node(pj3x[2], "R"))
                                             @goto NextPair
                                         else
@@ -1376,14 +1355,19 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
                                         l3 = nwline
                                     end
                                     # 2nd point projected to yaxis
-                                    pj2y = LazySets.isdisjoint(Line(fourpt0[2].val,[0.,1.]), l3, true)
+                                    lsg2y = LazySets.LineSegment([fourpt0[2].val[1],0],[fourpt0[2].val[1],99^30])
+                                    pj2y = is_intersection_empty(lsg2y,l3,true)
                                     if pj2y[2][2] > fourpt0[2].val[2]
                                         if fourpt0[2].val ∈ nwline
                                             println(" new pj2y and inter")
                                             # fourpt[2].arm changed from "LR" to "R"
                                             push!(addnw, node(pj2y[2], "L"), node(fourpt[2].val, "R"), node(inter[2], "LR"))
                                         else
-                                            push!(addnw, fourpt[2], node(pj2y[2], "L"), node(inter[2], "LR"))
+                                            push!(addnw, fourpt[2]) 
+                                            if k ∉ ddicho
+                                                push!(addnw, node(pj2y[2], "L"))
+                                            end
+                                            push!(addnw, node(inter[2], "LR"))
                                         end
                                     else
                                         println(" replace fourpt[2] with inter")
@@ -1483,13 +1467,47 @@ function UpdateNDset(ddicho,ndicho,domset,ndomset,newsg_og,ndset_og)
     end
     return ndset
 end
+function ClassifyND(ndset,dsol)
+    Larms = findall(x-> ndset[x].arm == "L", 1:length(ndset))
+    start = 0;  ndom = []; dom = [];
+
+    for l in Larms 
+        refset = ndset[1+start:l]
+        polygon = [refset[i].val for i=1:length(refset)]
+        insert!(polygon, 1, [refset[1].val[1], 99^30])
+        push!(polygon, [99^30, refset[end].val[2]],[99^30, refset[1].val[2]])
+        edges = zeros(Int,length(polygon),2)
+        for i=1:length(polygon)-1
+            edges[i,1] = i; edges[i,2] = i+1
+        end
+        edges[end,1] = length(polygon); edges[end,2] = 1
+        stat = inpoly2(dsol, polygon, edges, atol = 1e-1)
+        tmpnd = findall(x-> stat[x,:] == [0,0], 1:length(dsol))
+        push!(ndom, tmpnd)
+        union!(dom, filter( x-> x ∉ tmpnd, 1:length(dsol)))
+        start = l
+    end
+    
+    ndom2 = nothing
+    if length(ndom)>1
+        ndom2 = ndom[1]
+        for i=2:length(ndom)
+            ndom2 = intersect(ndom2, ndom[i])
+        end
+    elseif length(ndom)==1 
+        ndom2 = ndom[1]
+    end
+
+    return ndom2,dom
+end
+
 ########### Initialise the first nondominated set with the first FPP solution 
+LPdicho = SCND_LP()
 function InitialNDset(dfpp)
-    LPdicho = SCND_LP()
     dsol1 = SolveLPdicho(dfpp.X[1],dfpp.Y[1])
-    # for i=1:length(dfpp.Y)
-    #     dfpp1[i] = round.(dfpp1[i])
-    # end
+    for i=1:length(dsol1)
+        dsol1[i] = round.(dsol1[i])
+    end
     if length(dsol1) > 1
         ndset = Newnodes(dsol1)
     else
@@ -1505,16 +1523,13 @@ function InitialNDset(dfpp)
         newsg = Newnodes(dsol)
         ndomset, domset = ClassifyND(newsg,ndlist)
         ndset = UpdateNDset(ddicho,ndicho,domset,ndomset,newsg,ndset)
+        println(l,"th set #####################length: ", length(ndset), "######################")
     end
     return ndset    
 end
 
 ndset0 = InitialNDset(dfpp)
 
-dsol,dtime = SolveLPdicho(dfpp.X[3],dfpp.Y[3])
-ndset = Newnodes(sort(dfpp.Y))
-set2 = copy(ndset)
-newset = UpdateNDset(dsol,ndset,que)
 
 function PR(dX,dY,len,TL)
     X = copy(dX); Y = copy(dY); IGPair=[]; 

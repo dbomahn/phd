@@ -74,33 +74,15 @@ end
 t4 = scatter(x=p11, y=p12,  name="LP+FP+PR", mode="markers", marker=attr(color="royalblue")) #
 plot([t1,t4], layout)
 
-# mip = readdlm("/home/desk/Desktop/relise/mip/test04S4mipY2.log")
-m1 = mip[:,1]; m2 = mip[:,2]
-
-# tnum = 12
 fpath = "/home/ak121396/Desktop/relise/epsilon/1/"
 eplist = readdir(fpath)#[2:end]
 ep1 = readdlm(fpath*eplist[tnum])[1:10,:]
 t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-# e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])
-# ep = [[e1[k],e2[k]] for k=1:length(e1)]
-# epp = NDfilter2(ep)
-# ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
 
 lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test12S4largeTL.log")
 l1 = lpY[:,1]; l2 = lpY[:,2]
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
 plot([t1,t3],layout)
-
-###########################################
-# lsg = filter!(p->p!=[],collect(values(linesg)))
-# lsg1 = []; lsg2 = []
-# for i=1:length(lsg)
-#     append!(lsg1,[lsg[i][j][1] for j=1:length(lsg[i])])
-#     append!(lsg2,[lsg[i][j][2] for j=1:length(lsg[i])])
-# end
-# opt dominated out
-# fy1= [fyy[i][1] for i=1:length(fyy)]; fy2 = [fyy[i][2] for i=1:length(fyy)]
 
 # mode="markers+text"
 # trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
@@ -110,25 +92,39 @@ py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
 # lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
 
-
 fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
 t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
 ############### merging nd segments
-ndog1 = [ndset0[i].val[1] for i=1:length(ndset0)]; ndog2 = [ndset0[i].val[2] for i=1:length(ndset0)];
-t0 = scatter(x=ndog1, y=ndog2, name="ndset1", mode="markers+lines", market=attr(color="black"))
-plot([t1,t0],layout)
+ndog1 = [ndset9[i].val[1] for i=1:length(ndset9)]; ndog2 = [ndset9[i].val[2] for i=1:length(ndset9)];
+t2 = scatter(x=ndog1, y=ndog2, name="ndset9", mode="markers+lines", market=attr(color="Terquios"))
+dicho1 = [ndset8[i].val[1] for i=1:length(ndset8)]; dicho2 = [ndset8[i].val[2] for i=1:length(ndset8)]
+dcho = scatter(x=dicho1, y=dicho2, name="ndset8", mode="markers+lines", market=attr(color="green"))
+di1 = [dsol9[i][1] for i=1:length(dsol9)]; di2 = [dsol9[i][2] for i=1:length(dsol9)]
+d2 = scatter(x=di1, y=di2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
+plot([dcho,d2,t2],layout)
 
-nd12x = [set2[i].val[1] for i=1:length(set2)]; nd12y = [set2[i].val[2] for i=1:length(set2)];
-t12 = scatter(x=nd12x, y=nd12y, name="ndset2", mode="markers+lines", market=attr(color="orange"))
-nset3x = [set3[i].val[1] for i=1:length(set3)]; nset3y = [set3[i].val[2] for i=1:length(set3)];
-t3 = scatter(x=nset3x, y=nset3y, name="ndset3", mode="markers", market=attr(color="red"))
-nset4x = [set4[i].val[1] for i=1:length(set4)]; nset4y = [set4[i].val[2] for i=1:length(set4)];
-t4 = scatter(x=nset4x, y=nset4y, name="ndset4", mode="markers", market=attr(color="Terquios"))
-nset5x = [set5[i].val[1] for i=1:length(set5)]; nset5y = [set5[i].val[2] for i=1:length(set5)];
-t5 = scatter(x=nset5x, y=nset5y, name="ndset5", mode="markers", market=attr(color="green"))
-# dicho1 = [dsol[i][1] for i=1:length(dsol)]; dicho2 = [dsol[i][2] for i=1:length(dsol)]
-# dcho = scatter(x=dicho1, y=dicho2, name="dicho", mode="markers+lines", market=attr(color="green"))
-plot([dcho,t0,t12,t3,t4,t5],layout)
+
+n11 = [ndset0[i].val[1] for i=1:length(ndset0)]; n12 = [ndset0[i].val[2] for i=1:length(ndset0)];
+nd0 = scatter(x=n11, y=n12, name="ndset0", mode="markers+lines", market=attr(color="Terquios"))
+plot([nd0],layout)
+
+
+
+
+ndi1 = [ndset3[i].val[1] for i=1:length(ndset3)]; ndi2 = [ndset3[i].val[2] for i=1:length(ndset3)];
+s3 = scatter(x=ndi1, y=ndi2, name="ndset3", mode="markers+lines", market=attr(color="Terquios"))
+c11 = [ndset2[i].val[1] for i=1:length(ndset2)]; c22 = [ndset2[i].val[2] for i=1:length(ndset2)]
+cho = scatter(x=c11, y=c22, name="ndset2", mode="markers+lines", market=attr(color="green"))
+h1 = [dsol3[i][1] for i=1:length(dsol3)]; h2 = [dsol3[i][2] for i=1:length(dsol3)]
+hh = scatter(x=h1, y=h2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
+plot([s3,cho,hh],layout)
+
+
+
+
+
+
+
 
 plot([trace2,trace3,trace1,trace5], layout)
 
