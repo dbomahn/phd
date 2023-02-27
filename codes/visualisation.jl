@@ -29,8 +29,6 @@ function NDfilter2(Pobj)
     return finalobj
 end
 # benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
-
-
 function Plot_epYlpY(num)
     eplist = readdir("/home/ak121396/Desktop/relise/epsilon/")
     lplist = readdir("/home/ak121396/Desktop/relise/lpY/2/")
@@ -62,7 +60,7 @@ function Plot_epYlpY(num)
         savefig(fig,"/home/ak121396/Dropbox/5_w/$i.png")
     end
 end
-Plot_epYlpY(15)
+# Plot_epYlpY(15)
 ########################################################################
 pr0 =  [ ]
 pr1=reshape(pr0,2,Int(length(pr0)/2))
@@ -76,13 +74,28 @@ plot([t1,t4], layout)
 
 fpath = "/home/ak121396/Desktop/relise/epsilon/1/"
 eplist = readdir(fpath)#[2:end]
+tnum = 2
 ep1 = readdlm(fpath*eplist[tnum])[1:10,:]
 t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
 
-lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test12S4largeTL.log")
+
+lpath = "/home/ak121396/Desktop/relise/lpY/ndp/dichow/"
+llist = readdir(lpath)
+lpY = readdlm(lpath*llist[4])
 l1 = lpY[:,1]; l2 = lpY[:,2]
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-plot([t1,t3],layout)
+fig = plot([t1,t3],layout);
+savefig(fig,"/home/ak121396/Dropbox/SCNDplots/dichow/$tnum.png")
+
+mpath = "/home/ak121396/Desktop/relise/mipdicho/"
+mlist = readdir(mpath)#[2:end]
+mdicho = readdlm(mpath*mlist[tnum])
+m1 = scatter(x=mdicho[:,1], y=mdicho[:,2],  name="mipdicho10", mode="lines+markers", marker=attr(color = "royalblue"))
+
+# lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test12S4largeTL.log")
+# l1 = lpY[:,1]; l2 = lpY[:,2]
+# t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
+# plot([t1,t3],layout)
 
 # mode="markers+text"
 # trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
@@ -91,43 +104,32 @@ t2 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
 # lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
-
-fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
-t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
+# fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
+# t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
 ############### merging nd segments
-ndog1 = [ndset9[i].val[1] for i=1:length(ndset9)]; ndog2 = [ndset9[i].val[2] for i=1:length(ndset9)];
-t2 = scatter(x=ndog1, y=ndog2, name="ndset9", mode="markers+lines", market=attr(color="Terquios"))
-dicho1 = [ndset8[i].val[1] for i=1:length(ndset8)]; dicho2 = [ndset8[i].val[2] for i=1:length(ndset8)]
-dcho = scatter(x=dicho1, y=dicho2, name="ndset8", mode="markers+lines", market=attr(color="green"))
-di1 = [dsol9[i][1] for i=1:length(dsol9)]; di2 = [dsol9[i][2] for i=1:length(dsol9)]
-d2 = scatter(x=di1, y=di2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
-plot([dcho,d2,t2],layout)
+n11 = [ndset[i].val[1] for i=1:length(ndset)]; n12 = [ndset[i].val[2] for i=1:length(ndset)];
+nd = scatter(x=n11, y=n12, name="ndset", mode="markers+lines", market=attr(color="Terquios"))
+ndi1 = [dsol1[i][1] for i=1:length(dsol1)]; ndi2 = [dsol1[i][2] for i=1:length(dsol1)];
+d1 = scatter(x=ndi1, y=ndi2, name="dsol1", mode="markers+lines", market=attr(color="Terquios"))
+c11 = [ndset0[i].val[1] for i=1:length(ndset0)]; c22 = [ndset0[i].val[2] for i=1:length(ndset0)]
+nd0 = scatter(x=c11, y=c22, name="ndset0", mode="markers+lines", market=attr(color="green"))
+h1 = [dsol[i][1] for i=1:length(dsol)]; h2 = [dsol[i][2] for i=1:length(dsol)]
+ds = scatter(x=h1, y=h2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
+plot([nd,ds],layout)
 
 
-n11 = [ndset0[i].val[1] for i=1:length(ndset0)]; n12 = [ndset0[i].val[2] for i=1:length(ndset0)];
-nd0 = scatter(x=n11, y=n12, name="ndset0", mode="markers+lines", market=attr(color="Terquios"))
-plot([nd0],layout)
-
-
-
-
-ndi1 = [ndset3[i].val[1] for i=1:length(ndset3)]; ndi2 = [ndset3[i].val[2] for i=1:length(ndset3)];
-s3 = scatter(x=ndi1, y=ndi2, name="ndset3", mode="markers+lines", market=attr(color="Terquios"))
-c11 = [ndset2[i].val[1] for i=1:length(ndset2)]; c22 = [ndset2[i].val[2] for i=1:length(ndset2)]
-cho = scatter(x=c11, y=c22, name="ndset2", mode="markers+lines", market=attr(color="green"))
-h1 = [dsol3[i][1] for i=1:length(dsol3)]; h2 = [dsol3[i][2] for i=1:length(dsol3)]
-hh = scatter(x=h1, y=h2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
-plot([s3,cho,hh],layout)
-
-
-
-
-
-
-
-
-plot([trace2,trace3,trace1,trace5], layout)
-
+cols = distinguishable_colors(length(nodeset), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+lsg_array = GenericTrace[]
+start = 0
+Larms = findall(x-> nodeset[x].arm == "L", 1:length(nodeset))
+for l in Larms
+    set = nodeset[1+start:l]
+    lsg = scatter(x=[set[j].val[1] for j=1:length(set)],y=[set[j].val[2] for j=1:length(set)], mode="markers+lines", color=cols[1])    
+    push!(lsg_array,lsg)
+    start = l
+end
+plot([lsg_array; t1; t3], layout)
+################
 cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
 plot_array = GenericTrace[]
 push!(plot_array,trace)
@@ -138,8 +140,6 @@ for i=1:length(linesg)
     end
 end
 fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
-
-
 
 
 ######################################     3D Visualisation       #################################
