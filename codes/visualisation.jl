@@ -107,23 +107,23 @@ t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color
 # fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
 # t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
 ############### merging nd segments
-n11 = [ndset[i].val[1] for i=1:length(ndset)]; n12 = [ndset[i].val[2] for i=1:length(ndset)];
-nd = scatter(x=n11, y=n12, name="ndset", mode="markers+lines", market=attr(color="Terquios"))
-ndi1 = [dsol1[i][1] for i=1:length(dsol1)]; ndi2 = [dsol1[i][2] for i=1:length(dsol1)];
-d1 = scatter(x=ndi1, y=ndi2, name="dsol1", mode="markers+lines", market=attr(color="Terquios"))
-c11 = [ndset0[i].val[1] for i=1:length(ndset0)]; c22 = [ndset0[i].val[2] for i=1:length(ndset0)]
-nd0 = scatter(x=c11, y=c22, name="ndset0", mode="markers+lines", market=attr(color="green"))
+n11 = [ndset5[i].val[1] for i=1:length(ndset5)]; n12 = [ndset5[i].val[2] for i=1:length(ndset5)];
+nd = scatter(x=n11, y=n12, name="ndset5", mode="markers+lines", market=attr(color="Terquios"))
 h1 = [dsol[i][1] for i=1:length(dsol)]; h2 = [dsol[i][2] for i=1:length(dsol)]
 ds = scatter(x=h1, y=h2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
 plot([nd,ds],layout)
+ndi1 = [dsol1[i][1] for i=1:length(dsol1)]; ndi2 = [dsol1[i][2] for i=1:length(dsol1)];
+d1 = scatter(x=ndi1, y=ndi2, name="dsol1", mode="markers+lines", market=attr(color="Terquios"))
+c11 = [ndset4[i].val[1] for i=1:length(ndset4)]; c22 = [ndset4[i].val[2] for i=1:length(ndset4)]
+nd4 = scatter(x=c11, y=c22, name="ndset4", mode="markers+lines", market=attr(color="green"))
 
 
-cols = distinguishable_colors(length(nodeset), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+cols = distinguishable_colors(length(ndy0), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
 lsg_array = GenericTrace[]
 start = 0
-Larms = findall(x-> nodeset[x].arm == "L", 1:length(nodeset))
+Larms = findall(x-> ndy0[x].arm == "L", 1:length(ndy0))
 for l in Larms
-    set = nodeset[1+start:l]
+    set = ndy0[1+start:l]
     lsg = scatter(x=[set[j].val[1] for j=1:length(set)],y=[set[j].val[2] for j=1:length(set)], mode="markers+lines", color=cols[1])    
     push!(lsg_array,lsg)
     start = l
