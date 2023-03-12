@@ -1,16 +1,16 @@
-using DelimitedFiles,DataFrames
+using DelimitedFiles,DataFrames,CSV
 
 ########################## obj file converter: merging FPBH&GPR ################
-fdir = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
-gdir = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
-for i=1:9
+fdir = "E:/LPBMresults/fpbh/MIPLIB/"
+gdir = "E:/LPBMresults/gpr/MIPLIB/"
+for i=1:14
     gname = readdir(gdir*"/$i/"); fname = readdir(fdir*"/$i/")
     for j=1:5
         F = readdlm(fdir*"/$i/"*fname[j])
         G = readdlm(gdir*"/$i/"*gname[j])
         P = vcat(F,G)
         ins = fname[j][1:end-4]
-        CSV.write("/media/ak121396/0526-8445/results/mergedMIP/$i"*"/$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
+        CSV.write("E:/LPBMresults/mergedMIP/$i"*"/$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
     end
 end
 # edir = "/home/ak121396/Desktop/relise/epsilon/"
@@ -30,7 +30,7 @@ cd("C:\\Users\\AK121396\\Downloads\\performance_indi\\indicators_win\\")
 
 cd("/home/ak121396/Downloads/performance_indi/indicators_linux/")
 # find bounds
-os = "_linux" #_win
+os = "_win" #"_linux"
 function Findbounds(refpath,newpath)
     files = readdir(refpath)
         for j=1:length(files)
@@ -45,7 +45,7 @@ end
 
 cd("../")
 function Findbounds(refpath,newpath) #MIPLIB
-    for i=6:10
+    for i=1:14
         @show refpath2 = refpath*"$i"
         files = readdir(refpath2)
         for j=1:length(files)
@@ -53,12 +53,12 @@ function Findbounds(refpath,newpath) #MIPLIB
             new = newpath*"$i/"*file[1:end-4]*".txt"
             # ./bound [<paramfile>] <datafile> <outfile>
             open("$new","w") do io end
-            run(pipeline(`./tools*"$os"*/bound ./tools*"$os"*/bound_param.txt
+            run(pipeline(`./tools$os/bound ./tools$os/bound_param.txt
                 $refpath2/$file $new`) )
         end
     end
 end
-Findbounds("F:/results/mergedMIP/","F:/results/performance/bounds/MIPLIB/")
+Findbounds("E:/LPBMresults/mergedMIP/","E:/LPBMresults/performance/bounds/MIPLIB/")
 # cd("/home/ak121396/Downloads/performance_indi/") #indicators_linux/
 # # find bounds
 # os = "_linux" #_win
@@ -81,7 +81,7 @@ Findbounds("F:/results/mergedMIP/","F:/results/performance/bounds/MIPLIB/")
 ################################  (Reference file) obj normalisation  ##################################
 function Ref_normalise(refpath,boundpath)
     prob = readdir(refpath);
-    for i=5:10 #length(prob)
+    for i=1:14 #length(prob)
         # dirn = prob[i]
         insts = readdir(refpath*"$i/")#dirn)
         for j=1:length(insts)
@@ -95,7 +95,7 @@ function Ref_normalise(refpath,boundpath)
             @show bpath = boundpath*"$i/"*bounds[j] #*num[i]
 
             # ./normalize [<paramfile>] <boundfile> <datafile> <outfile>
-            run(pipeline(`./tools_linux/normalize ./tools_linux/normalize_param.txt
+            run(pipeline(`./tools$os/normalize ./tools$os/normalize_param.txt
                 $bpath $file $new`))
 
         end
@@ -104,33 +104,33 @@ end
 
 cd("C:\\Users\\AK121396\\Downloads\\performance_indi\\")
 
-Ref_normalise("F:\\results/mergedMIP/","F:\\results\\performance\\bounds\\MIPLIB\\")
-Ref_normalise("/media/ak121396/0526-8445/results/KS/",)
+Ref_normalise("E:/LPBMresults/mergedMIP/","E:\\LPBMresults\\performance\\bounds\\MIPLIB\\")
+Ref_normalise("E:/LPBMresults/KS/",)
 
 
 # merged Ref file filter
-function Filter(ref)
-    for j=6:10
-        ref2 = ref*"$j/"
+function Filter(refn,reff)
+    for j=1:14
+        ref2 = refn*"$j/"
         ins = readdir(ref2)
         for i=1:length(ins)
-            new = ref2*ins[i][1:end-13]*"_filter"*".txt"
+            new = reff*"/$j/"*ins[i][1:end-13]*"_filter"*".txt"
             open("$new","w") do io
             end
             file = ins[i]
-            run(pipeline(`./tools*"$os"*/filter ./tools*"$os"*/filter_param.txt
+            run(pipeline(`./tools$os/filter ./tools$os/filter_param.txt
                 $ref2$/$file $new`) )
         end
     end
 end
-Filter("F:/results/mergedMIP/norm/")
-readdir("F:/results/mergedMIP/norm/1/")[1][1:end-9]
+Filter("E:/LPBMresults/mergedMIP/norm/","E:/LPBMresults/mergedMIP/filtered/")
+readdir("E:/LPBMresults/mergedMIP/norm/1/")[1][1:end-9]
 
 
 # normalise obj values
 function Normalise(probpath,boundpath)
     # num = readdir(probpath)
-    for i=1:5 #length(num)-1
+    for i=1:14#length(num)-1
         insts = readdir(probpath*"$i/")
         for j=1:length(insts)
             file = probpath*"$i/"*insts[j]
@@ -138,42 +138,55 @@ function Normalise(probpath,boundpath)
             new = probpath*"norm/$i/"*insts[j][1:end-4]*"_norm"*".txt"
             open("$new","w") do io
             end
-            bounds = readdir(boundpath);   #for AP,KP,FLP
-            # bounds = readdir(boundpath*"$i/") #for MIPLiB
-            bfile = boundpath*bounds[j] #*num[i] "$i/"*
+            # bounds = readdir(boundpath);   #for AP,KP,FLP
+            bounds = readdir(boundpath*"$i/") #for MIPLiB
+            bfile = boundpath*"$i/"*bounds[j] #*num[i] "$i/"*
             # ./normalize [<paramfile>] <boundfile> <datafile> <outfile>
-            run(pipeline(`./tools_linux/normalize ./tools_linux/normalize_param.txt
+            run(pipeline(`./tools$os/normalize ./tools$os/normalize_param.txt
                 $bfile $file $new`) )
 
         end
     end
 end
-cd("/home/ak121396/Downloads/performance_indi/")
-Normalise("F:/results/gpr/MIPLIB\\","F:/results/performance/bounds/MIPLIB/")
-Normalise("/media/ak121396/0526-8445/results/gpr/AP/","/media/ak121396/0526-8445/results/performance/bounds/AP/")
-Normalise("/media/ak121396/0526-8445/results/gpr/FLP/","/media/ak121396/0526-8445/results/performance/bounds/FLP/")
+cd("C:\\Users\\AK121396\\Downloads\\performance_indi\\")
+# cd("/home/ak121396/Downloads/performance_indi/")
+Normalise("E:/LPBMresults/gpr/MIPLIB/","E:/LPBMresults/performance/bounds/MIPLIB/")
+Normalise("E:/LPBMresults/fpbh/MIPLIB/","E:/LPBMresults/performance/bounds/MIPLIB/")
 
-Normalise("/media/ak121396/0526-8445/results/gpr/KP/","/media/ak121396/0526-8445/results/performance/bounds/KP/")
+Normalise("E:/LPBMresults/gpr/AP/","E:/LPBMresults/performance/bounds/AP/")
+Normalise("E:/LPBMresults/gpr/FLP/","E:/LPBMresults/performance/bounds/FLP/")
+
+Normalise("E:/LPBMresults/gpr/KP/","E:/LPBMresults/performance/bounds/KP/")
 
 # Measure Uep
 function Measures(normalpath,refpath,eppath)
-    for i=1:5#length(num)
+    for i=1:14#length(num)
         files = readdir(normalpath*"$i")
         for j=1:length(files)
             epstore = eppath*"$i/"*files[j][1:end-9]*"_ep.txt"
             open("$epstore","w") do io end;
             data = normalpath*"$i/"*files[j]
-            refs = readdir(refpath); ref = refpath*"/"*refs[j]; #for AP,KP,FLP
-            # refs = readdir(refpath*"$i/"); ref = refpath*"$i/"*refs[j];
+            # refs = readdir(refpath); ref = refpath*"/"*refs[j]; #for AP,KP,FLP
+            refs = readdir(refpath*"$i/"); ref = refpath*"$i/"*refs[j]; #for MIPLIB
             # The order of inputs: .exe file    parameter file    approximation-set file    ref file      outputfile location
-            run(pipeline(`./indicators_linux/eps_ind ./indicators_linux/eps_ind_param.txt $data $ref $epstore`))
+            run(pipeline(`./indicators$os/eps_ind ./indicators$os/eps_ind_param.txt $data $ref $epstore`))
         end
     end
 end
-Measures("/media/ak121396/0526-8445/results/gpr/AP/norm/","/media/ak121396/0526-8445/results/KS/norm/AP/", "/media/ak121396/0526-8445/results/performance/GPR/ep/AP/")
-Measures("/media/ak121396/0526-8445/results/gpr/FLP/norm/","/media/ak121396/0526-8445/results/KS/norm/FLP/","/media/ak121396/0526-8445/results/performance/GPR/ep/FLP/")
-Measures("/media/ak121396/0526-8445/results/gpr/KP/norm/","/media/ak121396/0526-8445/results/KS/norm/KP/", "/media/ak121396/0526-8445/results/performance/GPR/ep/KP/")
+############################    WINDOWS     ####################################
+Measures("E:/LPBMresults/gpr/MIPLIB/norm/","E:/LPBMresults/mergedMIP/filtered/", "E:/LPBMresults/performance/GPR/ep/MIPLIB/")
+Measures("E:\\LPBMresults\\fpbh/MIPLIB/norm\\","E:\\LPBMresults/mergedMIP/filtered\\", "E:/LPBMresults/performance/FPBH/ep/MIPLIB/")
 
+Measures("E:/LPBMresults/gpr/AP/norm/","E:/LPBMresults/KS/norm/AP/", "E:/LPBMresults/performance/GPR/ep/AP/")
+Measures("E:/LPBMresults/gpr/FLP/norm/","E:/LPBMresults/KS/norm/FLP/","E:/LPBMresults/performance/GPR/ep/FLP/")
+Measures("E:/LPBMresults/gpr/KP/norm/","E:/LPBMresults/KS/norm/KP/", "E:/LPBMresults/performance/GPR/ep/KP/")
+
+###############################  Linux    ######################################
+cd("/home/ak121396/Downloads/performance_indi/indicators_linux/")
+readdir("E:/LPBMresults/gpr//MIPLIB/norm/2/")
+
+Measures("E:/LPBMresults/gpr/MIPLIB/neos/norm/", "E:/LPBMresults/mergedMIP/neos/norm/", "E:/LPBMresults/performance/GPR/ep/MIPLIB/neos/")
+Measures("E:/LPBMresults/fpbh/MIPLIB/neos/norm/", "E:/LPBMresults/mergedMIP/neos/norm/", "E:/LPBMresults/performance/FPBH/ep/MIPLIB/neos/")
 
 # neos w/ shorter TL
 function Measures(normalpath,refpath,eppath)
@@ -189,25 +202,16 @@ function Measures(normalpath,refpath,eppath)
         end
     end
 end
-############################    WINDOWS     ####################################
-Measures("F:\\results\\gpr/MIPLIB/norm\\","F:\\results/mergedMIP/norm/", "F:/results/performance/GPR/ep/MIPLIB/")
-Measures("F:\\results\\fpbh/MIPLIB/norm\\","F:\\results/mergedMIP/norm/", "F:/results/performance/FPBH/ep/MIPLIB/")
-###############################  Linux    ######################################
-cd("/home/ak121396/Downloads/performance_indi/indicators_linux/")
-readdir("/media/ak121396/0526-8445/results/gpr//MIPLIB/norm/2/")
-
-Measures("/media/ak121396/0526-8445/results/gpr/MIPLIB/neos/norm/", "/media/ak121396/0526-8445/results/mergedMIP/neos/norm/", "/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/neos/")
-Measures("/media/ak121396/0526-8445/results/fpbh/MIPLIB/neos/norm/", "/media/ak121396/0526-8445/results/mergedMIP/neos/norm/", "/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/neos/")
 
 
 # The order of inputs: .exe file    parameter file    approximation-set file    ref file      outputfile location
 run(pipeline(`./indicators_win/eps_ind ./indicators_win/eps_ind_param.txt
     $normalpath"*"$f
-    F:/results/KS/KP/KP_p-3_n-010_ins-01.txt
+    E:/LPBMresults/KS/KP/KP_p-3_n-010_ins-01.txt
     C:/Users/AK121396/Desktop/performance/ex.txt`))
 run(pipeline(`./indicators_win/hyp_ind ./indicators_win/hyp_ind_param.txt
-    F:/results/GPR/KP/1/n-010_ins-01kpY.log
-    F:/results/KS/KP/KP_p-3_n-010_ins-01.txt
+    E:/LPBMresults/GPR/KP/1/n-010_ins-01kpY.log
+    E:/LPBMresults/KS/KP/KP_p-3_n-010_ins-01.txt
     C:/Users/AK121396/Desktop/performance/ex.txt`))
 
 
@@ -232,11 +236,11 @@ run(pipeline(`./indicators_linux/eps_ind ./indicators_linux/eps_ind_param.txt
 
 ############################# Convert FPBH file ###############################
 for j=6:10#length(fdir)-1
-    files = readdir("F:/results/fpbh\\MIPLIB/$j/")
+    files = readdir("E:/LPBMresults/fpbh\\MIPLIB/$j/")
     for i=1:length(files)
         fname = files[i]
-        P = readdlm("F:/results/fpbh/MIPLIB/$j/"*fname)
+        P = readdlm("E:/LPBMresults/fpbh/MIPLIB/$j/"*fname)
         ins = fname[1:end-7]
-        CSV.write("F:/results/fpbh/MIPLIB/$j/"*"$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
+        CSV.write("E:/LPBMresults/fpbh/MIPLIB/$j/"*"$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
     end
 end
