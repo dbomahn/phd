@@ -166,7 +166,7 @@ function Postpro(initX,initY,dvar,LB,newsol)
     finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
     return finalsol,finalobj
 end
-#############################    Feasibility Pump   ############################
+#############################   Fractional Feasibility Pump   ############################
 function fractionalFP(dvar,n,C,TL)
     X = copy(dvar); IGPair=[]; Tabu = []; newsol=0; t0=time(); #Y = copy(LB);
     while time()-t0 < TL
@@ -208,50 +208,50 @@ function fractionalFP(dvar,n,C,TL)
     end
     return X,newsol
 end
-################################  Data  ####################################
-data = Data(ARGS[1],ARGS[2]); pre = Valu(ARGS[3],ARGS[4]);
-######################### Mathematical Model #############################
-mip = Model(GLPK.Optimizer)
-@variable(mip, mx[1:data.n], Bin)
-for k=1:data.m
-    if data.signs[k] == "l"
-        @constraint(mip, dot(data.B[k,:],mx) >= data.RHS[k])
-    elseif data.signs[k] == "u"
-        @constraint(mip, dot(data.B[k,:],mx) <= data.RHS[k])
-    else
-        @constraint(mip, dot(data.B[k,:],mx) == data.RHS[k])
+#############################    Feasibility Pump   ############################
+function FP(candX,n,C,TL)
+	X = []; Y = [];	Tabu = []; newsol=0; candlist = copy(candX); t0=time();
+	
+    while time()-t0 < TL 
+        k = rand(1:length(candlist))
+        x_t = candlist[k]; SearchDone = false
+		iter=0; Max_iter = 10
+        while iter<Max_iter && SearchDone == false
+            x_r = round.(Int,x_t)
+            fx = getobjval(x_r,C)
+            if ( (FBcheck(x_r,n) == true) &&  x_r∉[candX;X])
+				push!(X,x_r); push!(Y,getobjval(x_r,C))
+                newsol+=1; setdiff!(candlist,candX[k,:]); SearchDone = true
+				#deleteat!(candlist,k)
+            else
+                if x_r ∈ Tabu
+                    x_r = flipoper(Tabu,x_t,x_r)
+                    if x_r==[]
+                        SearchDone = true
+                    else
+                        fx = getobjval(x_r,C)
+                        if ( (FBcheck(x_r,n) == true) &&  x_r∉[candX;X])
+							push!(X,x_r); push!(Y,getobjval(x_r,C))
+                            newsol+=1; setdiff!(candlist,candX[k,:]);SearchDone = true
+                        end
+                    end
+                end
+                if time()-t0 >= TL
+                    break
+                end
+                if SearchDone == false
+                    push!(Tabu,x_r)
+                    x_t = fbsearch(x_r)
+                    if x_t == 0 #when there's no new feasible lp sol
+                        SearchDone = true
+                    end
+                end
+            end
+			iter+=1
+        end
     end
+    return X,Y,candlist
 end
-optimize!(mip);
-#####################  Feasibility Search Mathematical Model  ##################
-dist = Model(GLPK.Optimizer)
-@variables(dist, begin
-    0 <= x[1:data.n] <=1
-end)
-for k=1:data.m
-    if data.signs[k] == "l"
-        @constraint(dist, dot(data.B[k,:],x) >= data.RHS[k])
-    elseif data.signs[k] == "u"
-        @constraint(dist, dot(data.B[k,:],x) <= data.RHS[k])
-    else
-        @constraint(dist, dot(data.B[k,:],x) == data.RHS[k])
-    end
-end
-optimize!(dist);
-######################## Running Feasibility Pump ##########################
-Bentime = readdlm(ARGS[5])[1]; FPTL = (TL-Bentime)/2;
-weightFP(pre.dvar,data.n,data.C,5)
-runtime1 = @CPUelapsed fpX,newsol = fractionalFP(pre.dvar,data.n,data.C,FPTL)
-
-# fpX,fpY = domFilter(X2,PF2);
-# clistY = []
-# for i=1:length(candlist)
-# 	push!(clistY,getobjval(candlist[1],data.C))
-# end
-# cX = [fpX;candlist]; cY = [fpY;clistY]
-tx = copy(fpX); ty = copy(fpY);
-
-####################### Running Path Relinking  ##########################
 function createNB(SI,C,dif,exploredSI)
     neibour = []; neiobj = [];
     for i in dif
@@ -316,20 +316,63 @@ function GPR(candX,candY,C,n,TL)
                 end
             end
             SI = nextSI(neibour,neiobj,C,SI)
-            if SI∉candX
+            #if SI∉candX
                 push!(exploredSI,SI);
-            end
+            #end
             iter+=1
         end
         push!(IGPair,[I,G])
     end
     return candX,candY,newsol
 end
+################################  Data  ####################################
+data = Data(ARGS[1],ARGS[2]); pre = Valu(ARGS[3],ARGS[4]);
+######################### Mathematical Model #############################
+mip = Model(GLPK.Optimizer)
+@variable(mip, mx[1:data.n], Bin)
+for k=1:data.m
+    if data.signs[k] == "l"
+        @constraint(mip, dot(data.B[k,:],mx) >= data.RHS[k])
+    elseif data.signs[k] == "u"
+        @constraint(mip, dot(data.B[k,:],mx) <= data.RHS[k])
+    else
+        @constraint(mip, dot(data.B[k,:],mx) == data.RHS[k])
+    end
+end
+optimize!(mip);
+#####################  Feasibility Search Mathematical Model  ##################
+dist = Model(GLPK.Optimizer)
+@variables(dist, begin
+    0 <= x[1:data.n] <=1
+end)
+for k=1:data.m
+    if data.signs[k] == "l"
+        @constraint(dist, dot(data.B[k,:],x) >= data.RHS[k])
+    elseif data.signs[k] == "u"
+        @constraint(dist, dot(data.B[k,:],x) <= data.RHS[k])
+    else
+        @constraint(dist, dot(data.B[k,:],x) == data.RHS[k])
+    end
+end
+optimize!(dist);
+######################## Running Feasibility Pump ##########################
+Bentime = readdlm(ARGS[5])[1]; FPTL = (TL-Bentime)/2;
+fractionalFP(pre.dvar,data.n,data.C,5)
+FPtime = @CPUelapsed fpX,newsol = fractionalFP(pre.dvar,data.n,data.C,FPTL)
 
+# fpX,fpY = domFilter(X2,PF2);
+# clistY = []
+# for i=1:length(candlist)
+# 	push!(clistY,getobjval(candlist[1],data.C))
+# end
+# cX = [fpX;candlist]; cY = [fpY;clistY]
+tx = copy(fpX); ty = copy(fpY);
+
+####################### Running Path Relinking  ##########################
 GPR(data.C,data.n,tx,ty,5) #compiling
-runtime1 = @CPUelapsed X,nsol = fractionalFP(pre.dvar,data.n,data.C,TL)
-runtime2 = @CPUelapsed candset,candobj,newsol2 = GPR(data.C,data.n,fpX,fpY,TL-FPtime)
-totaltime = runtime1+Bentime+runtime2
+FPtime = @CPUelapsed X,nsol = fractionalFP(pre.dvar,data.n,data.C,TL)
+PRtime = @CPUelapsed candset,candobj,newsol2 = GPR(data.C,data.n,fpX,fpY,TL-FPtime)
+totaltime = Bentime+FPtime+PRtime
 finalX,finalY = domFilter(candset,candobj);
 otable = zeros(length(finalY),3)
 for i=1:length(finalY)
@@ -340,95 +383,7 @@ end
 newsol3 = length(setdiff(finalY,fpY))
 
 ins = ARGS[2][1:end-4];
-print("$ins", totaltime)
+print("$ins"*" time", totaltime)
 CSV.write(ins*"_1Y.log",DataFrame(otable, :auto),append=false, header=false, delim=' ' )
 record1 = DataFrame(Filename=ins[48:end],FPsol=length(fpY),PRsol=newsol2, totalsol=length(finalY)) #,Bentime=Bentime,FPtime=FPtime,PRtime=GPRtime, totaltime=totaltime )
 CSV.write("/home/k2g00/k2g3475/clusterhome/multiobjective/generalPR/record.csv", record1,append=true, header=false )#, delim=','i )
-# matriX = zeros(Int,length(finalX),data.n)
-# for i=1:length(finalX)
-#     for j=1:data.n
-#         matriX[i,j] = finalX[i][j]
-#     end
-# end
-function FPGPR(dvar,LB,n,C,TL)
-    candX = copy(dvar); candY = copy(LB); IGPair=[];  newsol=0;
-	gMax = 20; giter=0;	exploredSI = []; Tabu = []; t0=time();
-    while time()-t0 < TL #&& newsol<=length(candY)*0.5
-        I,G = sample(1:length(candY), 2, replace=false) #BASIC VER
-		SI = candX[I]; SG = candX[G];
-        while all.(SI != SG) && [I,G]∉IGPair && giter<gMax
-			dif = findall(i-> SI[i]!=SG[i], 1:n)
-			neibour,neiobj = createNB(SI,C,dif,exploredSI)
-			if length(neibour)==0
-				break
-			else
-				for l=1:length(neibour)
-					SearchDone = false; fiter=0; fMax = 10;
-					while fiter<fMax && SearchDone == false && time()-t0 <TL
-						x_r = round.(Int,neibour[l])
-						fx = getobjval(x_r,C)
-			            if ( (FBcheck(x_r,n) == true) && (fx ∉ candY) ) #checking feasibility and dominance   #z[1]<=fmax[1]-1 && z[2]<=fmax[2]-1 && z[3]<=fmax[3]-1)
-			                push!(candX,x_r); push!(candY,fx)#Y = [Y; getobjval(x_r,C)'];
-			                newsol+=1; SearchDone = true
-			            else
-			                if x_r ∈ Tabu
-			                    x_r = flipoper(Tabu,neibour[l],x_r)
-			                    if x_r==[]
-			                        SearchDone = true
-			                    else
-			                        fx = getobjval(x_r,C)
-			                        if ( (FBcheck(x_r,n) == true) && (fx ∉ candY) )  #z[1]<=fmax[1]-1 && z[2]<=fmax[2]-1 && z[3]<=fmax[3]-1 )
-			                            push!(candX,x_r); push!(candY,fx)#Y = [Y; getobjval(x_r,C)'];
-			                            newsol+=1; SearchDone = true;# push!(sucess,[I,G])
-			                        end
-			                    end
-			                end
-			                if SearchDone == false
-			                    push!(Tabu,x_r)
-			                    x_t = fbsearch(x_r)
-			                    if x_t == 0 #when there's no new feasible lp sol
-			                        SearchDone = true
-			                    end
-			                end
-			            end
-						fiter+=1
-        			end
-				end
-			end
-			SI = nextSI(neibour,neiobj,C,SI)
-			if SI∉candX
-				push!(exploredSI,SI);
-			end
-			giter+=1
-		end
-		push!(IGPair,[I,G])
-    end
-
-	while time()-t0 < TL
-		I,G = sample(1:length(candY), 2, replace=false) #BASIC VER
-		SI = candX[I]; SG = candX[G]; giter=0
-
-        while all.(SI != SG) && [I,G]∉IGPair && giter<gMax
-			dif = findall(i-> SI[i]!=SG[i], 1:n)
-			neibour,neiobj = createNB(SI,C,dif,exploredSI)
-			if length(neibour)==0
-				break
-			else
-				for l=1:length(neibour)
-					if FBcheck(neibour[l],n) && neibour[l]∉ candX
-						push!(candX, neibour[l]); candY = [candY; neiobj[l]']; #push!(candY, neiobj[l]);
-						newsol+=1; gn+=1;
-					end
-				end
-			end
-			SI = nextSI(neibour,neiobj,C,SI)
-			if SI∉candX
-				push!(exploredSI,SI);
-			end
-			giter+=1
-		end
-		push!(IGPair,[I,G])
-	end
-
-    return candX,candY,newsol
-end
