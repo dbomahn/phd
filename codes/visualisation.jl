@@ -1,4 +1,4 @@
-using PlotlyJS,DataFrames,DelimitedFiles,Colors,JLD2
+using PlotlyJS,DataFrames,DelimitedFiles,Colors,CSV,JLD2
 #############################        2D plot      ###########################
 layout = Layout(
     title="Test",
@@ -118,13 +118,21 @@ c11 = [ndset4[i].val[1] for i=1:length(ndset4)]; c22 = [ndset4[i].val[2] for i=1
 nd4 = scatter(x=c11, y=c22, name="ndset4", mode="markers+lines", market=attr(color="green"))
 
 
-cols = distinguishable_colors(length(ndy0), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+######################################     Line segments       #################################
+rpath = "/home/ak121396/Desktop/relise/lpY/nodes/ratio/"
+rlsg = readdir(rpath)
+ndy = CSV.read(rpath*rlsg[1],DataFrame)
+parse.(Vector{Float64}, ndy.v)
+# for i=1:length(ndy.arm)
+
+cols = distinguishable_colors(length(ndy.arm), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
 lsg_array = GenericTrace[]
 start = 0
-Larms = findall(x-> ndy0[x].arm == "L", 1:length(ndy0))
+Larms = findall(x-> ndy.arm[x] == "L", 1:length(ndy.arm))
 for l in Larms
-    set = ndy0[1+start:l]
-    lsg = scatter(x=[set[j].val[1] for j=1:length(set)],y=[set[j].val[2] for j=1:length(set)], mode="markers+lines", color=cols[1])    
+    set = ndy.v[1+start:l]
+
+    lsg = scatter(x=[set[j][1] for j=1:length(set)],y=[set[j][2] for j=1:length(set)], mode="markers+lines", color=cols[1])    
     push!(lsg_array,lsg)
     start = l
 end
@@ -355,10 +363,10 @@ function epbox(x0,t1,t3)
     layout = Layout(;yaxis=attr(title="unary ϵ indicator value", zeroline=false),boxmode="group")
     plot(data, layout)
 end
-ag,af = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/AP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/AP/")
-fg,ff = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/FLP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/FLP/")
-kg,kf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/KP/","/media/ak121396/0526-8445/results/performance/FPBH/ep/KP/")
-mg,mf = CollectVal("/media/ak121396/0526-8445/results/performance/GPR/ep/MIPLIB/","/media/ak121396/0526-8445/results/performance/FPBH/ep/MIPLIB/")
+ag,af = CollectVal("/home/ak121396/Desktop/LPBMresults/performance/GPR/ep/AP/","/home/ak121396/Desktop/LPBMresults/performance/FPBH/ep/AP/")
+fg,ff = CollectVal("/home/ak121396/Desktop/LPBMresults/performance/GPR/ep/FLP/","/home/ak121396/Desktop/LPBMresults/performance/FPBH/ep/FLP/")
+kg,kf = CollectVal("/home/ak121396/Desktop/LPBMresults/performance/GPR/ep/KP/","/home/ak121396/Desktop/LPBMresults/performance/FPBH/ep/KP/")
+mg,mf = CollectVal("/home/ak121396/Desktop/LPBMresults/performance/GPR/ep/MIPLIB/","/home/ak121396/Desktop/LPBMresults/performance/FPBH/ep/MIPLIB/")
 
 epbox(x0,vcat(af,kf,ff,mf),vcat(ag,kg,fg,mg))
 1
