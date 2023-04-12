@@ -215,144 +215,44 @@ function Postpro2(candX,candY,newsol)
 
     return finalsol,finalobj
 end
-function fractionalFP(candX,candY,x1,x2,n,C,Tabu,newsol,wn)
-     #t0=time();
-    x_t = x1*.5 + x2*.5; SearchDone = false; iter=0; Max_iter = 10 #max( round(Int,count(x->0<x<1,x_t)/5), 1 )
-    while iter<Max_iter && SearchDone == false #time()-t0 < TL &&
-        x_r = round.(Int,x_t);
-        if x_r in candX
-            # println("in candX")
-        else
-            println(.5)
-        end
-        if ( (FBcheck(x_r,n) == true) && (x_r∉candX) )
-            push!(candX,x_r);  candY = [candY; getobjval(x_r,C)'];
-            newsol+=1; wn+=1; SearchDone = true
-
-        else
-            if x_r ∈ Tabu
-                x_r = flipoper(Tabu,x_t,x_r)
-                if x_r==[]
-                    SearchDone = true
-                else
-                    if ( (FBcheck(x_r,n) == true) && (x_r∉candX) )
-                        push!(candX,x_r); candY = [candY; getobjval(x_r,C)'];
-                        newsol+=1; wn+=1; SearchDone = true
+function fractionalFP(dvar,n,C,TL)
+    X = copy(dvar); IGPair=[]; Tabu = []; newsol=0; t0=time(); #Y = copy(LB);
+    while time()-t0 < TL
+        I,G = sample(1:length(X), 2, replace=false)
+        x1 = X[I]; x2 = X[G];
+        λ = round(rand(Float64, 1)[1]; digits=1)
+        x_t = x1*λ + x2*(1-λ); SearchDone = false; iter=0; Max_iter = 10
+        while [I,G]∉IGPair && iter<Max_iter && SearchDone == false
+            x_r = round.(Int,x_t)
+            if ( (FBcheck(x_r,n) == true) && (x_r∉X) )
+                push!(X,x_r); #Y = [Y; getobjval(x_r,C)'];
+                newsol+=1; SearchDone = true
+            else
+                if x_r ∈ Tabu
+                    x_r = flipoper(Tabu,x_t,x_r)
+                    if x_r==[]
+                        SearchDone = true
+                    else
+                        if ( (FBcheck(x_r,n) == true) && (x_r∉X) )
+                            push!(X,x_r); #Y = [Y; getobjval(x_r,C)'];
+                            newsol+=1; SearchDone = true;
+                        end
                     end
                 end
-            end
-            # if time()-t0 >= TL-1
-            #     break
-            # end
-            if SearchDone == false
-                push!(Tabu,x_r)
-                x_t = fbsearch(x_r)
-                if x_t == 0 #when there's no new feasible lp sol
-                    SearchDone = true
+                if time()-t0 >= TL
+                    break
                 end
-            end
-        end
-		iter+=1
-    end
-    return candX,candY,newsol,wn,Tabu
-end
-function GPR(candX,candY,SI,SG,n,C,exploredSI,newsol,gn)
-    iter=0;#t0=time();
-    while all.(SI != SG)  && iter<20 #&& (time()-t0<TL)
-        dif = findall(i-> SI[i]!=SG[i], 1:n)
-	    neibour,neiobj = createNB(SI,C,dif,exploredSI)
-        if length(neibour)==0
-            break
-        else
-            for l=1:length(neibour)
-                if FBcheck(neibour[l],n) && neibour[l]∉ candX
-                    push!(candX, neibour[l]); candY = [candY; neiobj[l]']; #push!(candY, neiobj[l]);
-                    newsol+=1; gn+=1;
-                end
-            end
-        end
-        SI = nextSI(neibour,neiobj,C,SI)
-        if SI∉candX
-            push!(exploredSI,SI);
-        end
-        iter+=1
-    end
-    return candX,candY,newsol,gn
-end
-function FP(candX,candY,x_t,n,C,Tabu,newsol,fn)
-     #t0=time();
-    SearchDone = false; iter=0; Max_iter = 10 #max( round(Int,count(x->0<x<1,x_t)/5), 1 )
-    while iter<Max_iter && SearchDone == false #time()-t0 < TL &&
-        x_r = round.(Int,x_t)
-        if ( (FBcheck(x_r,n) == true) && x_r∉candX ) #checking feasibility and incumbent sols
-            push!(candX,x_r); candY = [candY; getobjval(x_r,C)']; #add new solval to Y
-            newsol+=1; fn+=1;
-            SearchDone = true
-        else
-            if x_r ∈ Tabu
-                x_r = flipoper(Tabu,x_t,x_r)
-                if x_r==[]
-                    SearchDone = true
-                else
-                    if ( (FBcheck(x_r,n) == true) && x_r∉candX )
-                        push!(candX,x_r); candY = [candY; getobjval(x_r,C)'];
-                        newsol+=1; fn+=1;
+                if SearchDone == false
+                    push!(Tabu,x_r)
+                    x_t = fbsearch(x_r)
+                    if x_t == 0 #when there's no new feasible lp sol
                         SearchDone = true
                     end
                 end
             end
-            # if time()-t0 >= TL
-            #     break
-            # end
-            if SearchDone == false
-                push!(Tabu,x_r)
-                x_t = fbsearch(x_r)
-                if x_t == 0 #when there's no new feasible lp sol
-                    SearchDone = true
-                end
-            end
+			iter+=1
         end
-		iter+=1
+        push!(IGPair,[I,G])
     end
-
-    return candX,candY,newsol,fn,Tabu
+    return X,newsol
 end
-function clumath(dvar,LB,n,C,k,TL)
-    SolPair = Set(); exploredX = [];
-    IGPair=[]; exploredSI = []; Tabu = []; candX = copy(dvar); candY = copy(LB);
-    newsol=0; wn = 0; gn=0; fn=0; t0=time();
-    while time()-t0 < TL
-        clu = kmeans(candY',max(k,2)); nc = nclusters(clu); sc = counts(clu);
-        targec = findall(i->i in nsmallest(2, sc),sc)
-        candx1 = findall(i->i==targec[1],clu.assignments); candx2 = findall(i->i==targec[2],clu.assignments)
-        id1 = sample(candx1, 1, replace=false)[1]; id2 = sample(candx2, 1, replace=false)[1]
-        x1 = candX[id1]; x2 = candX[id2];
-
-        # if x1 == round.(x1) && x2 == round.(x2) #both sols are int => wFP
-            # println("weighted FP used")
-        while Set([id1,id2])∉SolPair &&  time()-t0<TL
-            candX,candY,newsol,wn,Tabu = fractionalFP(candX,candY,x1,x2,n,C,Tabu,newsol,wn)
-            push!(SolPair,Set([id1,id2]))
-        end
-        # elseif  x1 != round.(x1) && x2 != round.(x2) #both sols are frac => PR
-        #     while [id1,id2]∉IGPair &&  time()-t0<TL
-        #         candX,candY,newsol,gn = GPR(candX,candY,x1,x2,n,C,exploredSI,newsol,gn)
-        #         push!(IGPair,[id1,id2])
-        #     end
-        # else #one sol is frac/Int =>FP
-        # targex = findall(i->i in nsmallest(1, sc),sc);
-        # candxt = findall(i->i==targex[1],clu.assignments); xtid = sample(candxt, 1, replace=false)[1];
-        # x_t = candX[xtid];
-            # while xtid∉exploredX &&  time()-t0<TL
-            #     candX,candY,newsol,fn,Tabu = FP(candX,candY,x_t,n,C,Tabu,newsol,fn)
-            #     push!(exploredX,xtid)
-            # end
-        # end
-    end
-    return candX,candY,newsol#,wn,gn,fn
-end
-
-cx,cy,nn = clumath(pr.dvar,pr.L,dt.n,dt.C,pr.k,10)
-r,e = Postpro2(cx,cy,nn)
-
-e
