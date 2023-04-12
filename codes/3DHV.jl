@@ -3,10 +3,10 @@ ENV["CPLEX_STUDIO_BINARIES"] = "/opt/ibm/ILOG/CPLEX_Studio221/cplex/bin/x86-64_l
 
 ########################### epsilon constraint methods & matheuristic ############################
 ############################### Ref set of solver A + solver B   ###################################
-# fp = "/home/ak121396/Desktop/FPBH/MIPLIP/GLPK/"
+# fp = "/media/ak121396/0526-8445/FPBH/MIPLIP/GLPK/"
 # fp = "F:/results/mergedMIP\\"
 # fpfiles = readdir(fp)
-# pr = "/home/ak121396/Desktop/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
+# pr = "/media/ak121396/0526-8445/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
 # prfiles = readdir(pr)
 
 function biobjHV(ep,epfiles,nd,ndfiles,lsg,lsgfiles,num)
@@ -73,9 +73,9 @@ function biobjHV(ep,epfiles,nd,ndfiles,lsg,lsgfiles,num)
     end
     return tb
 end
-ep = "/home/ak121396/Desktop/relise/epsilon/"
+ep = "/media/ak121396/0526-8445/relise/epsilon/"
 epfiles = readdir(ep)[2:end]
-nd = "/home/ak121396/Desktop/relise/lpY/5/"
+nd = "/media/ak121396/0526-8445/relise/lpY/5/"
 ndfiles = readdir(mat)
 
 hv5 = biobjHV(ep,epfiles,mat,matfiles,15)
@@ -83,23 +83,15 @@ hv5 = biobjHV(ep,epfiles,mat,matfiles,15)
 eppr = biobjHV(ep,epfiles,mat,matfiles,10)
 1
 ####################################LINUX###################################
-ksp = "/home/ak121396/Desktop/solvers/Kirlikoutput/AP&KP/intKP_Y/"
-ffp = "/home/ak121396/Desktop/clu/KP/"
-
-ksdp = "/home/ak121396/Desktop/solvers/Kirlikoutput/FLP/ndf/"
-ffp = "/home/ak121396/Desktop/clu/flpy/"
-
-fpbh = "/home/ak121396/Desktop/FPBH/FLP/GLPK/"
-pr = "/home/ak121396/Desktop/GeneralPR/goutputs/FLP/GLPK/"
-ben = "/home/ak121396/Desktop/solvers/Bensolve/APoutputs/Y/"
+ksdp = "/media/ak121396/0526-8445/solvers/Kirlikoutput/FLP/"
+ffp = "/media/ak121396/0526-8445/clu/flpy/"
+fpbh = "/media/ak121396/0526-8445/FPBH/FLP/GLPK/"
+ffp = "/media/ak121396/0526-8445/LPBMresults/ffp/FLP/"
+ben = "/media/ak121396/0526-8445/LPBMresults/benFLP/"
 ################################Windows #####################################
 # ksdir = "F://results/KS/AP/"
 # pr = "F:/results/gpr/AP/"
 # fpbh = "F:/results/fpbh/AP/1/"
-
-fpfiles = readdir(fpbh)
-prfiles = readdir(pr)
-bfiles = readdir(ben)
 
 ######################### true PF & heuristic ##########################
 function normHV(ksdir,ksfiles,dir,files,i)
@@ -110,6 +102,9 @@ function normHV(ksdir,ksfiles,dir,files,i)
   # end
 
   obj = readdlm(dir*files[i])
+#   if (0;0;0 in ksobj)
+#     obj = [obj; 0 0 0]
+#   end
   x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
 
   # Bensolve AP
@@ -126,11 +121,12 @@ function normHV(ksdir,ksfiles,dir,files,i)
       norm[k,3] = (z[k]-ideal[3])/max((nadir[3]-ideal[3]),1)
   end
   Y=DataFrame(norm, :auto);
-  CSV.write(dir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
+  savedir = "/home/ak121396/Desktop/forHV/"
+  CSV.write(savedir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
   cd("/home/ak121396//Downloads/hv-1.3-src")
   # cd("C:/cygwin64/home/hv-1.3-src/") #WINDOWS
   # @show
-  smetric =readlines( pipeline(`./hv -r "2 2 2" $(dir*files[i][1:end-4]*"_normal_Y.csv")`))
+  smetric =readlines( pipeline(`./hv -r "2 2 2" $(savedir*files[i][1:end-4]*"_normal_Y.csv")`))
   return parse(Float64,smetric[1])
 end
 
@@ -150,35 +146,64 @@ table = zeros(12,10)
 for i=1:12
     for j=1:10
         k = (i-1)*10+j
-        hv = normHV(ksp,ksfiles,fpp,ffiles,k)
+        # hv = normHV(ksp,ksfiles,ben,bfiles,k)
+        hv = normHV(ksp,ksfiles,pr,prfiles,k)
         table[i,j] = hv
     end
     # tb = round(mean(table[:,1]),digits=3)
 end
 table
-round.([mean(table[i,:]) for i=1:12],digits=3)
+round.([mean(table[i,1:5]) for i=1:12],digits=4)
+########################## obj file converter: merging FPBH&GPR ################
+mipdir = "/media/ak121396/0526-8445/LPBMresults/mergedMIP/"
+fdir = "/media/ak121396/0526-8445/LPBMresults/fpbh/MIPLIB/"
+gdir = "/media/ak121396/0526-8445/LPBMresults/gpr/MIPLIB/"
+readdir(fdir)
+for i=1:14
+    gname = readdir(gdir*"/$i/"); fname = readdir(fdir*"/$i/")
+    for j=1:5
+        F = readdlm(fdir*"/$i/"*fname[j])
+        G = readdlm(gdir*"/$i/"*gname[j])
+        P = vcat(F,G)
+        ins = fname[j][1:end-4]
+        CSV.write("/media/ak121396/0526-8445/LPBMresults/mergedMIP/$i"*"/$ins"*".txt",DataFrame(P, :auto),header=false, delim=' ' )
+    end
+end
+##############################################################
+filedir = "/media/ak121396/0526-8445/LPBMresults/mergedMIP/"
+gdir = "/media/ak121396/0526-8445/LPBMresults/gpr/MIPLIB/"
+fdir = "/media/ak121396/0526-8445/LPBMresults/fpbh/MIPLIB/"
 
-###############################################################################
-mipdir = "F:/results/mergedMIP/";
-mipdir = "/media/ak121396/0526-8445/results/mergedMIP/"
-mipfiles = readdir(mipdir)
-
-# filedir = "/media/ak121396/0526-8445/results/gpr/MIPLIB/"
-filedir = "/media/ak121396/0526-8445/results/fpbh/MIPLIB/"
-table = zeros(5,5)
-for k=1:5
+table = zeros(5,14)
+tb = zeros(5,9)
+for k=1:9
     mipfiles = readdir(mipdir*"$k")
-    files = readdir(filedir*"$k")
+    files = readdir(gdir*"$k")
+    # files = readdir(fdir*"$k")
     for i=1:5#length(mipfiles)
-        hv = normHV(mipdir*"$k/",mipfiles,filedir*"$k/",files,i)
-        table[i,k] = hv
+        hv = normHV(mipdir*"$k/",mipfiles,gdir*"$k/",files,i)
+        # hv = normHV(mipdir*"$k/",mipfiles,fdir*"$k/",files,i)
+        # table[i,k] = hv
+        tb[i,k] = hv
     end
     # tb = round(mean(table[:,1]),digits=3)
 end
+mean(table[4,:]),mean(table[5,:])
+
+round.([mean(table[i,1:9]) for i=4:5],digits=3)
+round.([mean(table[i,1:14]) for i=4:5],digits=3)
+
+mean(tb[4,10:14]),mean(tb[5,10:14])
+mean(tb[4,:]),mean(tb[5,:])
+mean.([round.([mean(tb[i,10:14]) for i=4:5],digits=3),round.([mean(tb[i,1:5]) for i=4:5],digits=3)])
+
+round.([mean(tb[i,10:14]) for i=4:5],digits=3)
+round.([mean(tb[i,1:5]) for i=4:5],digits=3)
+
 round.([mean(table[i,:]) for i=1:5],digits=3)
 
-ksp = "/home/ak121396/Desktop/solvers/Kirlikoutput/FLP/ndf/"
-ffp = "/home/ak121396/Desktop/clu/KP/"
+ksp = "/media/ak121396/0526-8445/solvers/Kirlikoutput/FLP/ndf/"
+ffp = "/media/ak121396/0526-8445/clu/KP/"
 readdir(ffp)
 kfiles = readdir(ksp)
 
@@ -200,15 +225,24 @@ function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
     end
     return(allt)
 end
-table = calculateHV(5,10,10,ksp,kfiles,ffp)
-round.([mean(table[i,:]) for i=1:10],digits=3)
+ksp = "/media//ak121396/0526-8445/LPBMresults/KS/FLP/"
+fpbh = "/media/ak121396/0526-8445//LPBMresults/fpbh/FLP/"
+ben = "/media/ak121396/0526-8445//LPBMresults/bensolve/FLP/"
+pr = "/media/ak121396/0526-8445//LPBMresults/ffp/FLP/"
+ksfiles = readdir(ksp)
+fpfiles = readdir(fpbh)
+bfiles = readdir(ben)
+prfiles = readdir(pr)
 
-refdir = "/media/ak121396/0526-8445/results/KS/AP/"
+table = calculateHV(5,10,12,ksp,ksfiles,pr)
+round.([mean(table[i,:]) for i=1:12],digits=4)
+
+refdir = "/media/ak121396/0526-8445/LPBMresults/KS/AP/"
 refiles = readdir(refdir)
 ag = []
-agpath = "/home/ak121396/Desktop/forHV/gpr/AP/"
+agpath = "/media/ak121396/0526-8445/LPBMresults/gpr/AP/"
 af = []
-afpath = "/home/ak121396/Desktop/forHV/fpbh/AP/"
+afpath = "/media/ak121396/0526-8445/LPBMresults/fpbh/AP/"
 for l=1:5
     refiles = readdir(refdir)
     gfiles = readdir(agpath*"$l/")
@@ -221,11 +255,11 @@ for l=1:5
     end
 end
 
-refdir = "/media/ak121396/0526-8445/results/KS/KP/"
+refdir = "/media/ak121396/0526-8445/LPBMresults/KS/KP/"
 kg = []
-kgpath = "/home/ak121396/Desktop/forHV/gpr/KP/"
+kgpath = "/media/ak121396/0526-8445/LPBMresults/gpr/KP/"
 kf = []
-kfpath = "/home/ak121396/Desktop/forHV//fpbh/KP/"
+kfpath = "/media/ak121396/0526-8445/LPBMresults//fpbh/KP/"
 
 for l=1:5
     refiles = readdir(refdir)
@@ -239,12 +273,11 @@ for l=1:5
     end
 end
 
-refdir = "/media/ak121396/0526-8445/results/KS/FLP/"
+refdir = "/media/ak121396/0526-8445/LPBMresults/KS/FLP/"
 fg = []
-fgpath = "/home/ak121396/Desktop/forHV/gpr/FLP/"
+fgpath = "/media/ak121396/0526-8445/LPBMresults/gpr/FLP/"
 ff = []
-ffpath = "/home/ak121396/Desktop/forHV/fpbh//FLP/"
-
+ffpath = "/media/ak121396/0526-8445/LPBMresults/fpbh/FLP/"
 for l=1:5
     refiles = readdir(refdir)
     gfiles = readdir(fgpath*"$l/")
@@ -258,11 +291,11 @@ for l=1:5
 end
 
 
-refdir = "/media/ak121396/0526-8445/results/mergedMIP/"
+refdir = "/home/ak121396/Desktop/LPBMresults/mergedMIP/"
 mg = []
-mgpath = "/home/ak121396/Desktop/forHV/gpr/MIPLIB/"
+mgpath = "/home/ak121396/Desktop/LPBMresults/gpr/MIPLIB/"
 mf = []
-mfpath = "/home/ak121396/Desktop/forHV/fpbh/MIPLIB/"
+mfpath = "/home/ak121396/Desktop/LPBMresults/fpbh/MIPLIB/"
 for l=1:9
     refiles = readdir(refdir*"$l/")
     ffiles = readdir(mfpath*"$l/")
@@ -350,7 +383,7 @@ for i=1:length(gkfiles)
   #   append!(obj,f)
 end
 ###############      Adding origin[0,0,0] to ndpoints     ########################
-# direc = "/home/ak121396/Desktop/epsilon2hr/Y/"
+# direc = "/media/ak121396/0526-8445/epsilon2hr/Y/"
 folders = readdir(direc)[3:13]
 points = readdlm(direc*folders[2]*"/"*files[12])
 for j in folders
@@ -366,7 +399,7 @@ end
 ########################windows ##################
 
 ################## Finding nadir points: the worst values among obtained points of three algorithms ##########
-# direc = "/home/ak121396/Desktop//"
+# direc = "/media/ak121396/0526-8445//"
 # folders = readdir(direc)[2:13]
 # ndpoint = Dict()
 # # readdir(direc*"09")
