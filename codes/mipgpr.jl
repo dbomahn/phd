@@ -139,7 +139,7 @@ function nextSI(neibour,neiobj,C,SI)
                 ranktb[:,i] = tiedrank(ratiotb[:,i])
             end
             ranksum = [sum(ranktb[i,:]) for i=1:length(neiobj)]
-            mostimp = findall(x-> x == maximum(ranksum), ranksum)
+            mostimp = findall(x-> x == minimum(ranksum), ranksum)
             k = rand(mostimp)[1]
             return neibour[k]#, neiobj[k]
         end
@@ -196,11 +196,8 @@ function GPR(C,n,dvar,LB,TL)
                         print(" infeasible \n")
                     end
                 end
-                SI = nextSI(neibour,neiobj,C,SI) # SItime = SItime + @CPUelapsed
-                if SI∉dvar
-                    push!(exploredSI,SI);
-                end
-            end
+                SI = nextSI(neibour,neiobj,C,SI) # SItime = SItime + @CPUelapsed                
+                push!(exploredSI,SI);
         end
         push!(IGPair,[I,G])
     end
