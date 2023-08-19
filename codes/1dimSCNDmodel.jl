@@ -1,15 +1,15 @@
 # cd("C:/Users/AK121396/Desktop/ProjectBenders")
 using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,SparseArrays
 
-struct Data1
+struct Data1d
     file::String; N::Dict{}; d::Array{}; c::Array{}; a::Array{}; e::Array{}; gij::SparseVector{}; gjk::SparseVector{}; gkl::SparseVector{};
     vij::Array{}; vjk::Array{}; vkl::Array{}; Vij::SparseVector{}; Vjk::SparseVector{}; Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
-    function Data1(file)
+    function Data1d(file)
         dt1 = readdlm(file);
-        #notafile = readdlm("/home/desk/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/scnd/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -51,9 +51,9 @@ end
 
 @show file = ARGS[1];
 # file = "F:/scnd/Test4S4"
-#file = "/home/desk/Desktop/instances/SCND/test01S2"
+file = "/home/ak121396/Desktop/instances/scnd/test01S2"
 # file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
-dt1 = Data1(file);
+dt1 = Data1d(file);
 function SCND1dim()
     ##########################  Mathematical model  #########################
     # scnd1 = Model(CPLEX.Optimizer);
@@ -126,17 +126,20 @@ function SCND1dim()
     @constraint(scnd1, sum(ujk1[1:dt1.Mjk[1,1]]) <= 1)
     @constraint(scnd1, sum(ukl1[1:dt1.Mkl[1,1]]) <= 1)
     @constraints(scnd1,begin
+        sum(uij[1:dt.Mij[1,1]]) <= 1
         [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
         [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
+        sum(ujk[1:dt.Mjk[1,1]]) <= 1
         [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
         [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
+        sum(ukl[1:dt.Mkl[1,1]]) <= 1
         [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
         [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
     end);
     ########### constraint 11 ############# This causes a different obj values
     @constraint(scnd1, [i=1:sum(dt1.Mij)], sum(xij1[5*(i-1)+1:5*i]) <= dt1.bigM*uij1[i])
     @constraint(scnd1, [j=1:sum(dt1.Mjk)], sum(xjk1[5*(j-1)+1:5*j]) <= dt1.bigM*ujk1[j])
-    @constraint(scnd1, [k=1:sum(dt1.Mkl)], sum(xkl1[5*(k-1)+1:5*k]) <= dt1.bigM*ukl1[k])
+    # @constraint(scnd1, [k=1:sum(dt1.Mkl)], sum(xkl1[5*(k-1)+1:5*k]) <= dt1.bigM*ukl1[k])
     # ########### constraint 12 #############
     @constraints(scnd1, begin
         [i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i]
@@ -148,6 +151,8 @@ function SCND1dim()
     @constraint(scnd1, sum(y1[dt1.N["plant"]*2+1:end]) <= dt1.udc);
     return scnd1
 end
+
+@constraints(scnd1,[i in findnz(dt1.Vij)[1]], sum(xij1[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij1[i])
 scnd1 = SCND1dim()
 #optimize!(scnd1); objective_value(scnd1)
 #solve_time(scnd1)

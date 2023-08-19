@@ -11,6 +11,26 @@ layout = Layout(
     )
 )
 
+bdfig = plot(
+    [
+        scatter(x=[0,10,20,30], y=pd.totalCPU, name="CPUT"),
+        scatter(x=[0,10,20,30], y=pd.iter, name="#iter", yaxis="y2")
+    ],
+    Layout(
+        xaxis_type="category",
+        title_text="B&C Test2_w=$w",
+        # title_text="TBD Test2_w=$w",
+        xaxis_title_text="%",
+        yaxis_title_text="CPUtime(sec)",
+        yaxis2=attr(
+            title="#subp_iter",
+            overlaying="y",
+            side="right"
+        )
+    )
+)
+savefig(bdfig,"/media/ak121396/USB DISK/plots/B&C_Test2_w$w.png")
+# savefig(bdfig,"/media/ak121396/USB DISK/plots/TBD_Test2_w$w.png")
 function NDfilter2(Pobj)
     copyobj = Dict();
     for i=1:length(Pobj)
@@ -103,6 +123,10 @@ t1 = scatter(x=ep1[1:10,1], y=ep1[1:10,2],  name="epsilon", mode="markers", mark
 t2 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
 py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
 t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
+h1 = [dsol[i][1] for i=1:length(dsol)]; h2 = [dsol[i][2] for i=1:length(dsol)]
+ds = scatter(x=h1, y=h2, name="nw", mode="markers", market=attr(color="red"))
+plot([t3,ds],layout)
+
 # lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
 # fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
 # t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
@@ -110,7 +134,7 @@ t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color
 n11 = [ndset5[i].val[1] for i=1:length(ndset5)]; n12 = [ndset5[i].val[2] for i=1:length(ndset5)];
 nd = scatter(x=n11, y=n12, name="ndset5", mode="markers+lines", market=attr(color="Terquios"))
 h1 = [dsol[i][1] for i=1:length(dsol)]; h2 = [dsol[i][2] for i=1:length(dsol)]
-ds = scatter(x=h1, y=h2, name="nw", mode="markers+lines", market=attr(color="royalblue"))
+ds = scatter(x=h1, y=h2, name="nw", mode="markers", market=attr(color="red"))
 plot([nd,ds],layout)
 ndi1 = [dsol1[i][1] for i=1:length(dsol1)]; ndi2 = [dsol1[i][2] for i=1:length(dsol1)];
 d1 = scatter(x=ndi1, y=ndi2, name="dsol1", mode="markers+lines", market=attr(color="Terquios"))

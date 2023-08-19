@@ -7,9 +7,9 @@ struct Data1dim
     b::Array{}; q::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{}; upl::Int; udc::Int; bigM::Int
     function Data1dim(file)
         dt1 = readdlm(file);
-        # notafile = readdlm("/home/ak121396/Desktop/instances/SCND/Notations.txt", '=');
+        notafile = readdlm("/home/ak121396/Desktop/instances/scnd/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
 
         for i=1:length(nota)-1
@@ -48,15 +48,14 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-# file = "/home/k2g00/k2g3475/scnd/instances/test14S4"
+file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
 @show file = ARGS[1]
 # file = "F:scnd/Test1S2"
-# file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "/home/ak121396/Desktop/instances/scnd/test04S4"
 dt1 = Data1dim(file);
 name = ARGS[1][end-7:end]
 testnum = parse(Int,name[end-3:end-2])
 TL = dt1.N["supplier"]*10*testnum
-end
 
 function SCND1dim()
     scnd1 = vModel( CPLEX.Optimizer
@@ -65,7 +64,7 @@ function SCND1dim()
     #         "CPX_PARAM_EPGAP" => 1e-8)
           );
     set_silent(scnd1)
-    MOI.set(scnd1, MOI.NumberOfThreads(), 1)
+    # MOI.set(scnd1, MOI.NumberOfThreads(), 1)
     @variable(scnd1, y[1:(dt1.N["plant"]+dt1.N["distribution"])*2], Bin)
     @variable(scnd1, uij[1:sum(dt1.Mij)], Bin);
     @variable(scnd1, ujk[1:sum(dt1.Mjk)], Bin);
@@ -104,30 +103,30 @@ function SCND1dim()
     @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
     @constraints(scnd1, begin
-            sum(uij[1:dt1.Mij[1,1]]) <= 1
-            sum(uij[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= 1
-            [j=2:dt1.N["plant"]], sum(uij[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
-            [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
-            sum(ujk[1:dt1.Mjk[1,1]]) <= 1
-            sum(ujk[sum(dt1.Mjk[1,:])+dt1.Mjk[2,1]]) <= 1
-            [k=2:dt1.N["distribution"]], sum(ujk[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
-            [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
-            sum(ukl[1:dt1.Mkl[1,1]]) <= 1 #[1,1]
-            sum(ukl[sum(dt1.Mkl[1,:])+dt1.Mkl[2,1]]) <= 1 #[2,1]
-            [l=2:dt1.N["customer"]], sum(ukl[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
-            [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
+        sum(uij[1:dt1.Mij[1,1]]) <= sum(y[1,:])
+        sum(uij[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= sum(y[2,:])
+        [j=2:dt1.N["plant"]], sum(uij[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= sum(y[j,:])
+        [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= sum(y[j,:])
+        sum(ujk[1:dt1.Mjk[1,1]]) <= (sum(y[1,:])+sum(y[dt1.N["plant"]+1,:]))/2
+        sum(ujk[sum(dt1.Mjk[1,:])+dt1.Mjk[2,1]]) <= (sum(y[2,:])+sum(y[dt1.N["plant"]+1,:]))/2
+        [k=2:dt1.N["distribution"]], sum(ujk[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= (sum(y[1,:])+sum(y[dt1.N["plant"]+k,:]))/2
+        [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= (sum(y[j,:])+sum(y[dt1.N["plant"]+k,:]))/2
+        sum(ukl[1:dt1.Mkl[1,1]]) <= sum(y[dt1.N["plant"]+1,:]) #[1,1]
+        sum(ukl[sum(dt1.Mkl[1,:])+dt1.Mkl[2,1]]) <= sum(y[dt1.N["plant"]+2,:]) #[2,1]
+        [l=2:dt1.N["customer"]], sum(ukl[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= sum(y[dt1.N["plant"]+1,:])
+        [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= sum(y[dt1.N["plant"]+k,:])
     end);
     ########### constraint 11 #############
-    @constraints(scnd1, begin
-        [i=1:sum(dt1.Mij)], sum(xij[5*(i-1)+1:5*i]) <= dt1.bigM*uij[i]
-        [i=1:sum(dt1.Mjk)], sum(xjk[5*(i-1)+1:5*i]) <= dt1.bigM*ujk[i]
-        [i=1:sum(dt1.Mkl)], sum(xkl[5*(i-1)+1:5*i]) <= dt1.bigM*ukl[i]
-    end);
-    ########### constraint 12 #############
     @constraints(scnd1, begin
             [i in findnz(dt1.Vij)[1]], sum(xij[5*(i-1)+1:5*i]) >= dt1.Vij[i]*uij[i]
             [i in findnz(dt1.Vjk)[1]], sum(xjk[5*(i-1)+1:5*i]) >= dt1.Vjk[i]*ujk[i]
             # [i in findnz(dt1.Vkl)[1]], sum(xkl[5*(i-1)+1:5*i]) >= dt1.Vkl[i]*ukl[i]
+    end);
+    ########### constraint 12 #############
+    @constraints(scnd1, begin
+        [i=1:sum(dt1.Mij)], sum(xij[5*(i-1)+1:5*i]) <= dt1.bigM*uij[i]
+        [i=1:sum(dt1.Mjk)], sum(xjk[5*(i-1)+1:5*i]) <= dt1.bigM*ujk[i]
+        [i=1:sum(dt1.Mkl)], sum(xkl[5*(i-1)+1:5*i]) <= dt1.bigM*ukl[i]
     end);
     ########### constraint 13-14 #############
     @constraint(scnd1, sum(y[1:dt1.N["plant"]*2]) <= dt1.upl);
@@ -135,11 +134,13 @@ function SCND1dim()
     return scnd1
 end
 scnd = SCND1dim()
-Dichotime = @CPUelapsed vSolve(scnd, TL-120, method=:dicho, verbose=false)
+Dichotime = @CPUelapsed vSolve(scnd, 1000, method=:dicho, verbose=false)
 # @CPUtime vSolve(scnd, TL, method=:epsilon, step=5*(10^4.0), verbose=true);
 # @CPUtime vSolve(scnd, method=:epsilon, step=10^7.0, verbose=true);
 # @CPUtime vSolve(scnd, 600, method=:lex, verbose=false);
 vd = getvOptData(scnd);
+termination_status(scnd)
+vd.Y_N
 weight = round(Int,mean([vd.Y_N[i][1]/vd.Y_N[i][2] for i=1:length(vd.Y_N)]))
 ################### Check binary variable values in common  ####################
 # bva = (dt1.N["plant"]+dt1.N["distribution"])*2+sum(dt1.Mij)+sum(dt1.Mjk)+sum(dt1.Mkl)

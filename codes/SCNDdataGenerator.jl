@@ -462,9 +462,9 @@ function build_scndmodel(w,bigM)
     @constraint(scnd,[j=1:J+K, t=1:2], sum(h1[j,t]) <= capd1[j]*y1[j,t]);
     @constraint(scnd,[j=1:J+K], sum(y1[j,:]) <= 1)
     ########### constraint 10 #############
-    @constraint(scnd,[i=1:I,j=1:J], sum(uij1[i,j,m] for m=1:Mij[i,j]) <= 1);
-    @constraint(scnd,[j=1:J,k=1:K], sum(ujk1[j,k,m] for m=1:Mjk[j,k]) <= 1);
-    @constraint(scnd,[k=1:K,l=1:L], sum(ukl1[k,l,m] for m=1:Mkl[k,l]) <= 1);
+    @constraint(scnd,[i=1:I,j=1:J], sum(uij1[i,j,m] for m=1:Mij[i,j]) <=  sum(y1[j,:]));
+    @constraint(scnd,[j=1:J,k=1:K], sum(ujk1[j,k,m] for m=1:Mjk[j,k]) <= (sum(y1[j,:])+sum(y1[J+k,:]))/2 );
+    @constraint(scnd,[k=1:K,l=1:L], sum(ukl1[k,l,m] for m=1:Mkl[k,l]) <= sum(y1[J+k,:]));
     ########### constraint 11 #############
     @constraint(scnd,[i=1:I,j=1:J,m=1:Mij[i,j]], sum(xij1[i,j,m] ) <= bigM*uij1[i,j,m]);
     @constraint(scnd, [j=1:J,k=1:K,m=1:Mjk[j,k]], sum(xjk1[j,k,m] ) <= bigM*ujk1[j,k,m]);

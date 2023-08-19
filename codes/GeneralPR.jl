@@ -318,7 +318,7 @@ end
 otable = zeros(Int, length(finalY),3)
 for i=1:length(finalY)
     for j=1:3
-        otable[i,j] = finalY[i][j]
+        otable[i,j] = n owqu/+finalY[i][j]
     end
 end
 matriX = zeros(Int,length(finalX),n)
