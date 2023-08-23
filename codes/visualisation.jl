@@ -1,5 +1,6 @@
 using PlotlyJS,DataFrames,DelimitedFiles,Colors,CSV,JLD2
 #############################        2D plot      ###########################
+
 layout = Layout(
     title="Test",
     xaxis_title="Cost",
@@ -10,6 +11,72 @@ layout = Layout(
         size=18
     )
 )
+
+#############################   Benders Plot   ##############################
+numcut = [0,20,40,60,80,100]
+cpuiter = [1.000	1.000
+0.679	0.799
+0.518	0.633
+0.532	0.535
+0.938	0.999
+1.729	0.936
+]
+title = "B&CTest2"
+p = plot([
+    bar(name="CPU", x=numcut, y=cpuiter[:,1], marker_color="lightsalmon"),
+    bar(name="Iteration", x=numcut, y=cpuiter[:,2], marker_color="skyblue")],
+    Layout(
+        # xaxis_type="category",
+        # title_text=title,
+        # title_text="TBD Test2_w=$w",
+        xaxis_title_text="Benders cuts(#)",
+        yaxis_title_text="Normalised values",
+        font=attr( size=22)
+        # yaxis2=attr(
+        #     title="#subp_iter",
+        #     overlaying="y",
+        #     side="right"
+        # )
+    )
+)
+
+
+cpuiter = [1.000	1.000
+0.457	0.595
+1.144	0.825
+0.572	0.586
+0.909	0.721
+0.732	0.629
+0.915	0.635
+]
+cpuiter =[1.000	1.000
+0.514	0.624
+0.442	0.514
+0.677	0.609
+0.859	0.697
+0.730	0.599
+]
+numcut = ["0%","10%","20%","30%","40%","50%"]
+# numcut = [0,20,40,60,80,100]
+
+title = "TBD_Test1"
+p = plot([
+    bar(name="CPU", x=numcut, y=cpuiter[:,1], marker_color="orange"),
+    bar(name="Iteration", x=numcut, y=cpuiter[:,2], marker_color="darkseagreen")],
+    Layout(
+        # xaxis_type="category",
+        # title_text=title,
+        xaxis_title_text="Benders cuts(%)",
+        # xaxis_title_text="Benders cuts(#)",
+        yaxis_title_text="Normalised values",
+        font=attr( size=22)
+    )
+)
+
+# relayout!(p, barmode="group")
+# savefig(p,"/media/ak121396/USB DISK/plots/"*title*".png")
+savefig(p,"/home/ak121396/Pictures/"*title*".png")
+
 
 bdfig = plot(
     [
@@ -29,7 +96,6 @@ bdfig = plot(
         )
     )
 )
-savefig(bdfig,"/media/ak121396/USB DISK/plots/B&C_Test2_w$w.png")
 # savefig(bdfig,"/media/ak121396/USB DISK/plots/TBD_Test2_w$w.png")
 function NDfilter2(Pobj)
     copyobj = Dict();
