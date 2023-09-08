@@ -1,14 +1,13 @@
-using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathProgBase,MathOptInterface,CPUTime,SparseArrays
-const MPB = MathProgBase
+using DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,MathOptInterface,CPUTime,SparseArrays
 mutable struct Data3
     filepath::String; N::Dict{}; d::Array{}; c::Array{};  Mij::Array{}; Mjk::Array{}; Mkl::Array{};
     gij::Array{}; gjk::Array{}; gkl::Array{}; vij::Array{}; vjk::Array{}; vkl::Array{}; rij::Array{}; rjk::Array{}; rkl::Array{};
-    Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};q::Array{};
+    Vij::Array{}; Vjk::Array{}; Vkl::Array{}; b::Array{}; q::Array{}; upl::Int; udc::Int; bigM::Int # e::Array{};
     function Data3(filepath)
         dt3 = readdlm(filepath);
-        notafile = readdlm("/home/ak121396/Desktop/instances/scnd/Notations.txt", '=');
+        # notafile = readdlm("/home/ak121396/Desktop/instances/scnd/Notations.txt", '=');
         # notafile = readdlm("F:/scnd/Notations.txt", '=');
-        # notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
+        notafile = readdlm("/home/k2g00/k2g3475/scnd/Notations.txt", '=');
         nota = notafile[1:end,1];  N= Dict();
         for i=1:length(nota)-1
             id1 = findall(x->x==nota[i], dt3)[1][1];
@@ -219,218 +218,225 @@ mutable struct Data3
             end
         end
         b = reshape(N["ves"],5,N["supplier"])';
-        # q = append!(N["vep"],N["ved"]);
+        q = append!(N["vep"],N["ved"]);
         upl = N["upperpants"]; udc = N["upperdistribution"]
         bigM = sum(sum(N["demand"]))
-        new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
+        new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,q,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
 
-file = "/home/ak121396/Desktop/instances/SCND/test01S2"
+file = "/home/ak121396/Desktop/instances/scnd/test04S4"
 file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 dt = Data3(file);
+function multdimSCND(dt,nobj)
+    # scnd0 = Model(CPLEX.Optimizer); set_silent(scnd0)
+    # @variable(scnd0, 0<=y[1:dt.N["plant"]+dt.N["distribution"],1:2]<=1  );
+    # @variable(scnd0, 0<=uij[i=1:dt.N["supplier"],j=1:dt.N["plant"], m=1:dt.Mij[i,j]] <=1 )
+    # @variable(scnd0, 0<=ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] <=1);
+    # @variable(scnd0, 0<=ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]] <=1);
+    # MOI.set(scnd0, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
+    # MOI.set(scnd0, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
+    ##############################  IP   #####################################
+    scnd0 = Model(CPLEX.Optimizer); set_silent(scnd0)
+    @variable(scnd0, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin  );
+    @variable(scnd0, uij[i=1:dt.N["supplier"],j=1:dt.N["plant"], m=1:dt.Mij[i,j]] , Bin);
+    @variable(scnd0, ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] , Bin);
+    @variable(scnd0, ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]] , Bin);
 
-# scnd0 = Model(CPLEX.Optimizer); set_silent(scnd0)
-# @variable(scnd0, 0<=y[1:dt.N["plant"]+dt.N["distribution"],1:2]<=1  );
-# @variable(scnd0, 0<=uij[i=1:dt.N["supplier"],j=1:dt.N["plant"], m=1:dt.Mij[i,j]] <=1 )
-# @variable(scnd0, 0<=ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] <=1);
-# @variable(scnd0, 0<=ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]] <=1);
-# MOI.set(scnd0, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
-# MOI.set(scnd0, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
-##############################  IP   #####################################
-scnd0 = Model(CPLEX.Optimizer); set_silent(scnd0)
-@variable(scnd0, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin  );
-@variable(scnd0, uij[i=1:dt.N["supplier"],j=1:dt.N["plant"], m=1:dt.Mij[i,j]] , Bin);
-@variable(scnd0, ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] , Bin);
-@variable(scnd0, ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]] , Bin);
+    @variable(scnd0, 0<= xij[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],1:5] );
+    @variable(scnd0, 0<= xjk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],1:5] );
+    @variable(scnd0, 0<= xkl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],1:5] );
+    @variable(scnd0, 0<= h[1:dt.N["plant"]+dt.N["distribution"],1:5,1:2] );
 
-@variable(scnd0, 0<= xij[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],1:5] );
-@variable(scnd0, 0<= xjk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],1:5] );
-@variable(scnd0, 0<= xkl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],1:5] );
-@variable(scnd0, 0<= h[1:dt.N["plant"]+dt.N["distribution"],1:5,1:2] );
-
-#a_ip*x_ijmp
-exa = AffExpr(0);
-for i=1:dt.N["supplier"]
-    for j=1:dt.N["plant"]
-        for m=1:dt.Mij[i,j]
-            for p=1:5
-                # if is_valid(scnd0,xij[i,j,m,p])==true
-                add_to_expression!(exa,sum(dt.N["vcs"][i][p]*xij[i,j,m,p]) );
-                # end
+    #a_ip*x_ijmp
+    exa = AffExpr(0);
+    for i=1:dt.N["supplier"]
+        for j=1:dt.N["plant"]
+            for m=1:dt.Mij[i,j]
+                for p=1:5
+                    # if is_valid(scnd0,xij[i,j,m,p])==true
+                    add_to_expression!(exa,sum(dt.N["vcs"][i][p]*xij[i,j,m,p]) );
+                    # end
+                end
             end
         end
     end
-end
-#g_ijm*u_ijm expression
-exg = AffExpr(0);
-for i=1:dt.N["supplier"]
-    idx = 1;
-    for j=1:dt.N["plant"]
-        # if dt.Mij[i,j]<dt.m
-        #     for d=1:dt.m-dt.Mij[i,j]
-        #         delete(scnd0,uij[i,j,dt.m-d+1])
-        #     end
-        # end
-        for m=1:dt.Mij[i,j]
-            add_to_expression!(exg, dt.gij[i][j][m]*uij[i,j,m]);
-        end
-    end
-end
-for j=1:dt.N["plant"]
-    idx = 1;
-    for k=1:dt.N["distribution"]
-        # if dt.Mjk[j,k]<dt.m
-        #     for d=1:dt.m-dt.Mjk[j,k]
-        #         delete(scnd0,ujk[j,k,dt.m-d+1])
-        #     end
-        # end
-        for m=1:dt.Mjk[j,k]
-            add_to_expression!(exg, dt.gjk[j][k][m]*ujk[j,k,m]);
-        end
-    end
-end
-for k=1:dt.N["distribution"]
-    idx = 1;
-    for l=1:dt.N["customer"]
-        # if dt.Mkl[k,l]<dt.m
-        #     for d=1:dt.m-dt.Mkl[k,l]
-        #         delete(scnd0,ukl[k,l,dt.m-d+1])
-        #     end
-        # end
-        for m=1:dt.Mkl[k,l]
-            add_to_expression!(exg,dt.gkl[k][l][m]*ukl[k,l,m]);
-        end
-    end
-end
-
-#v_ijmp*x_ijmp expression
-exv = AffExpr(0);
-for i=1:dt.N["supplier"]
-    idx = 1;
-    for j=1:dt.N["plant"]
-        # if dt.Mij[i,j]<dt.m
-        #     for d=1:dt.m-dt.Mij[i,j]
-        #         delete(scnd0,xij[i,j,dt.m-d+1,:])
-        #     end
-        # end
-        for m=1:dt.Mij[i,j]
-            add_to_expression!(exv,sum(dot.(dt.N["tcp"][i][idx:idx+4],(xij[i,j,m,p] for p=1:5))))#*sqrt((dt.N["pointsupplier"][1][i]-dt.N["pointplant"][1][j])^2+(dt.N["pointsupplier"][2][i]-dt.N["pointplant"][2][j])^2)) );
-            idx+=5
-        end
-    end
-end
-for j=1:dt.N["plant"]
-    idx = 1;
-    for k=1:dt.N["distribution"]
-        # if dt.Mjk[j,k]<dt.m
-        #     for d=1:dt.m-dt.Mjk[j,k]
-        #         delete(scnd0,xjk[j,k,dt.m-d+1,:])
-        #     end
-        # end
-        for m=1:dt.Mjk[j,k]
-            add_to_expression!(exv,sum(dot.(dt.N["tcd"][j][idx:idx+4],xjk[j,k,m,p] for p=1:5)))#*sqrt((dt.N["pointplant"][1][j]-dt.N["pointdistribution"][1][k])^2+(dt.N["pointplant"][2][j]-dt.N["pointdistribution"][2][k])^2)) );
-            idx+=5
-        end
-    end
-end
-for k=1:dt.N["distribution"]
-    idx = 1;
-    for l=1:dt.N["customer"]
-        # if dt.Mkl[k,l]<dt.m
-        #     for d=1:dt.m-dt.Mkl[k,l]
-        #         delete(scnd0,xkl[k,l,dt.m-d+1,1:5])
-        #     end
-        # end
-        for m=1:dt.Mkl[k,l]
-            add_to_expression!(exv,sum(dot.(dt.N["tcc"][k][idx:idx+4],xkl[k,l,m,p] for p=1:5)))#*sqrt((dt.N["pointdistribution"][1][k]-dt.N["pointCustmoer"][1][l])^2+(dt.N["pointdistribution"][2][k]-dt.N["pointCustmoer"][2][l])^2)) );
-            idx+=5
-        end
-    end
-end
-#b_ip*x_ijmp
-exb = AffExpr(0);
-for i=1:dt.N["supplier"]
-    for j=1:dt.N["plant"]
-        for m=1:dt.Mij[i,j]
-            for p=1:5
-                # if is_valid(scnd0,xij[i,j,m,p])==true
-                add_to_expression!(exb,sum(dt.b[i,p]*xij[i,j,m,p]) );
-                # end
+    #g_ijm*u_ijm expression
+    exg = AffExpr(0);
+    for i=1:dt.N["supplier"]
+        idx = 1;
+        for j=1:dt.N["plant"]
+            # if dt.Mij[i,j]<dt.m
+            #     for d=1:dt.m-dt.Mij[i,j]
+            #         delete(scnd0,uij[i,j,dt.m-d+1])
+            #     end
+            # end
+            for m=1:dt.Mij[i,j]
+                add_to_expression!(exg, dt.gij[i][j][m]*uij[i,j,m]);
             end
         end
     end
-end
-
-exr = AffExpr(0);
-for i=1:dt.N["supplier"]
-    idx = 1;
     for j=1:dt.N["plant"]
-        for m=1:dt.Mij[i,j]
-            add_to_expression!(exr,sum(dot.(dt.N["cep"][i][idx:idx+4],xij[i,j,m,p] for p=1:5)))
-            idx+=5
+        idx = 1;
+        for k=1:dt.N["distribution"]
+            # if dt.Mjk[j,k]<dt.m
+            #     for d=1:dt.m-dt.Mjk[j,k]
+            #         delete(scnd0,ujk[j,k,dt.m-d+1])
+            #     end
+            # end
+            for m=1:dt.Mjk[j,k]
+                add_to_expression!(exg, dt.gjk[j][k][m]*ujk[j,k,m]);
+            end
         end
     end
-end
-for j=1:dt.N["plant"]
-    idx = 1;
     for k=1:dt.N["distribution"]
-        for m=1:dt.Mjk[j,k]
-            add_to_expression!(exr,sum(dot.(dt.N["ced"][j][idx:idx+4],xjk[j,k,m,p] for p=1:5)))
-            idx+=5
+        idx = 1;
+        for l=1:dt.N["customer"]
+            # if dt.Mkl[k,l]<dt.m
+            #     for d=1:dt.m-dt.Mkl[k,l]
+            #         delete(scnd0,ukl[k,l,dt.m-d+1])
+            #     end
+            # end
+            for m=1:dt.Mkl[k,l]
+                add_to_expression!(exg,dt.gkl[k][l][m]*ukl[k,l,m]);
+            end
         end
     end
-end
-for k=1:dt.N["distribution"]
-    idx = 1;
-    for l=1:dt.N["customer"]
-        for m=1:dt.Mkl[k,l]
-            add_to_expression!(exr,sum(dot.(dt.N["cec"][k][idx:idx+4],xkl[k,l,m,p] for p=1:5)))
-            idx+=5
+
+    #v_ijmp*x_ijmp expression
+    exv = AffExpr(0);
+    for i=1:dt.N["supplier"]
+        idx = 1;
+        for j=1:dt.N["plant"]
+            # if dt.Mij[i,j]<dt.m
+            #     for d=1:dt.m-dt.Mij[i,j]
+            #         delete(scnd0,xij[i,j,dt.m-d+1,:])
+            #     end
+            # end
+            for m=1:dt.Mij[i,j]
+                add_to_expression!(exv,sum(dot.(dt.N["tcp"][i][idx:idx+4],(xij[i,j,m,p] for p=1:5))))#*sqrt((dt.N["pointsupplier"][1][i]-dt.N["pointplant"][1][j])^2+(dt.N["pointsupplier"][2][i]-dt.N["pointplant"][2][j])^2)) );
+                idx+=5
+            end
         end
     end
+    for j=1:dt.N["plant"]
+        idx = 1;
+        for k=1:dt.N["distribution"]
+            # if dt.Mjk[j,k]<dt.m
+            #     for d=1:dt.m-dt.Mjk[j,k]
+            #         delete(scnd0,xjk[j,k,dt.m-d+1,:])
+            #     end
+            # end
+            for m=1:dt.Mjk[j,k]
+                add_to_expression!(exv,sum(dot.(dt.N["tcd"][j][idx:idx+4],xjk[j,k,m,p] for p=1:5)))#*sqrt((dt.N["pointplant"][1][j]-dt.N["pointdistribution"][1][k])^2+(dt.N["pointplant"][2][j]-dt.N["pointdistribution"][2][k])^2)) );
+                idx+=5
+            end
+        end
+    end
+    for k=1:dt.N["distribution"]
+        idx = 1;
+        for l=1:dt.N["customer"]
+            # if dt.Mkl[k,l]<dt.m
+            #     for d=1:dt.m-dt.Mkl[k,l]
+            #         delete(scnd0,xkl[k,l,dt.m-d+1,1:5])
+            #     end
+            # end
+            for m=1:dt.Mkl[k,l]
+                add_to_expression!(exv,sum(dot.(dt.N["tcc"][k][idx:idx+4],xkl[k,l,m,p] for p=1:5)))#*sqrt((dt.N["pointdistribution"][1][k]-dt.N["pointCustmoer"][1][l])^2+(dt.N["pointdistribution"][2][k]-dt.N["pointCustmoer"][2][l])^2)) );
+                idx+=5
+            end
+        end
+    end
+    #b_ip*x_ijmp
+    exb = AffExpr(0);
+    for i=1:dt.N["supplier"]
+        for j=1:dt.N["plant"]
+            for m=1:dt.Mij[i,j]
+                for p=1:5
+                    # if is_valid(scnd0,xij[i,j,m,p])==true
+                    add_to_expression!(exb,sum(dt.b[i,p]*xij[i,j,m,p]) );
+                    # end
+                end
+            end
+        end
+    end
+
+    exr = AffExpr(0);
+    for i=1:dt.N["supplier"]
+        idx = 1;
+        for j=1:dt.N["plant"]
+            for m=1:dt.Mij[i,j]
+                add_to_expression!(exr,sum(dot.(dt.N["cep"][i][idx:idx+4],xij[i,j,m,p] for p=1:5)))
+                idx+=5
+            end
+        end
+    end
+    for j=1:dt.N["plant"]
+        idx = 1;
+        for k=1:dt.N["distribution"]
+            for m=1:dt.Mjk[j,k]
+                add_to_expression!(exr,sum(dot.(dt.N["ced"][j][idx:idx+4],xjk[j,k,m,p] for p=1:5)))
+                idx+=5
+            end
+        end
+    end
+    for k=1:dt.N["distribution"]
+        idx = 1;
+        for l=1:dt.N["customer"]
+            for m=1:dt.Mkl[k,l]
+                add_to_expression!(exr,sum(dot.(dt.N["cec"][k][idx:idx+4],xkl[k,l,m,p] for p=1:5)))
+                idx+=5
+            end
+        end
+    end
+    if nobj == 1
+        #1st obj
+        # @constraint(scnd0, obj1, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2) + exg + exv <=0);
+        @objective(scnd0, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +exa + exv + sum(dt.N["vcp"][j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2) + sum(dt.N["vcd"][k][(p-1)*2+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
+    else
+        #2nd obj
+        # @constraint(scnd0, obj2, exb+sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr <=0);
+        @objective(scnd0,Min, exb + exr + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) );
+    end
+    ########### constraint 3 ###############
+    @constraints(scnd0, begin
+        [j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
+        [k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
+    end);
+    ########### constraint 4-6 #############
+    @constraints(scnd0, begin
+        [j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j])
+        [k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k])
+        [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]
+    end )
+    ########### constraint 7-9 #############
+    @constraint(scnd0,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i]);
+    @constraint(scnd0,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,1:5,t]) <= [dt.N["cap"];dt.N["cad"]][j]*y[j,t]);
+    @constraint(scnd0,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
+    ########### constraint 10 #############
+    @constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= sum(y[j,:]));
+    @constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= (sum(y[j,:])+ sum(y[dt.N["plant"]+k,:]))/2 );
+    @constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= sum(y[dt.N["plant"]+k,:]));
+    ########### constraint 12 #############
+    @constraint(scnd0,[i=1:dt.N["supplier"], j=1:dt.N["plant"], m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) >= dt.Vij[i][j][m]*uij[i,j,m] );
+    @constraint(scnd0,[j=1:dt.N["plant"], k=1:dt.N["distribution"], m=1:dt.Mjk[j,k]], sum(xjk[j,k,m,p] for p=1:5) >= dt.Vjk[j][k][m]*ujk[j,k,m]);
+    # @constraint(scnd0,[k=1:dt.N["distribution"], l=1:dt.N["customer"], m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) >= dt.Vkl[k][l][m]*ukl[k,l,m]);
+    ########### constraint 13-14 #############
+    @constraint(scnd0, sum(y[j,t] for j=1:dt.N["plant"] for t=1:2) <= dt.upl);
+    @constraint(scnd0, sum(y[j,t] for j=dt.N["plant"]+1:dt.N["distribution"]+dt.N["plant"] for t=1:2) <= dt.udc);
+    # ########### BigM:: products can be delivered only by chosen transportation mode #############
+    BigM = sum(sum(dt.N["demand"]));
+    @constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],p=1:5], sum(xij[i,j,m,p] ) <= BigM*uij[i,j,m]);
+    @constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],p=1:5] ,sum(xjk[j,k,m,p] ) <= BigM*ujk[j,k,m]);
+    @constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],p=1:5], sum(xkl[k,l,m,p] ) <= BigM*ukl[k,l,m]); 
+    return scnd0
 end
-#1st obj
-# @constraint(scnd0, obj1, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2) + exg + exv <=0);
-@objective(scnd0, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +exa + exv + sum(dt.N["vcp"][j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2) + sum(dt.N["vcd"][k][(p-1)*2+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
-#2nd obj
-# @constraint(scnd0, obj2, exb+sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr <=0);
-# @objective(scnd0,Min,exb + exr + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) );
-
-########### constraint 3 ###############
-@constraints(scnd0, begin
-    [j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
-    [k=1:dt.N["distribution"],p=1:5], sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k]) == sum(xkl[k,l,m,p] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])
-end);
-########### constraint 4-6 #############
-@constraints(scnd0, begin
-    [j=1:dt.N["plant"],p=1:5], sum(h[j,p,:]) == sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j])
-    [k=1:dt.N["distribution"],p=1:5], sum(h[k+dt.N["plant"],p,:] ) == sum(xjk[j,k,m,p] for j=1:dt.N["plant"] for m=1:dt.Mjk[j,k])
-    [l=1:dt.N["customer"],p=1:5], sum(xkl[k,l,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mkl[k,l]) >= dt.d[l][p]
-end )
-########### constraint 7-9 #############
-@constraint(scnd0,[i=1:dt.N["supplier"]], sum(xij[i,j,m,p] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) <= dt.N["cas"][i]);
-@constraint(scnd0,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,1:5,t]) <= [dt.N["cap"];dt.N["cad"]][j]*y[j,t]);
-@constraint(scnd0,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
-########### constraint 10 #############
-@constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= sum(y[j,:]));
-@constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= (sum(y[j,:])+ sum(y[dt.N["plant"]+k,:]))/2 );
-@constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= sum(y[dt.N["plant"]+k,:]));
-########### constraint 12 #############
-@constraint(scnd0,[i=1:dt.N["supplier"], j=1:dt.N["plant"], m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) >= dt.Vij[i][j][m]*uij[i,j,m] );
-@constraint(scnd0,[j=1:dt.N["plant"], k=1:dt.N["distribution"], m=1:dt.Mjk[j,k]], sum(xjk[j,k,m,p] for p=1:5) >= dt.Vjk[j][k][m]*ujk[j,k,m]);
-@constraint(scnd0,[k=1:dt.N["distribution"], l=1:dt.N["customer"], m=1:dt.Mkl[k,l]], sum(xkl[k,l,m,p] for p=1:5) >= dt.Vkl[k][l][m]*ukl[k,l,m]);
-########### constraint 13-14 #############
-@constraint(scnd0, sum(y[j,t] for j=1:dt.N["plant"] for t=1:2) <= dt.upl);
-@constraint(scnd0, sum(y[j,t] for j=dt.N["plant"]+1:dt.N["distribution"]+dt.N["plant"] for t=1:2) <= dt.udc);
-# ########### BigM:: products can be delivered only by chosen transportation mode #############
-BigM = sum(sum(dt.N["demand"]));
-@constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j],p=1:5], sum(xij[i,j,m,p] ) <= BigM*uij[i,j,m]);
-@constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k],p=1:5] ,sum(xjk[j,k,m,p] ) <= BigM*ujk[j,k,m]);
-@constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l],p=1:5], sum(xkl[k,l,m,p] ) <= BigM*ukl[k,l,m]);
-
-optimize!(scnd0)
-println(objective_value(scnd0))
+scndm = multdimSCND(dt,2)
+optimize!(scndm)
+objective_value(scndm)
+scndm2 = multdimSCND(dt,2)
+optimize!(scndm2)
+objective_value(scndm2)
 1
 # using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
 # # CSV

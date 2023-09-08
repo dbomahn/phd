@@ -13,69 +13,66 @@ layout = Layout(
 )
 
 #############################   Benders Plot   ##############################
-numcut = [0,20,40,60,80,100]
-cpuiter = [1.000	1.000
-0.679	0.799
-0.518	0.633
-0.532	0.535
-0.938	0.999
-1.729	0.936
+numcut = [20,40,60,80,100]
+title = "B&CTest1"
+cpuiter = [0.001	0.303
+0.001	0.281
+0.0005	0.165
+0.001	0.240
+0.002	0.527
 ]
-title = "B&CTest2"
+title = "B&CTest4"
+cpuiter = [0.021	1.174
+0.024	1.177
+0.017	1.143
+0.023	0.959
+0.022	1.078]
 p = plot([
-    bar(name="CPU", x=numcut, y=cpuiter[:,1], marker_color="lightsalmon"),
+    bar(name="CPU", x=numcut, y=cpuiter[:,1],text=cpuiter[:,1], marker_color="lightsalmon"),
     bar(name="Iteration", x=numcut, y=cpuiter[:,2], marker_color="skyblue")],
     Layout(
-        # xaxis_type="category",
-        # title_text=title,
-        # title_text="TBD Test2_w=$w",
         xaxis_title_text="Benders cuts(#)",
         yaxis_title_text="Normalised values",
-        font=attr( size=22)
-        # yaxis2=attr(
-        #     title="#subp_iter",
-        #     overlaying="y",
-        #     side="right"
-        # )
+        font=attr( size=22),
+        yaxis_range=[0, maximum([cpuiter;1 1])]
     )
 )
 
+savefig(p,"/media/ak121396/USB DISK/plots/"*title*".png")
 
-cpuiter = [1.000	1.000
-0.457	0.595
-1.144	0.825
-0.572	0.586
-0.909	0.721
-0.732	0.629
-0.915	0.635
-]
-cpuiter =[1.000	1.000
-0.514	0.624
+
+
+
+numcut = [20,40,60,80,100]
+title = "TBD_Test1"
+cpuiter = [
+    0.428	0.624
+    0.721	0.736
+    0.432	0.505
+    0.517	0.568
+    0.635	0.634]
+cpuiter =[0.514	0.624
 0.442	0.514
 0.677	0.609
 0.859	0.697
 0.730	0.599
 ]
-numcut = ["0%","10%","20%","30%","40%","50%"]
-# numcut = [0,20,40,60,80,100]
-
-title = "TBD_Test1"
 p = plot([
     bar(name="CPU", x=numcut, y=cpuiter[:,1], marker_color="orange"),
     bar(name="Iteration", x=numcut, y=cpuiter[:,2], marker_color="darkseagreen")],
     Layout(
         # xaxis_type="category",
         # title_text=title,
-        xaxis_title_text="Benders cuts(%)",
-        # xaxis_title_text="Benders cuts(#)",
+        xaxis_title_text="Benders cuts(#)",
         yaxis_title_text="Normalised values",
-        font=attr( size=22)
+        font=attr( size=22),
+        yaxis_range=[0, maximum([cpuiter;1 1])]
     )
 )
 
 # relayout!(p, barmode="group")
-# savefig(p,"/media/ak121396/USB DISK/plots/"*title*".png")
-savefig(p,"/home/ak121396/Pictures/"*title*".png")
+savefig(p,"/media/ak121396/USB DISK/plots/"*title*".png")
+# savefig(p,"/home/ak121396/Pictures/"*title*".png")
 
 
 bdfig = plot(
@@ -160,17 +157,18 @@ plot([t1,t4], layout)
 
 fpath = "/home/ak121396/Desktop/relise/epsilon/1/"
 eplist = readdir(fpath)#[2:end]
-tnum = 2
-ep1 = readdlm(fpath*eplist[tnum])[1:10,:]
+tnum = 14
+ep1 = readdlm(fpath*eplist[tnum])#[1:10,:]
+NDfilter2([ep1[i,:] for i=1:size(ep1,1)])
 t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-
+plot([t1],layout)
 
 lpath = "/home/ak121396/Desktop/relise/lpY/ndp/dichow/"
 llist = readdir(lpath)
 lpY = readdlm(lpath*llist[4])
 l1 = lpY[:,1]; l2 = lpY[:,2]
 t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-fig = plot([t1,t3],layout);
+fig = plot([t1],layout);
 savefig(fig,"/home/ak121396/Dropbox/SCNDplots/dichow/$tnum.png")
 
 mpath = "/home/ak121396/Desktop/relise/mipdicho/"
