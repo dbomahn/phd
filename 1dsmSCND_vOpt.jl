@@ -1,5 +1,4 @@
 using CPUTime,DataFrames,DelimitedFiles,JuMP,LinearAlgebra,CPLEX,vOptGeneric,SparseArrays,StatsBase
-
 ################# 1dim model Data & Model ##############
 c2 = []
 for i=1:J+K
@@ -7,7 +6,7 @@ for i=1:J+K
                 push!(c2,fc[i][j])
         end
 end
-e2 = hcat(reshape(vep',1,J*2),reshape(ved',1,K*2))
+e2 = hcat(reshape(vcp',1,J*2),reshape(vcd',1,K*2))
 fsp,fpd,fdc = [],[],[];
 for i=1:I
     for j=1:J
@@ -74,7 +73,7 @@ for i=1:length(Kpt)
     end
 end
 
-q2 = hcat(reshape(vcp',1,J*2),reshape(vcd',1,K*2))
+q2 = hcat(reshape(vep',1,J*2),reshape(ved',1,K*2))
 
 rij2 = []
 for i=1:length(Ipt)

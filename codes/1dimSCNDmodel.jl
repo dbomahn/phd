@@ -126,8 +126,8 @@ function SCND1dim(dt1,nobj)
     @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y1[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
     @constraints(scnd1, begin
-        sum(uij1[1:dt1.Mij[1,1]]) <= y1[1,1]
-        sum(uij1[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= y1[2,1]
+        sum(uij1[1:dt1.Mij[1,1]]) <= sum(y1[1:2])
+        sum(uij1[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= sum(y1[1:2])
         [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= sum(y1[j,:])
         [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= sum(y1[j,:])
         sum(ujk1[1:dt1.Mjk[1,1]]) <= (y1[1,1]+y1[dt1.N["plant"]+1,1])/2
@@ -161,87 +161,4 @@ optimize!(scnd1); objective_value(scnd1)
 # termination_status(scnd1)
 #write_to_file(scnd1, "/home/ak121396/Desktop/instances/SCND/small/test1s2_obj1.lp")
 
-###########################    Make vlp file   #########################
-using MathProgBase
-const MPB = MathProgBase
-function loadlp(filename,solver=CplexSolver(CPX_PARAM_SCRIND=0))
-    model=buildlp([-1,0],[2 1],'<',1.5, solver) # create dummy model with correct solver
-    MPB.loadproblem!(model,filename) # load what we actually want
-    return model
-end
-write_to_file(scnd1, file*"1dim.lp")
-lpmodel = loadlp(file*"1dim.lp") 
-Bmtx = MPB.getconstrmatrix(lpmodel);
-# cut = findall(i-> varub[i]==1 && varub[i+1]!=1, 1:length(varub))[end]
-# B = Bmtx[3:end,1:cut];P = Bmtx[1:2,1:cut]; vub = varub[1:cut]
-B = Bmtx[3:end,:];P = Bmtx[1:2,:]; vub = MPB.getvarUB(lpmodel)
-m,n=size(B)
-lb = MPB.getconstrLB(lpmodel)[3:end]
-ub = MPB.getconstrUB(lpmodel)[3:end]
-RHS = []
-for i=1:m
-    if ub[i]==Inf
-        push!(RHS,lb[i])
-    else
-        push!(RHS,ub[i])
-    end
-end
-signs = []
-for i=1:m
-    if ub[i] == Inf
-        push!(signs,"l")
-    elseif lb[i] == -Inf
-        push!(signs,"u")
-    else
-        push!(signs, "s")
-    end
-end
-########################## Make vlp file for Bensolve #######################
-nz = count(i->(i!=0),B)
-objnz = count(i->(i!=0),P)
-obj=size(P)[1]
-wholearray=[];
-arr=["p vlp min",m,n,nz,obj,objnz]
-push!(wholearray,arr)
 
-for i=1:m
-    for j=1:n
-        if (B[i,j]!=0)
-            if (B[i,j]%1) == 0 #if B[i,j] is Int
-                push!(wholearray,("a",i,j,Int128(B[i,j])))
-            else# B[i,j] is Float
-                push!(wholearray,("a",i,j,Float64(B[i,j])))
-            end
-        end
-    end
-end
-for i=1:obj
-    for j=1:n
-        if P[i,j]!=0
-            push!(wholearray,("o",i,j,P[i,j]))
-        end
-    end
-end
-for i=1:m
-    push!(wholearray,("i",i,signs[i],RHS[i]))
-end
-# for j=1:n
-#     if j in bvar
-#         push!(wholearray,("j",j,"s",fpx[1][j])) #assign FP int var values
-#     else
-#         push!(wholearray,("j", j,'l',0))
-#     end
-# end
-for j=1:n
-    if vub[j]==1
-        push!(wholearray,("j",j,"d",0,1))
-    else
-        push!(wholearray,("j", j,'l',0))
-    end
-end
-push!(wholearray,"e")
-
-ins = open("/home/k2g00/k2g3475/scnd/vlp/"*file[36:end]*"1d.vlp","w")
-#ins = open(file*".vlp","w")
-writedlm(ins,wholearray)
-close(ins)

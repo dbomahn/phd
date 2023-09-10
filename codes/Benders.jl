@@ -607,8 +607,6 @@ MOI.set(mp.m, MOI.LazyConstraintCallback(), benders_with_callback)
 node_count(mp.m),solve_time(mp.m)
 
 
-
-
 mas = Model(CPLEX.Optimizer); set_silent(mas)
 MOI.set(mas, MOI.NumberOfThreads(), 1);set_silent(mas)
 @variable(mas, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin);
@@ -627,7 +625,105 @@ MOI.set(mas, MOI.NumberOfThreads(), 1);set_silent(mas)
     sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
     sum(dt.gkl[k][l][m]*ukl[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])) + θ );
 
-MOI.set(mas, MOI.LazyConstraintCallback(), bd_callback)
-@CPUelapsed optimize!(mas)
-objective_value(mas)==objective_value(scnd)
-value.(y)
+#####obj calculator
+y = round.(value.(scnd1[:y1]));
+uij = round.(value.(scnd1[:uij1]));
+ujk = round.(value.(scnd1[:ujk1]));
+ukl = round.(value.(scnd1[:ukl1]));
+xij = round.(value.(scnd1[:xij1]); digits=2);
+xjk = round.(value.(scnd1[:xjk1]); digits=2);
+xkl = round.(value.(scnd1[:xkl1]); digits=2);
+h = round.(value.(scnd1[:h1]); digits=2);
+
+y = value.(scnd1[:y1]);
+uij = value.(scnd1[:uij1]);
+ujk = value.(scnd1[:ujk1]);
+ukl = value.(scnd1[:ukl1]);
+xij = value.(scnd1[:xij1]);
+xjk = value.(scnd1[:xjk1]);
+xkl = value.(scnd1[:xkl1]);
+h = value.(scnd1[:h1]) ;
+
+obj1 = sum(dt1.c.*y)+sum(repeat(dt1.a[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5])+
+        sum(sum(repeat(dt1.a[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"])+
+        sum(dt1.e.*h) + sum(dt1.gij[i]*uij[i] for i in findnz(dt1.gij)[1]) + sum(dt1.gjk[i]*ujk[i] for i in findnz(dt1.gjk)[1]) + sum(dt1.gkl[i].*ukl[i] for i in findnz(dt1.gkl)[1])+
+        sum(dt1.vij.*xij)+sum(dt1.vjk.*xjk)+sum(dt1.vkl.*xkl)
+obj2 = sum(repeat(dt1.b[1,:], outer=sum(dt1.Mij[1,:])).*xij[1:sum(dt1.Mij[1,:])*5]) +
+        sum(sum(repeat(dt1.b[i,:], outer=sum(dt1.Mij[i,:])).*xij[sum(dt1.Mij[1:i-1,:])*5+1:sum(dt1.Mij[1:i,:])*5]) for i=2:dt1.N["supplier"]) +
+        sum(dt1.q.*h) + sum(dt1.rij.*xij)+sum(dt1.rjk.*xjk)+sum(dt1.rkl.*xkl)
+
+
+
+
+y = value.(mymodel[:y]);
+uij = value.(mymodel[:uij])
+ujk = value.(mymodel[:ujk]);
+ukl = value.(mymodel[:ukl]);
+xij = value.(mymodel[:xij]);
+xjk = value.(mymodel[:xjk]);
+xkl = value.(mymodel[:xkl]) ;
+h = value.(mymodel[:h]) ;
+sum(round.(reshape(h,270,1)))
+
+hcat(h)
+
+sum(value.(all_variables(scnd)))
+
+y = round.(value.(mymodel[:y]))
+findall(i->0<i<1,value.(mymodel[:ukl]))
+
+uij = round.(value.(mymodel[:uij]))
+ujk = round.(value.(mymodel[:ujk]))
+ukl = round.(value.(mymodel[:ukl]))
+xij = round.(value.(mymodel[:xij]); digits=4)
+xjk = round.(value.(mymodel[:xjk]); digits=4)
+xkl = round.(value.(mymodel[:xkl]); digits=4)
+h = round.(value.(mymodel[:h]); digits=4)
+
+exg = 0;
+for i=1:dt.N["supplier"]
+    for j=1:dt.N["plant"]
+        exg = exg + (10000*uij[i,j,1]);
+    end
+end
+for j=1:dt.N["plant"]
+    for k=1:dt.N["distribution"]
+        exg = exg + (10000*ujk[j,k,1]);
+    end
+end
+for k=1:dt.N["distribution"]
+    for l=1:dt.N["customer"]
+        exg = exg + (10000*ukl[k,l,1]);
+    end
+end
+
+
+obj1 =   sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +
+        sum(dt.N["vcs"][i][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) +
+        sum(dt.vij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+        sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+        sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
+        sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+        sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)
+
+
+obj1 = sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + #exg +
+    sum(dt.gij[i][j][m]*uij[i,j,m] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j])+
+    sum(dt.gjk[j][k][m]*ujk[j,k,m] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k]) +
+    sum(dt.gkl[k][l][m]*ukl[k,l,m] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l])+
+    sum(dt.N["vcs"][i][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) +
+    sum(dt.vij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+    sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+    sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
+    sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+    sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)
+
+obj2 =  sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+    sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+    sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
+    sum(dt.rij[i][j][m]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+    sum(dt.rjk[j][k][m]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+    sum(dt.rkl[k][l][m]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)
+
+################
+
