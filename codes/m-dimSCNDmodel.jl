@@ -224,18 +224,57 @@ mutable struct Data3
         new(filepath,N,d,c,Mij,Mjk,Mkl,gij,gjk,gkl,vij,vjk,vkl,rij,rjk,rkl,Vij,Vjk,Vkl,b,q,upl,udc,bigM); #cap,Mij,Mjk,Mkl,
     end
 end
+function getobjval(model,num)
+    y = value.(model[:y]);
+    uij = value.(model[:uij]);
+    ujk = value.(model[:ujk]);
+    ukl = value.(model[:ukl]);
+    xij = value.(model[:xij]);
+    xjk = value.(model[:xjk]);
+    xkl = value.(model[:xkl]);
+    h = value.(model[:h]);
+    #dval = [y;uij;ujk;ukl;xij;xjk;xkl;h]  
+    if num==1
+        exg = 0
+        for i=1:dt.N["supplier"]
+            for j=1:dt.N["plant"]
+                exg+10000*uij[i,j,1];
+            end
+        end
+        for j=1:dt.N["plant"]
+            for k=1:dt.N["distribution"]
+                exg + 10000*ujk[j,k,1] #add_to_expression!(exg, );
+            end
+        end
+        for k=1:dt.N["distribution"]
+            for l=1:dt.N["customer"]
+                exg + 10000*ukl[k,l,1] #add_to_expression!(exg,);
+            end
+        end
+  
+        obj = sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +
+            sum(dt.N["vcs"][i][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5) +
+            sum(dt.vij[i][j][m][p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+            sum(dt.vjk[j][k][m][p]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+            sum(dt.vkl[k][l][m][p]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)+
+            sum(dt.N["vcp"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+            sum(dt.N["vcd"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)
+        
+    else
+        obj = sum(dt.b[i,p]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+            sum(dt.N["vep"][j][2*(p-1)+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2)+
+            sum(dt.N["ved"][k][2*(p-1)+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2)+
+            sum(dt.rij[i][j][m]*xij[i,j,m,p] for i=1:dt.N["supplier"] for j=1:dt.N["plant"] for m=1:dt.Mij[i,j] for p=1:5)+
+            sum(dt.rjk[j][k][m]*xjk[j,k,m,p] for j=1:dt.N["plant"] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k] for p=1:5)+
+            sum(dt.rkl[k][l][m]*xkl[k,l,m,p] for k=1:dt.N["distribution"] for l=1:dt.N["customer"] for m=1:dt.Mkl[k,l] for p=1:5)
+    end
+    return obj#,dval
+end
 
-file = "/home/ak121396/Desktop/instances/scnd/test04S4"
+# file = "/home/ak121396/Desktop/instances/scnd/test04S4"
 file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 dt = Data3(file);
-function multdimSCND(dt,nobj)
-    # scnd0 = Model(CPLEX.Optimizer); set_silent(scnd0)
-    # @variable(scnd0, 0<=y[1:dt.N["plant"]+dt.N["distribution"],1:2]<=1  );
-    # @variable(scnd0, 0<=uij[i=1:dt.N["supplier"],j=1:dt.N["plant"], m=1:dt.Mij[i,j]] <=1 )
-    # @variable(scnd0, 0<=ujk[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] <=1);
-    # @variable(scnd0, 0<=ukl[k=1:dt.N["distribution"],l=1:dt.N["customer"],m=1:dt.Mkl[k,l]] <=1);
-    # MOI.set(scnd0, MOI.RawParameter("CPX_PARAM_SCRIND"), false )
-    # MOI.set(scnd0, MOI.RawParameter("CPX_PARAM_THREADS"),1  )
+function multdimSCND(dt,nobj,w)
     ##############################  IP   #####################################
     scnd0 = Model(CPLEX.Optimizer); set_silent(scnd0)
     @variable(scnd0, y[1:dt.N["plant"]+dt.N["distribution"],1:2], Bin  );
@@ -389,15 +428,17 @@ function multdimSCND(dt,nobj)
             end
         end
     end
-    if nobj == 1
-        #1st obj
-        # @constraint(scnd0, obj1, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2) + exg + exv <=0);
-        @objective(scnd0, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +exa + exv + sum(dt.N["vcp"][j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2) + sum(dt.N["vcd"][k][(p-1)*2+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
-    else
-        #2nd obj
-        # @constraint(scnd0, obj2, exb+sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr <=0);
-        @objective(scnd0,Min, exb + exr + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) );
-    end
+    # if nobj == 1
+    #     #1st obj
+    #     # @constraint(scnd0, obj1, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exa + sum(dt.e[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] + dt.N["distribution"] for p=1:5 for t=1:2) + exg + exv <=0);
+    #     @objective(scnd0, Min, sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +exa + exv + sum(dt.N["vcp"][j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2) + sum(dt.N["vcd"][k][(p-1)*2+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2));
+    # else
+    #     #2nd obj
+    #     # @constraint(scnd0, obj2, exb+sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) +exr <=0);
+    #     @objective(scnd0,Min, exb + exr + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2) );
+    # end
+    @objective(scnd0, Min, w[1]*sum(dt.c[j][t]*y[j,t] for j=1:1:dt.N["plant"]+dt.N["distribution"] for t=1:2) + exg +exa + exv + sum(dt.N["vcp"][j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"] for p=1:5 for t=1:2) + sum(dt.N["vcd"][k][(p-1)*2+t]*h[k+dt.N["plant"],p,t] for k=1:dt.N["distribution"] for p=1:5 for t=1:2) +
+        w[2]*exb + exr + sum(dt.q[j][(p-1)*2+t]*h[j,p,t] for j=1:dt.N["plant"]+dt.N["distribution"] for p=1:5 for t=1:2))
     ########### constraint 3 ###############
     @constraints(scnd0, begin
         [j=1:dt.N["plant"],p=1:5], sum(xij[i,j,m,p] for i=1:dt.N["supplier"] for m=1:dt.Mij[i,j]) == sum(xjk[j,k,m,p] for k=1:dt.N["distribution"] for m=1:dt.Mjk[j,k])
@@ -414,9 +455,13 @@ function multdimSCND(dt,nobj)
     @constraint(scnd0,[j=1:dt.N["plant"]+dt.N["distribution"], t=1:2], sum(h[j,1:5,t]) <= [dt.N["cap"];dt.N["cad"]][j]*y[j,t]);
     @constraint(scnd0,[j=1:dt.N["plant"]+dt.N["distribution"]], sum(y[j,:]) <= 1);
     ########### constraint 10 #############
-    @constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= sum(y[j,:]));
-    @constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= (sum(y[j,:])+ sum(y[dt.N["plant"]+k,:]))/2 );
-    @constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= sum(y[dt.N["plant"]+k,:]));
+    @constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= 1);
+    @constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= 1 );
+    @constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= 1);
+
+    # @constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"]], sum(uij[i,j,m] for m=1:dt.Mij[i,j]) <= sum(y[j,:]));
+    # @constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"]], sum(ujk[j,k,m] for m=1:dt.Mjk[j,k]) <= sum(y[dt.N["plant"]+k,:]) #(sum(y[j,:])+ sum(y[dt.N["plant"]+k,:]))/2 );
+    # @constraint(scnd0,[k=1:dt.N["distribution"],l=1:dt.N["customer"]], sum(ukl[k,l,m] for m=1:dt.Mkl[k,l]) <= sum(y[dt.N["plant"]+k,:]));
     ############ constraint 11 BigM:: products can be delivered only by chosen transportation mode #############
     @constraint(scnd0,[i=1:dt.N["supplier"],j=1:dt.N["plant"],m=1:dt.Mij[i,j]], sum(xij[i,j,m,p] for p=1:5) <= dt.bigM*uij[i,j,m]);
     @constraint(scnd0,[j=1:dt.N["plant"],k=1:dt.N["distribution"],m=1:dt.Mjk[j,k]] ,sum(xjk[j,k,m,p] for p=1:5) <= dt.bigM*ujk[j,k,m]);
@@ -430,11 +475,10 @@ function multdimSCND(dt,nobj)
     @constraint(scnd0, sum(y[j,t] for j=dt.N["plant"]+1:dt.N["distribution"]+dt.N["plant"] for t=1:2) <= dt.udc);
     return scnd0
 end
-scndm = multdimSCND(dt,1)
-optimize!(scndm)
-objective_value(scndm)
-scndm2 = multdimSCND(dt,2)
-optimize!(scndm2)
+scndm = multdimSCND(dt,0,[1,150])
+# scndm = multdimSCND(dt,1);
+optimize!(scndm); objective_value(scndm)
+scndm2 = multdimSCND(dt,2);optimize!(scndm2);
 objective_value(scndm2)
 
 struct Data
