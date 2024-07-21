@@ -1,8 +1,7 @@
 using PlotlyJS,DataFrames,DelimitedFiles,Colors,CSV,JLD2
 #############################        2D plot      ###########################
-
 layout = Layout(
-    title="Test",
+    # title="Test1",
     xaxis_title="Cost",
     yaxis_title="CO2 emission",
     legend_title="Legend Title",
@@ -11,6 +10,171 @@ layout = Layout(
         size=18
     )
 )
+function NDfilter2(Pobj)
+    copyobj = Dict();
+    for i=1:length(Pobj)
+        copyobj[i] = Pobj[i]
+    end
+    for i=1:length(Pobj)-1
+        for j=i+1:length(Pobj)
+            if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; break
+            elseif all(Pobj[j] .>= Pobj[i]) == true
+                copyobj[j]=nothing; 
+            end
+        end
+    end
+    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
+    return finalobj
+end
+
+# benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
+function Plot_epYmatY(num,folder)
+    colour = ["plum","gold","indigo","silver","royalblue","green","olive","teal","cyan", "orchid","steelblue","purple","pink"]
+    # epath = "/home/ak121396/Desktop/relise/epsilon/md/2/";  eplist = readdir(epath) # epath = "/home/ak121396/Desktop/relise/epsilon/md/2/"
+    lpath = "/home/ak121396/Desktop/relise/vopt/Y/dichow/$folder/"; lplist = readdir(lpath)    
+    e2path = "/home/ak121396/Desktop/relise/epsilon/8/"; e2plist = readdir(e2path)
+    for i=1:num
+        layout = Layout(
+        title="Test$i",
+        xaxis_title="Cost",
+        yaxis_title="CO2 emission",
+        legend_title="Legend Title",
+        font=attr(
+            family="Courier New, monospace",
+            size=18
+            )
+        )
+        
+        # ep1 = readdlm(epath*eplist[i])#[1:10,:]
+        # ep1 = NDfilter2([ep1[i,:] for i=1:size(ep1,1)]);
+        # t1 = scatter(x=[ep1[i][1] for i=1:length(ep1)], y=[ep1[i][2] for i=1:length(ep1)],  name="1d_eps", mode="markers", marker=attr(color = "crimson"));
+        
+        ep2 = readdlm(e2path*e2plist[i])
+        ep2 = NDfilter2([ep2[i,:] for i=1:size(ep2,1)]);
+        t2 = scatter(x=[ep2[i][1] for i=1:length(ep2)], y=[ep2[i][2] for i=1:length(ep2)],  name="1d_eps2", mode="markers", marker=attr(color = "orange"));
+        
+        
+        # e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])
+        # ep = [[e1[k],e2[k]] for k=1:length(e1)]
+        # epp = NDfilter2(ep)
+        # ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
+        # t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+
+        Y = readdlm(lpath*lplist[i])
+        l1 = Y[:,1]; l2 = Y[:,2]
+        t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))#colour[folder]
+        fig = plot([t2,t3], layout)
+        # savefig(fig,"/home/ak121396/Desktop/newplots/$folder/$i.png")
+        # savefig(fig,"/home/ak121396/Dropbox/SCNDplots/dif/$i.png")
+        savefig(fig,"/home/ak121396/Desktop/eps/$i.png")
+    end
+end
+Plot_epYmatY(15,94) 
+1
+########################################################################file:///home/ak121396/Dropbox/scndfunctions.jl
+pr0 =  [ ]
+pr1=reshape(pr0,2,Int(length(pr0)/2))
+p11,p12 =[],[]
+for i=1:Int(length(pr1)/2)
+    push!(p11,pr1[1,i])
+    push!(p12,pr1[2,i])
+end
+t4 = scatter(x=p11, y=p12,  name="Matheuristic", mode="markers", marker=attr(color="royalblue")) #+lines
+plot([t4,m1], layout)
+
+tnum = 5
+# mode="lines+markers+text"
+fpath = "/home/ak121396/Desktop/relise/epsilon/5/"
+eplist = readdir(fpath)
+ep1 = readdlm(fpath*eplist[tnum]);#[1:10,:]
+ep1 = NDfilter2([ep1[i,:] for i=1:size(ep1,1)]);
+t1 = scatter(x=[ep1[i][1] for i=1:length(ep1)], y=[ep1[i][2] for i=1:length(ep1)],  name="eps", mode="markers", marker=attr(color = "crimson"));
+plot([t1],layout)
+lpath = "/home/ak121396/Desktop/relise/vopt/Y/final/1/"
+llist = readdir(lpath);
+
+# matY = readdlm(lpath*llist[tnum]);
+# l1 = matY[:,1]; l2 = matY[:,2]
+# t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="slateblue"));
+# plot([t1,t3],layout)# savefig(fig,"/home/ak121396/Dropbox/SCNDplots/dichow/$tnum.png")
+
+# trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
+# t1 = scatter(x=ep1[1:10,1], y=ep1[1:10,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
+
+lp1= [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
+t1 = scatter(x=lp1, y=lp2, name="LP", mode="markers+lines", marker=attr(color="royalblue", size=10))
+# fig = plot([t1],layout)
+f1x,f1y = NDfilter(f1x,f1y)
+fp1 = [f1y[i][1] for i=1:length(f1y)]; fp2 = [f1y[i][2] for i=1:length(f1y)]
+t2 = scatter(x=fp1,y=fp2,name="FP", mode="markers", marker=attr(color="green", symbol="star-triangle-up", size=10))
+# fig = plot([t1,t2],layout);savefig(fig,"/home/ak121396/Pictures/2)LP_FP.png")
+t3 = scatter(x = [lex1Y[1][1];lex2Y[1][1]], y = [lex1Y[1][2]; lex2Y[1][2]], name="Lex", mode="markers", marker=attr(color="crimson", symbol="diamond", size=10))
+ld11 = [stg1.Y_N[i][1] for i=1:length(stg1.Y_N)]; ld12 = [stg1.Y_N[i][2] for i=1:length(stg1.Y_N)]
+ld21 = [stg2.Y_N[i][1] for i=1:length(stg2.Y_N)]; ld22 = [stg2.Y_N[i][2] for i=1:length(stg2.Y_N)]
+fig = plot([t1,t2,t3],layout);savefig(fig,"/home/ak121396/Pictures/3)LP_FP_LEX.png")
+t4 = scatter(x=ld11,y=ld12, name="LexD", mode="markers+lines", marker=attr(color="salmon", symbol="diamond", size=10))
+t5 = scatter(x=ld21,y=ld22, name="LexD", mode="markers+lines", marker=attr(color="salmon", symbol="diamond", size=10))
+fig = plot([t1,t2,t3,t4,t5],layout);savefig(fig,"/home/ak121396/Pictures/4)LP_FP_LEXD.png")
+fl1 = [dfp.Y[i][1] for i=1:length(dfp.Y)]; fl2 = [dfp.Y[i][2] for i=1:length(dfp.Y)]
+t6 = scatter(x=fl1, y=fl2, name="FP&LexD", mode="markers", marker=attr(color="gold", symbol="diamond", size=10))
+fig = plot([t1,t2,t4,t5,t6],layout);savefig(fig,"/home/ak121396/Pictures/5)ND:FP&LEXD.png")
+fpp1 = [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fpp2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
+t7 = scatter(x=fpp1, y=fpp2, name="FP+", mode="markers", marker=attr(color="lime", symbol="cross", size=10))
+plot([t6,t7], layout)
+fig = plot([t1,t2,t6,t7],layout);savefig(fig,"/home/ak121396/Pictures/FP+.png")
+
+# nd01= [ndf0.Y[i][1] for i=1:length(ndf0.Y)]; nd02 = [ndf0.Y[i][2] for i=1:length(ndf0.Y)];
+# t8 = scatter(x=nd01, y=nd02, name="FP+ D", mode="markers", marker=attr(color="Turquoise", symbol = "star-square",size=10));
+# fig = plot([t1,t2,t4,t5,t6,t7,t8],layout);savefig(fig,"/home/ak121396/Pictures/7)FP+ D.png")
+nd11= [ndf.Y[i][1] for i=1:length(ndf.Y)]; nd12 = [ndf.Y[i][2] for i=1:length(ndf.Y)];
+t9 = scatter(x=nd11, y=nd12, name="PR", mode="markers", marker=attr(color="magenta", symbol = "x",size=10));
+# plot([t1,t2,t4,t5,t6,t7,t8,t9],layout)
+fig = plot([t1,t2,t7,t9],layout);savefig(fig,"/home/ak121396/Pictures/7)PR.png")
+######################################     Line segments       #################################
+rpath = "/home/ak121396/Desktop/relise/vopt/nodes/2/"
+rlsg = readdir(rpath)
+ndy = CSV.read(rpath*rlsg[tnum],DataFrame)
+
+cols = distinguishable_colors(length(ndy.arm), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+lsg_array = GenericTrace[]
+start = 0
+Larms = findall(x-> ndy.arm[x] == "L", 1:length(ndy.arm))
+for l in Larms
+    set1 = ndy.v1[1+start:l]; set2 = ndy.v2[1+start:l]
+    lsg = scatter(x=[set1[j] for j=1:length(set1)],y=[set2[j] for j=1:length(set2)], mode="markers+lines", color=cols[1])    
+    push!(lsg_array,lsg)
+    start = l
+end
+plot([lsg_array; t1], layout) # ;mgplot
+# mgpt = readdlm("/home/ak121396/Desktop/relise/performance/5.csv")
+# mgplot = scatter(x=mgpt[:,1], y=mgpt[:,2], name="mg", mode="markers", market=attr(color="Terquios"))
+################
+linesg = DataFrame(nds)
+cols = distinguishable_colors(size(linesg,1), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+plot_array = GenericTrace[]
+start = 0
+Larms = findall(x-> linesg.arm[x] == "L", 1:length(linesg.arm))
+for l in Larms
+    set1 = linesg.val[1+start:l]#[1]; set2 = linesg.val[1+start:l][2]
+    lsg = scatter(x=[set1[j][1] for j=1:length(set1)],y=[set1[j][2] for j=1:length(set1)], mode="markers+lines", color=cols[1])    
+    push!(plot_array,lsg)
+    start = l
+end
+plot(plot_array, layout)
+
+cols = distinguishable_colors(length(df.Y), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+plot_array2 = GenericTrace[]
+for i=1:length(df.Y)
+    dsol,dict= SolveLPdicho(LPdicho,df.X[i],df.Y[i],[df.Y[i]])
+    if dsol == []
+        # println("dsol is empty")
+    else
+        tradeoffs = scatter(x=[dsol[j][1] for j=1:length(dsol)],y=[dsol[j][2] for j=1:length(dsol)], mode="markers+lines", color=cols[i])
+        push!(plot_array2,tradeoffs)
+    end
+end
+plot([pt;plot_array2], layout) #fig =   savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
 
 #############################   Benders Plot   ##############################
 numcut = [20,40,60,80,100]
@@ -39,8 +203,6 @@ p = plot([
 )
 
 savefig(p,"/media/ak121396/USB DISK/plots/"*title*".png")
-
-
 
 
 numcut = [20,40,60,80,100]
@@ -94,149 +256,6 @@ bdfig = plot(
     )
 )
 # savefig(bdfig,"/media/ak121396/USB DISK/plots/TBD_Test2_w$w.png")
-function NDfilter2(Pobj)
-    copyobj = Dict();
-    for i=1:length(Pobj)
-        copyobj[i] = Pobj[i]
-    end
-    for i=1:length(Pobj)-1
-        for j=i+1:length(Pobj)
-            if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
-                copyobj[i]=nothing; break
-            elseif all(Pobj[j] .>= Pobj[i]) == true
-                copyobj[j]=nothing; 
-            end
-        end
-    end
-    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
-    return finalobj
-end
-# benobj = DataFrame(x=sol.LBmtx[:,1], y = sol.LBmtx[:,2]); sort!(benobj, :x);
-function Plot_epYlpY(num)
-    eplist = readdir("/home/ak121396/Desktop/relise/epsilon/")
-    lplist = readdir("/home/ak121396/Desktop/relise/lpY/2/")
-    for i=1:num
-        layout = Layout(
-        title="Test$i",
-        xaxis_title="Cost",
-        yaxis_title="CO2 emission",
-        legend_title="Legend Title",
-        font=attr(
-            family="Courier New, monospace",
-            size=18
-            )
-        )
-        
-        ep1 = readdlm("/home/ak121396/Desktop/relise/epsilon/"*eplist[i+1])[1:10,:]
-
-        # e1 = filter!(i->i!=0, ep0[:,1]); e2 = filter!(i->i!=0, ep0[:,2])
-        # ep = [[e1[k],e2[k]] for k=1:length(e1)]
-        # epp = NDfilter2(ep)
-        # ep1 = [epp[i][1] for i=1:length(epp)]; ep2 = [epp[i][2] for i=1:length(epp)]
-
-        
-        lpY = readdlm("/home/ak121396/Desktop/relise/lpY/2/"*lplist[i])
-        l1 = lpY[:,1]; l2 = lpY[:,2]
-        t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-        t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-        fig = plot([t1,t3], layout)
-        savefig(fig,"/home/ak121396/Dropbox/5_w/$i.png")
-    end
-end
-# Plot_epYlpY(15)
-########################################################################
-pr0 =  [ ]
-pr1=reshape(pr0,2,Int(length(pr0)/2))
-p11,p12 =[],[]
-for i=1:Int(length(pr1)/2)
-    push!(p11,pr1[1,i])
-    push!(p12,pr1[2,i])
-end
-t4 = scatter(x=p11, y=p12,  name="LP+FP+PR", mode="markers", marker=attr(color="royalblue")) #
-plot([t1,t4], layout)
-
-fpath = "/home/ak121396/Desktop/relise/epsilon/1/"
-eplist = readdir(fpath)#[2:end]
-tnum = 14
-ep1 = readdlm(fpath*eplist[tnum])#[1:10,:]
-NDfilter2([ep1[i,:] for i=1:size(ep1,1)])
-t1 = scatter(x=ep1[:,1], y=ep1[:,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-plot([t1],layout)
-
-lpath = "/home/ak121396/Desktop/relise/lpY/ndp/dichow/"
-llist = readdir(lpath)
-lpY = readdlm(lpath*llist[4])
-l1 = lpY[:,1]; l2 = lpY[:,2]
-t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-fig = plot([t1],layout);
-savefig(fig,"/home/ak121396/Dropbox/SCNDplots/dichow/$tnum.png")
-
-mpath = "/home/ak121396/Desktop/relise/mipdicho/"
-mlist = readdir(mpath)#[2:end]
-mdicho = readdlm(mpath*mlist[tnum])
-m1 = scatter(x=mdicho[:,1], y=mdicho[:,2],  name="mipdicho10", mode="lines+markers", marker=attr(color = "royalblue"))
-
-# lpY = readdlm("/home/ak121396/Desktop/relise/lpY/test12S4largeTL.log")
-# l1 = lpY[:,1]; l2 = lpY[:,2]
-# t3 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-# plot([t1,t3],layout)
-
-# mode="markers+text"
-# trace0 = scatter(x=benobj[!,:x],y=benobj[!,:y],name="Bensolve",mode="line", market=attr(color="blue"))      # this sets its legend entry
-t1 = scatter(x=ep1[1:10,1], y=ep1[1:10,2],  name="epsilon", mode="markers", marker=attr(color = "crimson"))
-t2 = scatter(x=l1,y=l2,name="LP+FP+PR", mode="markers", marker=attr(color="green"))
-py1= [pry[i][1] for i=1:length(pry)]; py2 = [pry[i][2] for i=1:length(pry)]
-t3 = scatter(x=[py1;], y=py2, name="LP+FP+PR", mode="markers", marker=attr(color="royalblue"))
-h1 = [dsol[i][1] for i=1:length(dsol)]; h2 = [dsol[i][2] for i=1:length(dsol)]
-ds = scatter(x=h1, y=h2, name="nw", mode="markers", market=attr(color="red"))
-plot([t3,ds],layout)
-
-# lp1 = [lp.Y_N[i][1] for i=1:length(lp.Y_N)]; lp2 = [lp.Y_N[i][2] for i=1:length(lp.Y_N)]
-# fy1= [dfpp.Y[i][1] for i=1:length(dfpp.Y)]; fy2 = [dfpp.Y[i][2] for i=1:length(dfpp.Y)]
-# t1 = scatter(x=fy1, y=fy2,  name="LP+FP+FPP", mode="markers", marker=attr(color="orange")) #Turquios
-############### merging nd segments
-n11 = [ndset5[i].val[1] for i=1:length(ndset5)]; n12 = [ndset5[i].val[2] for i=1:length(ndset5)];
-nd = scatter(x=n11, y=n12, name="ndset5", mode="markers+lines", market=attr(color="Terquios"))
-h1 = [dsol[i][1] for i=1:length(dsol)]; h2 = [dsol[i][2] for i=1:length(dsol)]
-ds = scatter(x=h1, y=h2, name="nw", mode="markers", market=attr(color="red"))
-plot([nd,ds],layout)
-ndi1 = [dsol1[i][1] for i=1:length(dsol1)]; ndi2 = [dsol1[i][2] for i=1:length(dsol1)];
-d1 = scatter(x=ndi1, y=ndi2, name="dsol1", mode="markers+lines", market=attr(color="Terquios"))
-c11 = [ndset4[i].val[1] for i=1:length(ndset4)]; c22 = [ndset4[i].val[2] for i=1:length(ndset4)]
-nd4 = scatter(x=c11, y=c22, name="ndset4", mode="markers+lines", market=attr(color="green"))
-
-
-######################################     Line segments       #################################
-rpath = "/home/ak121396/Desktop/relise/lpY/nodes/ratio/"
-rlsg = readdir(rpath)
-ndy = CSV.read(rpath*rlsg[1],DataFrame)
-parse.(Vector{Float64}, ndy.v)
-# for i=1:length(ndy.arm)
-
-cols = distinguishable_colors(length(ndy.arm), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
-lsg_array = GenericTrace[]
-start = 0
-Larms = findall(x-> ndy.arm[x] == "L", 1:length(ndy.arm))
-for l in Larms
-    set = ndy.v[1+start:l]
-
-    lsg = scatter(x=[set[j][1] for j=1:length(set)],y=[set[j][2] for j=1:length(set)], mode="markers+lines", color=cols[1])    
-    push!(lsg_array,lsg)
-    start = l
-end
-plot([lsg_array; t1; t3], layout)
-################
-cols = distinguishable_colors(length(linesg), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
-plot_array = GenericTrace[]
-push!(plot_array,trace)
-for i=1:length(linesg)
-    if linesg[i]!=[]
-        tradeoffs = scatter(x=[linesg[i][j][1] for j=1:length(linesg[i])],y=[linesg[i][j][2] for j=1:length(linesg[i])], mode="markers+lines", color=cols[i])
-        push!(plot_array,tradeoffs)
-    end
-end
-fig = plot(plot_array, layout); #savefig(fig,"/home/ak121396/Pictures/smSCNDins.png")
-
 
 ######################################     3D Visualisation       #################################
 # using RDatasets,GoldenSequences

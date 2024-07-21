@@ -8,39 +8,101 @@ ENV["CPLEX_STUDIO_BINARIES"] = "/opt/ibm/ILOG/CPLEX_Studio221/cplex/bin/x86-64_l
 # fpfiles = readdir(fp)
 # pr = "/media/ak121396/0526-8445/GeneralPR/goutputs/MIPLIB/GLPK/2roundY/"
 # prfiles = readdir(pr)
+########################      Linesegment's Hyper Volumn      ###########################
+function LinesegHV(ndy,Y) #lsgpath,num,Y
+    larms = findall(i -> i == "L", ndy.arm)
+    segsets = []
+    start = 0; lsghv = 0;
+    for l in larms
+        if 1+start != l
+            push!(segsets, [1+start, l])
+        end
+        start = l
+    end
+    for pair in segsets
+        for i=pair[1]:pair[2]-1
+            lsghv  = lsghv + (abs(Y[i,1] - Y[i+1,1])*abs(Y[i,2] - Y[i+1,2]))/2
+        end     
+    end
+    return lsghv
+end
+# lsg = readdir(lsgpath)
+# ndy = CSV.read(lsgpath*lsg[num],DataFrame)
+# (abs(ndy.v1[i][1] - ndy.v1[i+1][1])*abs(ndy.v1[i][2] - ndy.v1[i+1][2]))/2
+function normHV2(optdir,dir,nfolder,nfile,nobj)
+    tb = zeros(nfile,nfolder)
+    folders = readdir(dir)  
+    for j=1:nfolder
+        files = readdir(dir*"$j")#folders[j]
+        for i=1:nfile
+            optobj = readdlm(optdir*"/$i.csv")
+            ##############   nondominated points & linesegments    ###############
+            # merged points 
+            obj = readdlm(optdir*"/$i.csv")
+            #epsilon 
+            # obj = readdlm(dir*"$j"*"/"*files[i])
+            #matheuristic
+            nodes = CSV.read(dir*folders[j]*"/"*files[i],DataFrame); obj = hcat(nodes.v1,nodes.v2)
+            if nobj == 2
+                x = obj[:,1]; y=obj[:,2];
+            elseif nobj == 3
+                x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
+            end
+        
+            ideal = [minimum(optobj[:,y]) for y=1:nobj]
+            nadir = [maximum(optobj[:,y]) for y=1:nobj]
+            r = length(x); norm = zeros(r,nobj)
+            for k=1:r
+                norm[k,1] = (x[k]-ideal[1])/max((nadir[1]-ideal[1]),1)
+                norm[k,2] = (y[k]-ideal[2])/max((nadir[2]-ideal[2]),1)
+            #   norm[k,3] = (z[k]-ideal[3])/max((nadir[3]-ideal[3]),1)
+            end
+            Y=DataFrame(norm, :auto);
+            # savedir = "/home/ak121396/Desktop/forHV/"*folders[j]*"/"
+            # CSV.write(savedir*files[i][1:end-4]*"_normal_Y.csv",Y, header=false, delim=' ' )
+            #merged points
+            savedir = "/home/ak121396/Desktop/forHV/$i"
+            CSV.write(savedir*"$i"*"_normal_Y.csv",Y, header=false, delim=' ' )
+            cd("/home/ak121396//Downloads/hv-1.3-src")
+            if nobj == 2
+                # smetric =readlines( pipeline(`./hv -r "2 2" $(savedir*files[i][1:end-4]*"_normal_Y.csv")`))
+                smetric =readlines( pipeline(`./hv -r "2 2" $(savedir*"$i"*"_normal_Y.csv")`))
+            else
+                smetric =readlines( pipeline(`./hv -r "2 2 2" $(savedir*files[i][1:end-4]*"_normal_Y.csv")`))
+            end
+            tb[i,j] = parse(Float64,smetric[1])
+            lsghv = LinesegHV(nodes,Y) #lsgpath,num,Y
+            tb[i,j] = tb[i,j] + lsghv
+        end
+    end
+    return tb
+end
+ta = normHV2(od,dd,10,15,2)
+for i=1:15
+    println(mean(ta[i,:]))
+end
+od = "/home/ak121396/Desktop/relise/performance/"
+dd = "/home/ak121396/Desktop/relise/vopt/nodes/"
+ed = "/home/ak121396/Desktop/relise/epsilon/"
 
-function biobjHV(ep,epfiles,nd,ndfiles,lsg,lsgfiles,num)
+function biobjHV(ep,epfiles,mh,mhfiles,hvpath,num)
     tb = zeros(num,2);
     # for j=1:folder
-    #     ndfiles = readdir(nd)
+    #     mhfiles = readdir(mh)
     for i=1:num
         epobj = readdlm(ep*epfiles[i])
-        ndobj = readdlm(nd*ndfiles[i])
-        JLD2.@load lsg*lsgfiles[i] lsgdict
-
-        # Line dots into matrix
-        ct = 0
-        for i=1:length(lsgdict)
-            if lsgdict[i]!=[]
-                ct = ct + length(lsgdict[i])
-            end
-        end
-        ltb = zeros(ct,2)
-        iter = 1
-        for i=1:length(lsgdict)
-            if lsgdict[i]!=[]
-                for j=1:length(lsgdict[i] )
-                    ltb[iter,:] = lsgdict[i][j]#[1],lsgdict[i][j][2]
-                    iter+=1
-                end
-            end
-        end
+        # mhobj = readdlm(mh*mhfiles[i]) # matheuristic nondominated points
         
-        x = [epobj[1:10,1]; ndobj[:,1]; ltb[:,1]] 
-        y = [epobj[1:10,2]; ndobj[:,2]; ltb[:,2]] 
+        ##############   nondominated points & linesegments    ###############
+        nodes = CSV.read(mh*mhfiles[i],DataFrame) 
+        mhobj = hcat(nodes.v1,nodes.v2)
+        ######################################################################
+
+        # x = [epobj[1:10,1]; mhobj[:,1]] 
+        # y = [epobj[1:10,2]; mhobj[:,2]] 
     
-        ideal = [minimum(x),minimum(y)]
-        nadir = [maximum(x),maximum(y)]
+        # ideal = [minimum(x),minimum(y)]
+        # nadir = [maximum(x),maximum(y)]
     
         #  HV calculation
         r = size(epobj)[1]
@@ -51,36 +113,79 @@ function biobjHV(ep,epfiles,nd,ndfiles,lsg,lsgfiles,num)
         end
         # dfE = normz,normy
         Y=DataFrame(norm, :auto);
-        CSV.write(ep*"/hv/"*epfiles[i][1:end-8]*"normal_Y.csv",Y, header=false, delim=' ' )
+        CSV.write(ep[1:end-3]*"/hv/"*epfiles[i][1:end-8]*"normal_Y.csv",Y, header=false, delim=' ' )
         cd("/home/ak121396/Downloads/hv-1.3-src")
-        smetric1 =readlines( pipeline(`./hv -r "2 2" $(ep*"/hv/"*epfiles[i][1:end-8]*"normal_Y.csv")`))
+        smetric1 =readlines( pipeline(`./hv -r "2 2" $(ep[1:end-3]*"/hv/"*epfiles[i][1:end-8]*"normal_Y.csv")`))
         tb[i,1] = parse(Float64,smetric1[1]);
     
-        # nd HV calculation
-        u = size(ndobj)[1]
+        # mh nd HV calculation
+        u = size(mhobj)[1]
         norm = zeros(u,2)
         # normalisting
         for k=1:u
-            norm[k,1] = (ndobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
-            norm[k,2] = (ndobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
+            norm[k,1] = (mhobj[:,1][k]-ideal[1])/(nadir[1]-ideal[1])
+            norm[k,2] = (mhobj[:,2][k]-ideal[2])/(nadir[2]-ideal[2])
         end
         Y = DataFrame(norm, :auto)
-        CSV.write(nd[1:end-3]*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
-        smetric2 =readlines( pipeline(`./hv -r "2 2" $(nd[1:end-3]*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv")`))
-        # CSV.write(nd*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
-        # smetric2 =readlines( pipeline(`./hv -r "2 2" $(nd*"/hv/"*ndfiles[i][1:11]*"_normal_Y.csv")`))
+        
+        CSV.write(hvpath*mhfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
+        smetric2 =readlines( pipeline(`./hv -r "2 2" $(hvpath*mhfiles[i][1:11]*"_normal_Y.csv")`))
+        # CSV.write(mh*"/hv/"*mhfiles[i][1:11]*"_normal_Y.csv",Y, header=false, delim=' ' )
+        # smetric2 =readlines( pipeline(`./hv -r "2 2" $(mh*"/hv/"*mhfiles[i][1:11]*"_normal_Y.csv")`))
         tb[i,2] = parse(Float64,smetric2[1]);
+        ############################       Add Linesegment HV       #############################
+        lsghv = LinesegHV(nodes,Y) #lsgpath,num,Y
+        tb[i,2] = tb[i,2] + lsghv
     end
     return tb
 end
-ep = "/media/ak121396/0526-8445/relise/epsilon/"
-epfiles = readdir(ep)[2:end]
-nd = "/media/ak121396/0526-8445/relise/lpY/5/"
-ndfiles = readdir(mat)
+function MergeNDPoints(epath,mpath,nfolder,filenum)
+    obj1 = []; obj2 = []
+    for i=1:nfolder
+        efiles = readdir(epath*"$i"); 
+        mfiles = readdir(mpath*"$i")
+        eobj = readdlm(epath*"$i/"*efiles[filenum]) 
+        mdt = CSV.read(mpath*"$i/"*mfiles[filenum], DataFrame; header=[:v1,:v2]); mobj = hcat(mdt.v1,mdt.v2)
+        append!(obj1, eobj[:,1],mobj[:,1]); append!(obj2, eobj[:,2],mobj[:,2])
+    end
+    apo = hcat(obj1,obj2)        
+    merged = NDfilter2([apo[i,:] for i=1:size(apo,1)])
+    mgobj = zeros(length(merged),2)
+    for i=1:size(mgobj,1)
+        mgobj[i,:] = merged[i]
+    end
+    CSV.write("/home/ak121396/Desktop/relise/performance/$filenum.csv", DataFrame(mgobj, :auto), append=false, header=false, delim=' ')
+end
+function NDfilter2(Pobj)
+    copyobj = Dict();
+    for i=1:length(Pobj)
+        copyobj[i] = Pobj[i]
+    end
+    for i=1:length(Pobj)-1
+        for j=i+1:length(Pobj)
+            if all(Pobj[i] .>= Pobj[j]) == true #dominated by PF[j]
+                copyobj[i]=nothing; break
+            elseif all(Pobj[j] .>= Pobj[i]) == true
+                copyobj[j]=nothing; 
+            end
+        end
+    end
+    finalobj = filter!(a->a!=nothing, collect(values(copyobj)))
+    return finalobj
+end
+for f=1:15
+    MergeNDPoints(ep,mat,10,f)
+end
 
-hv5 = biobjHV(ep,epfiles,mat,matfiles,15)
-
-eppr = biobjHV(ep,epfiles,mat,matfiles,10)
+ep = "/home/ak121396/Desktop/relise/epsilon/"
+epfiles = readdir(ep)#[1:end]
+mat = "/home/ak121396/Desktop/relise/vopt/Y/dichow/"
+matfiles = readdir(mat)[1:10]
+# hv1 = biobjHV(ep,epfiles,mat,matfiles,15)
+hvpath = "/home/ak121396/Desktop/relise/vopt/Y/hv/8/"
+lsgpath = "/home/ak121396/Desktop/relise/vopt/nodes/8/"
+lsgfiles = readdir(lsgpath)
+hv2 = biobjHV(ep,epfiles,lsgpath,lsgfiles,hvpath,15)
 1
 ####################################LINUX###################################
 ksdp = "/media/ak121396/0526-8445/solvers/Kirlikoutput/FLP/"
@@ -94,31 +199,40 @@ ben = "/media/ak121396/0526-8445/LPBMresults/benFLP/"
 # fpbh = "F:/results/fpbh/AP/1/"
 
 ######################### true PF & heuristic ##########################
-function normHV(ksdir,ksfiles,dir,files,i)
-  ksobj = readdlm(ksdir*ksfiles[i])
+function normHV(optdir,optfiles,dir,files,i)
+  optobj = readdlm(optdir*optfiles[i])
   # obj = round.(readdlm(dir*files[i]))
-  # if (0;0;0 in ksobj)
+  # if (0;0;0 in optobj)
   #   obj = [obj; 0 0 0]
   # end
 
-  obj = readdlm(dir*files[i])
-#   if (0;0;0 in ksobj)
+#   obj = readdlm(dir*files[i])
+#   if (0;0;0 in optobj)
 #     obj = [obj; 0 0 0]
 #   end
-  x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
+    ##############   nondominated points & linesegments    ###############
+    nodes = CSV.read(dir*files[i],DataFrame) 
+    obj = hcat(nodes.v1,nodes.v2)
+
+
+  if nobj == 2
+    x = obj[:,1]; y=obj[:,2];
+  elseif nobj == 3
+    x = obj[:,1]; y=obj[:,2]; z=obj[:,3];
+  end
 
   # Bensolve AP
   # obj2 = DataFrame(obj)
   # obj = obj2[obj2[:x1].!=0,:]
   # x = obj[:,2]; y=obj[:,3]; z=obj[:,4];
 
-  ideal = [minimum(ksobj[:,y]) for y=1:3]
-  nadir = [maximum(ksobj[:,y]) for y=1:3]
-  r = length(x); norm = zeros(r,3)
+  ideal = [minimum(optobj[:,y]) for y=1:nobj]
+  nadir = [maximum(optobj[:,y]) for y=1:nobj]
+  r = length(x); norm = zeros(r,nobj)
   for k=1:r
       norm[k,1] = (x[k]-ideal[1])/max((nadir[1]-ideal[1]),1)
       norm[k,2] = (y[k]-ideal[2])/max((nadir[2]-ideal[2]),1)
-      norm[k,3] = (z[k]-ideal[3])/max((nadir[3]-ideal[3]),1)
+    #   norm[k,3] = (z[k]-ideal[3])/max((nadir[3]-ideal[3]),1)
   end
   Y=DataFrame(norm, :auto);
   savedir = "/home/ak121396/Desktop/forHV/"
@@ -130,7 +244,7 @@ function normHV(ksdir,ksfiles,dir,files,i)
   return parse(Float64,smetric[1])
 end
 
-tb = zeros(10,10)
+tb = zeros(15,10)
 for i=1:10
     for j=1:10
         k = (i-1)*10+j
@@ -142,18 +256,6 @@ end
 tb
 round.([mean(tb[i,:]) for i=1:10],digits=3)
 
-table = zeros(12,10)
-for i=1:12
-    for j=1:10
-        k = (i-1)*10+j
-        # hv = normHV(ksp,ksfiles,ben,bfiles,k)
-        hv = normHV(ksp,ksfiles,pr,prfiles,k)
-        table[i,j] = hv
-    end
-    # tb = round(mean(table[:,1]),digits=3)
-end
-table
-round.([mean(table[i,1:5]) for i=1:12],digits=4)
 ########################## obj file converter: merging FPBH&GPR ################
 mipdir = "/media/ak121396/0526-8445/LPBMresults/mergedMIP/"
 fdir = "/media/ak121396/0526-8445/LPBMresults/fpbh/MIPLIB/"
@@ -188,26 +290,13 @@ for k=1:9
     end
     # tb = round(mean(table[:,1]),digits=3)
 end
-mean(table[4,:]),mean(table[5,:])
-
-round.([mean(table[i,1:9]) for i=4:5],digits=3)
-round.([mean(table[i,1:14]) for i=4:5],digits=3)
-
-mean(tb[4,10:14]),mean(tb[5,10:14])
-mean(tb[4,:]),mean(tb[5,:])
-mean.([round.([mean(tb[i,10:14]) for i=4:5],digits=3),round.([mean(tb[i,1:5]) for i=4:5],digits=3)])
-
-round.([mean(tb[i,10:14]) for i=4:5],digits=3)
-round.([mean(tb[i,1:5]) for i=4:5],digits=3)
-
-round.([mean(table[i,:]) for i=1:5],digits=3)
 
 ksp = "/media/ak121396/0526-8445/solvers/Kirlikoutput/FLP/ndf/"
 ffp = "/media/ak121396/0526-8445/clu/KP/"
 readdir(ffp)
 kfiles = readdir(ksp)
 
-function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
+function calculateHV(rep,ins,subclas,optdir,optfiles,path)
     allt = zeros(subclas,rep)
     for l=1:rep
         dir = readdir(path)
@@ -216,7 +305,7 @@ function calculateHV(rep,ins,subclas,ksdir,ksfiles,path)
         for i=1:subclas
           for j=1:ins
             k = j+(i-1)*ins
-            hv = normHV(ksdir,ksfiles,path*dir[l]*"/",files,k)
+            hv = normHV(optdir,optfiles,path*dir[l]*"/",files,k)
             tb[j,1] = hv
           end
           tt[i,1]=round(mean(tb[:,1]),digits=4)

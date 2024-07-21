@@ -25,6 +25,22 @@ print("solutions \n"); sol=tt[:,2]
 CPUtime=tt[:,1]
 r = DataFrame(sol=tt[:,2],CPUtime=tt[:,1])
 
+tb = zeros(15,10)
+dir1 = "/home/ak121396/Desktop/relise/epsilon/"
+folders = readdir(dir1)
+readdir(dir1*folders[1])
+readdlm(dir1*folders[1]*"/"*files[1])
+for i=1:10
+    files = readdir(dir1*folders[i])
+    for j=1:15
+        @show ep1 = readdlm(dir1*folders[i]*"/"*files[j])
+        ep1 = NDfilter2([ep1[i,:] for i=1:size(ep1,1)]);
+        tb[j,i] = length(ep1)    
+    end
+end
+round.(mean.(tb[i,:] for i=1:15),digits=2)
+
+
 function calculate(nins,rep,subclas,dir)
     tb = zeros(nins,1); tt = zeros(subclas,1);
     allt = zeros(subclas,rep)

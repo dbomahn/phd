@@ -48,7 +48,7 @@ struct Data1dim
         new(file,N,d,c,a,e,gij,gjk,gkl,vij,vjk,vkl,Vij,Vjk,Mij,Mjk,Mkl,b,q,rij,rjk,rkl,upl,udc,bigM);
     end
 end
-file = "/home/k2g00/k2g3475/scnd/instances/test04S4"
+file = "/home/k2g00/k2g3475/scnd/instances/test01S2"
 @show file = ARGS[1]
 # file = "F:scnd/Test1S2"
 file = "/home/ak121396/Desktop/instances/scnd/test04S4"

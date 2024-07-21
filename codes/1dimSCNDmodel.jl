@@ -122,33 +122,19 @@ function SCND1dim(dt1,nobj)
     @constraint(scnd1,[j=1:dt1.N["plant"]+dt1.N["distribution"]], sum(y1[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
     @constraints(scnd1, begin
-        sum(uij1[1:dt1.Mij[1,1]]) <= sum(y1[1:2])
-        sum(uij1[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= sum(y1[3:4])
-        [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= sum(y1[2*(j-1)+1:2*(j-1)+2])
-        [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= sum(y1[2*(j-1)+1:2*(j-1)+2])
-        sum(ujk1[1:dt1.Mjk[1,1]]) <= (sum(y1[1:2])+sum(y1[dt1.N["plant"]+1:dt1.N["plant"]+2]))/2
-        sum(ujk1[sum(dt1.Mjk[1,:])+dt1.Mjk[2,1]]) <= (sum(y1[3:4])+sum(y1[dt1.N["plant"]+1:dt1.N["plant"]+2]))/2
-        [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= (sum(y1[1:2])+sum(y1[dt1.N["plant"] + 2*(k-1)+1:dt1.N["plant"] + 2*(k-1)+2]))/2
-        [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= (sum(y1[2*(j-1)+1:2*(j-1)+2])+sum(y1[dt1.N["plant"] + 2*(k-1)+1:dt1.N["plant"] + 2*(k-1)+2]))/2
-        sum(ukl1[1:dt1.Mkl[1,1]]) <= sum(y1[dt1.N["plant"]+1:dt1.N["plant"]+2]) 
-        sum(ukl1[sum(dt1.Mkl[1,:])+dt1.Mkl[2,1]]) <= sum(y1[dt1.N["plant"]+3:dt1.N["plant"]+4])
-        [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= sum(y1[dt1.N["plant"]+1:dt1.N["plant"]+2])
-        [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= sum(y1[dt1.N["plant"]+ 2*(k-1)+1:dt1.N["plant"]+ 2*(k-1)+2])
-    end);
-    # @constraints(scnd1, begin
-    #     sum(uij1[1:dt1.Mij[1,1]]) <= 1
-    #     sum(uij1[sum(dt1.Mij[1,:])+dt1.Mij[2,1]]) <= 1
-    #     [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
-    #     [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
-    #     sum(ujk1[1:dt1.Mjk[1,1]]) <= 1
-    #     sum(ujk1[sum(dt1.Mjk[1,:])+dt1.Mjk[2,1]]) <= 1
-    #     [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
-    #     [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
-    #     sum(ukl1[1:dt1.Mkl[1,1]]) <= 1
-    #     sum(ukl1[sum(dt1.Mkl[1,:])+dt1.Mkl[2,1]]) <= 1
-    #     [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
-    #     [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
-    # end);
+         sum(uij1[1:dt1.Mij[1,1]]) <= 1
+         [i=2:dt1.N["supplier"]], sum(uij1[sum(dt1.Mij[1:i-1,:])+1:sum(dt1.Mij[1:i-1,:])+dt1.Mij[i,1]])<= 1 
+         [j=2:dt1.N["plant"]], sum(uij1[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1
+         [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]],  sum(uij1[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1
+         sum(ujk1[1:dt1.Mjk[1,1]]) <= 1
+         [j=2:dt1.N["plant"]], sum(ujk1[sum(dt1.Mjk[1:j-1,:])+1:sum(dt1.Mjk[1:j-1,:])+dt1.Mjk[j,1]])<= 1 # [2:6,1]
+         [k=2:dt1.N["distribution"]], sum(ujk1[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1
+         [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk1[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1
+         sum(ukl1[1:dt1.Mkl[1,1]]) <= 1
+	[k=2:dt1.N["distribution"]], sum(ukl1[sum(dt1.Mkl[1:k-1,:])+1:sum(dt1.Mkl[1:k-1,:])+dt1.Mkl[k,1]])<= 1 
+         [l=2:dt1.N["customer"]], sum(ukl1[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1
+         [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl1[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1
+     end);
     ########### constraint 11 ############# This causes a different obj values
     @constraint(scnd1, [i=1:sum(dt1.Mij)], sum(xij1[5*(i-1)+1:5*i]) <= dt1.bigM*uij1[i])
     @constraint(scnd1, [j=1:sum(dt1.Mjk)], sum(xjk1[5*(j-1)+1:5*j]) <= dt1.bigM*ujk1[j])
@@ -232,27 +218,21 @@ function sm1dModel(w)
     ########### constraint 9 #############
     @constraint(model,[j=1:J+K], sum(y[2*(j-1)+1:2*(j-1)+2]) <= 1);
     ########### constraint 10 #############
-    @constraints(model,begin
-        # [i=1,j=1], 
-        sum(uij[1:Mij[1,1]]) <= sum(y[1:2])
-        # [i=2,j=1], 
-        sum(uij[sum(Mij[1,:])+Mij[2,1]]) <= sum(y[3:4]) #sum(y[2*(j-1)+1:2*(j-1)+2])
-        [j=2:J], sum(uij[sum(Mij[1,1:j-1])+1:sum(Mij[1,1:j-1])+Mij[1,j]]) <= sum(y[2*(j-1)+1:2*(j-1)+2])
-        [i=2:I,j=2:J],  sum(uij[sum(Mij[1:i-1,:])+sum(Mij[i,1:j-1])+1:sum(Mij[1:i-1,:])+sum(Mij[i,1:j-1])+Mij[i,j]])<= sum(y[2*(j-1)+1:2*(j-1)+2])
+    @constraints(scnd1, begin
+        sum(uij[1:dt1.Mij[1,1]]) <= 1 #[1,1]
+        [j=2:dt1.N["plant"]], sum(uij[sum(dt1.Mij[1,1:j-1])+1:sum(dt1.Mij[1,1:j-1])+dt1.Mij[1,j]]) <= 1 # [1,2:6]
+        [i=2:dt1.N["supplier"]], sum(uij[sum(dt1.Mij[1:i-1,:])+1:sum(dt1.Mij[1:i-1,:])+dt1.Mij[i,1]])<= 1 # [2:6,1]
+        [i=2:dt1.N["supplier"],j=2:dt1.N["plant"]], sum(uij[sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+1:sum(dt1.Mij[1:i-1,:])+sum(dt1.Mij[i,1:j-1])+dt1.Mij[i,j]])<= 1 #sum(y[j,:])
         
-        # [j=1,k=1], 
-        sum(ujk[1:Mjk[1,1]]) <= (sum(y[1:2])+sum(y[J+1:J+2]))/2
-        # [j=2,k=1], 
-        sum(ujk[sum(Mjk[1,:])+Mjk[2,1]]) <= (sum(y[3:4])+sum(y[J+1:J+2]))/2
-        [k=2:K], sum(ujk[sum(Mjk[1,1:k-1])+1:sum(Mjk[1,1:k-1])+Mjk[1,k]]) <= (sum(y[1:2])+sum(y[J + 2*(k-1)+1:J + 2*(k-1)+2]))/2
-        [j=2:J,k=2:K],  sum(ujk[sum(Mjk[1:j-1,:])+sum(Mjk[j,1:j-1])+1:sum(Mjk[1:j-1,:])+sum(Mjk[j,1:j-1])+Mjk[j,k]]) <= (sum(y[2*(j-1)+1:2*(j-1)+2])+sum(y[J + 2*(k-1)+1:J + 2*(k-1)+2]))/2
-        
-        # [k=1,l=1], 
-        sum(ukl[1:Mkl[1,1]]) <= sum(y[J+1:J+2]) #sum(y[J+ 2*(k-1)+1:J+ 2*(k-1)+2])
-        # [k=2,l=1], 
-        sum(ukl[sum(Mkl[1,:])+Mkl[2,1]]) <= sum(y[J+3:J+4]) #sum(y[J+ 2*(k-1)+1:J+ 2*(k-1)+2])
-        [l=2:L], sum(ukl[sum(Mkl[1,1:l-1])+1:sum(Mkl[1,1:l-1])+Mkl[1,l]]) <= sum(y[J+1:J+2])
-        [k=2:K,l=2:L],  sum(ukl[sum(Mkl[1:k-1,:])+sum(Mkl[k,1:l-1])+1:sum(Mkl[1:k-1,:])+sum(Mkl[k,1:l-1])+Mkl[k,l]])<= sum(y[J+ 2*(k-1)+1:J+ 2*(k-1)+2])
+        sum(ujk[1:dt1.Mjk[1,1]]) <= 1 #(y[1,1]+y[dt1.N["plant"]+1,1])/2
+        [k=2:dt1.N["distribution"]], sum(ujk[sum(dt1.Mjk[1,1:k-1])+1:sum(dt1.Mjk[1,1:k-1])+dt1.Mjk[1,k]]) <= 1 # (sum(y[1,:])+sum(y[dt1.N["plant"]+k,:]))/2
+        [j=2:dt1.N["plant"]], sum(ujk[sum(dt1.Mjk[1:j-1,:])+1:sum(dt1.Mjk[1:j-1,:])+dt1.Mjk[j,1]])<= 1 # [2:6,1]
+        [j=2:dt1.N["plant"],k=2:dt1.N["distribution"]],  sum(ujk[sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+1:sum(dt1.Mjk[1:j-1,:])+sum(dt1.Mjk[j,1:j-1])+dt1.Mjk[j,k]]) <= 1 #(sum(y[j,:])+sum(y[dt1.N["plant"]+k,:]))/2
+
+        sum(ukl[1:dt1.Mkl[1,1]]) <= 1 #y[dt1.N["plant"]+1,1] #[1,1]
+        [l=2:dt1.N["customer"]], sum(ukl[sum(dt1.Mkl[1,1:l-1])+1:sum(dt1.Mkl[1,1:l-1])+dt1.Mkl[1,l]]) <= 1 #sum(y[dt1.N["plant"]+1,:])
+        [k=2:dt1.N["distribution"]], sum(ukl[sum(dt1.Mkl[1:k-1,:])+1:sum(dt1.Mkl[1:k-1,:])+dt1.Mkl[k,1]])<= 1 
+        [k=2:dt1.N["distribution"],l=2:dt1.N["customer"]],  sum(ukl[sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+1:sum(dt1.Mkl[1:k-1,:])+sum(dt1.Mkl[k,1:l-1])+dt1.Mkl[k,l]])<= 1 #sum(y[dt1.N["plant"]+k,:])
     end); 
     ########### constraint 11 #############
     @constraints(model, begin
